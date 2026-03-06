@@ -30,6 +30,13 @@ public class EmailService
     {
         using var client = new ImapClient();
         await client.ConnectAsync(_imapHost, _imapPort, true);
+
+        client.Identify(new ImapImplementation
+        {
+            Name = "VirgoBot",
+            Version = "1.0.0"
+        });
+
         await client.AuthenticateAsync(_email, _password);
 
         var inbox = client.Inbox;
@@ -51,6 +58,13 @@ public class EmailService
 
         using var client = new ImapClient();
         await client.ConnectAsync(_imapHost, _imapPort, true);
+
+        client.Identify(new ImapImplementation
+        {
+            Name = "VirgoBot",
+            Version = "1.0.0"
+        });
+
         await client.AuthenticateAsync(_email, _password);
 
         var inbox = client.Inbox;
