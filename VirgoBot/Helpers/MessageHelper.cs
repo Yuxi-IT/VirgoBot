@@ -15,17 +15,24 @@ public class MessageHelper
 
     public async Task SendLongMessage(long chatId, string text)
     {
-        const int limit = 4000;
-        Console.WriteLine($"[BOT] {text}");
+        var paragraphs = text.Split(["\n\n", "\r\n\r\n"], StringSplitOptions.RemoveEmptyEntries);
 
-        for (int i = 0; i < text.Length; i += limit)
+        foreach (var paragraph in paragraphs)
         {
-            var part = text.Substring(i, Math.Min(limit, text.Length - i));
-            foreach (var line in part.Split(Environment.NewLine))
+            var trimmed = paragraph.Trim();
+            if (!string.IsNullOrEmpty(trimmed))
             {
-                await _bot.SendMessage(chatId, line.Trim(), parseMode: ParseMode.Html);
+                Console.WriteLine($"[BOT] {trimmed}");
+                try
+                {
+                    await _bot.SendMessage(chatId, trimmed, parseMode: ParseMode.Markdown);
+                }
+                catch
+                {
+                    await _bot.SendMessage(chatId, trimmed);
+                }
+                await Task.Delay(300);
             }
-            
         }
     }
 

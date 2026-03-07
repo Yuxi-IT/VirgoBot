@@ -9,7 +9,7 @@ public class MemoryService
 
     public MemoryService(string dbPath = "memory.db")
     {
-        _dbPath = dbPath;
+        _dbPath = Path.Combine("config", dbPath);
         InitDatabase();
     }
 
@@ -59,7 +59,8 @@ public class MemoryService
         while (reader.Read())
         {
             var role = reader.GetString(0);
-            var content = JsonSerializer.Deserialize<object>(reader.GetString(1));
+            var contentJson = reader.GetString(1);
+            var content = JsonSerializer.Deserialize<JsonElement>(contentJson);
             messages.Add(new { role, content });
         }
 
@@ -84,6 +85,17 @@ public class MemoryService
             )";
         cmd.Parameters.AddWithValue("@uid", userId);
         cmd.Parameters.AddWithValue("@keep", keepLast);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void ClearAllMessages(long userId)
+    {
+        using var conn = new SqliteConnection($"Data Source={_dbPath}");
+        conn.Open();
+
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM messages WHERE user_id = @uid";
+        cmd.Parameters.AddWithValue("@uid", userId);
         cmd.ExecuteNonQuery();
     }
 }

@@ -103,7 +103,7 @@ public class EmailService
         message.Body = new TextPart("plain") { Text = body };
 
         using var client = new SmtpClient();
-        await client.ConnectAsync(_smtpHost, _smtpPort, MailKit.Security.SecureSocketOptions.StartTls);
+        await client.ConnectAsync(_smtpHost, _smtpPort, MailKit.Security.SecureSocketOptions.SslOnConnect);
         await client.AuthenticateAsync(_email, _password);
         await client.SendAsync(message);
         await client.DisconnectAsync(true);

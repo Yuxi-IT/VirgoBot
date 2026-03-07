@@ -28,14 +28,14 @@ public class ClaudeService
         _systemMemory = systemMemory;
     }
 
-    public async Task<string> AskAsync(long userId, string? prompt)
+    public async Task<string> AskAsync(long userId, string? prompt, Action<string>? onProgress = null, Func<string, Task>? onSticker = null)
     {
         if (!string.IsNullOrEmpty(prompt))
         {
             var userMsg = new
             {
                 role = "user",
-                content = new[] { new { type = "text", text = prompt } }
+                content = new[] { new { type = "text", text = $"{prompt}\n\n当前时间：{DateTime.Now:yyyy-MM-dd HH:mm}" } }
             };
             _memory.SaveMessage(userId, "user", userMsg.content);
         }
@@ -52,11 +52,35 @@ public class ClaudeService
             messages
         };
 
-        var json = JsonSerializer.Serialize(body);
+        var options = new JsonSerializerOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = true
+        };
+        var json = JsonSerializer.Serialize(body, options);
+
+        var debugInfo = new
+        {
+            model = _model,
+            max_tokens = 8192,
+            system_length = _systemMemory.Length,
+            tools_count = _functions.GetToolSchemas().Length,
+            messages_count = messages.Count,
+            messages
+        };
+        //ColorLog.Debug("API", JsonSerializer.Serialize(debugInfo, new JsonSerializerOptions { WriteIndented = true }));
+
+        // 输出工具到文件
+        //File.WriteAllText("debug_tools.json", JsonSerializer.Serialize(_functions.GetToolSchemas(), new JsonSerializerOptions { WriteIndented = true }));
+
         var resp = await _http.PostAsync(_baseUrl, new StringContent(json, Encoding.UTF8, "application/json"));
         var result = await resp.Content.ReadAsStringAsync();
 
+        ColorLog.Debug("API", $"响应: {result.Substring(0, Math.Min(500, result.Length))}");
+
         using var doc = JsonDocument.Parse(result);
+
+        //Console.WriteLine($"[DEBUG] API Response: {result.Substring(0, Math.Min(500, result.Length))}");
 
         if (!doc.RootElement.TryGetProperty("content", out var content))
         {
@@ -70,31 +94,59 @@ public class ClaudeService
         {
             var type = block.GetProperty("type").GetString();
 
-            if (type == "text")
-            {
-                var text = block.GetProperty("text").GetString() ?? "";
-                _memory.SaveMessage(userId, "assistant", new[] { new { type = "text", text } });
-                _memory.ClearOldMessages(userId);
-                return text;
-            }
-
             if (type == "tool_use")
             {
                 var toolName = block.GetProperty("name").GetString();
                 var toolId = block.GetProperty("id").GetString();
                 var toolInput = block.GetProperty("input");
 
-                _memory.SaveMessage(userId, "assistant", new[]
-                {
-                    new {
-                        type = "tool_use",
-                        id = toolId,
-                        name = toolName,
-                        input = JsonSerializer.Deserialize<object>(toolInput.GetRawText())
-                    }
-                });
+                var assistantContent = new List<object>();
+                var textBeforeTool = "";
 
-                var toolResult = _functions.Execute(toolName, toolInput);
+                foreach (var b in content.EnumerateArray())
+                {
+                    var t = b.GetProperty("type").GetString();
+                    if (t == "text")
+                    {
+                        textBeforeTool = b.GetProperty("text").GetString() ?? "";
+                        assistantContent.Add(new
+                        {
+                            type = "text",
+                            text = textBeforeTool
+                        });
+                    }
+                    else if (t == "tool_use")
+                    {
+                        assistantContent.Add(new
+                        {
+                            type = "tool_use",
+                            id = b.GetProperty("id").GetString(),
+                            name = b.GetProperty("name").GetString(),
+                            input = JsonSerializer.Deserialize<object>(b.GetProperty("input").GetRawText())
+                        });
+                    }
+                }
+
+                _memory.SaveMessage(userId, "assistant", assistantContent.ToArray());
+
+                if (!string.IsNullOrEmpty(textBeforeTool))
+                {
+                    onProgress?.Invoke(textBeforeTool);
+                }
+
+                string toolResult;
+                try
+                {
+                    toolResult = await _functions.ExecuteAsync(toolName, toolInput);
+                    if (toolName == "send_sticker" && toolResult != "no_match" && onSticker != null)
+                    {
+                        await onSticker(toolResult);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    toolResult = $"工具执行失败: {ex.Message}";
+                }
 
                 _memory.SaveMessage(userId, "user", new[]
                 {
@@ -105,10 +157,22 @@ public class ClaudeService
                     }
                 });
 
-                return await AskAsync(userId, null);
+                return await AskAsync(userId, null, onProgress, onSticker);
             }
         }
 
-        return "无响应";
+        var textContent = "";
+        foreach (var block in content.EnumerateArray())
+        {
+            if (block.GetProperty("type").GetString() == "text")
+            {
+                textContent = block.GetProperty("text").GetString() ?? "";
+                break;
+            }
+        }
+
+        _memory.SaveMessage(userId, "assistant", new[] { new { type = "text", text = textContent } });
+        _memory.ClearOldMessages(userId);
+        return textContent;
     }
 }
