@@ -77,9 +77,11 @@ functionRegistry.SetPlaywrightService(new PlaywrightService());
 functionRegistry.SetStickerService(stickerService);
 functionRegistry.SetContactService(contactService);
 var emailManager = new EmailManager(emailService, bot, config.AllowedUsers[0], claudeService, wsClients);
+var activityMonitor = new ActivityMonitor(claudeService, bot, wsClients, config.AllowedUsers[0]);
 
 _ = Task.Run(() => emailManager.StartMonitoring());
 _ = Task.Run(() => StartHttpServer());
+activityMonitor.Start();
 
 ColorLog.Success("HTTP", "API: http://localhost:5000/chat");
 
@@ -133,7 +135,8 @@ async Task StartHttpServer()
                             var req = JsonSerializer.Deserialize<ChatRequest>(msg);
                             ColorLog.Info("MSG-WS", $"[@{req?.userId ?? ""}] '{req?.message ?? ""}'");
 
-                            var reply = await claudeService.AskAsync(8216081829, req?.message ?? "");
+                            activityMonitor.UpdateActivity();
+                            var reply = await claudeService.AskAsync(config.AllowedUsers[0], req?.message ?? "");
                             var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
                             await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
                         }
@@ -193,6 +196,7 @@ async Task OnMessage(Message msg)
 {
     if (msg.Text is null || !config.AllowedUsers.Contains(msg.From!.Id)) return;
 
+    activityMonitor.UpdateActivity();
     ColorLog.Info($"MSG-{msg.Type}", $"[@{msg.From.Username}({msg.From.Id})] '{msg.Text}'");
 
     if (msg.Text == "/clear")

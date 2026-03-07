@@ -35,7 +35,7 @@ public class ClaudeService
             var userMsg = new
             {
                 role = "user",
-                content = new[] { new { type = "text", text = $"{prompt}\n\n当前时间：{DateTime.Now:yyyy-MM-dd HH:mm}" } }
+                content = new[] { new { type = "text", text = $"{prompt}\n\n参数：北京时间-{DateTime.Now:yyyy-MM-dd HH:mm}" } }
             };
             _memory.SaveMessage(userId, "user", userMsg.content);
         }
