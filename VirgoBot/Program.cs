@@ -132,13 +132,60 @@ async Task StartHttpServer()
                         else if (result.MessageType == WebSocketMessageType.Text)
                         {
                             var msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                            var req = JsonSerializer.Deserialize<ChatRequest>(msg);
-                            ColorLog.Info("MSG-WS", $"[@{req?.userId ?? ""}] '{req?.message ?? ""}'");
+                            var req = JsonSerializer.Deserialize<JsonElement>(msg);
 
-                            activityMonitor.UpdateActivity();
-                            var reply = await claudeService.AskAsync(config.AllowedUsers[0], req?.message ?? "");
-                            var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
-                            await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                            if (req.TryGetProperty("type", out var typeEl))
+                            {
+                                var type = typeEl.GetString();
+
+                                if (type == "newMessage")
+                                {
+                                    var username = req.GetProperty("username").GetString();
+                                    var queueLength = req.GetProperty("queueLength").GetInt32();
+                                    ColorLog.Info("NEW-MSG", $"来自 {username}, 队列: {queueLength}");
+
+                                    var prompt = $"系统提示：用户 {username} 发来了新消息，请使用 switch_douyin_chat 函数回复";
+                                    ColorLog.Info("→AI", prompt);
+                                    var reply = await claudeService.AskAsync(username.GetHashCode(), prompt, null, null, async (targetUser) =>
+                                    {
+                                        var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username = targetUser }));
+                                        await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                                        ColorLog.Success("SWITCH", $"切换到 {targetUser}");
+                                    });
+                                    ColorLog.Success("AI→", reply);
+                                }
+                                else if (type == "message")
+                                {
+                                    var message = req.GetProperty("message").GetString();
+                                    var userId = req.GetProperty("userId").GetString();
+                                    ColorLog.Info("→AI", $"[@{userId}] {message}");
+
+                                    activityMonitor.UpdateActivity();
+                                    var reply = await claudeService.AskAsync(userId.GetHashCode(), message ?? "");
+                                    ColorLog.Success("AI→", reply);
+
+                                    var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
+                                    await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                                }
+                                else if (type == "aiSwitchChat")
+                                {
+                                    var username = req.GetProperty("username").GetString();
+                                    var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username }));
+                                    await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                                    ColorLog.Success("SWITCH", $"切换到 {username}");
+                                }
+                            }
+                            else if (req.TryGetProperty("message", out var msgEl))
+                            {
+                                var chatReq = JsonSerializer.Deserialize<ChatRequest>(msg);
+                                ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
+
+                                activityMonitor.UpdateActivity();
+                                var reply = await claudeService.AskAsync(config.AllowedUsers[0], chatReq?.message ?? "");
+
+                                var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
+                                await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                            }
                         }
                     }
                     return;

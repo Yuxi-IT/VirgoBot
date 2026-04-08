@@ -28,7 +28,7 @@ public class ClaudeService
         _systemMemory = systemMemory;
     }
 
-    public async Task<string> AskAsync(long userId, string? prompt, Action<string>? onProgress = null, Func<string, Task>? onSticker = null)
+    public async Task<string> AskAsync(long userId, string? prompt, Action<string>? onProgress = null, Func<string, Task>? onSticker = null, Func<string, Task>? onSwitchChat = null)
     {
         if (!string.IsNullOrEmpty(prompt))
         {
@@ -142,6 +142,10 @@ public class ClaudeService
                     {
                         await onSticker(toolResult);
                     }
+                    if (toolName == "switch_douyin_chat" && toolResult.StartsWith("switch_chat:") && onSwitchChat != null)
+                    {
+                        await onSwitchChat(toolResult.Replace("switch_chat:", "").Trim());
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -157,7 +161,7 @@ public class ClaudeService
                     }
                 });
 
-                return await AskAsync(userId, null, onProgress, onSticker);
+                return await AskAsync(userId, null, onProgress, onSticker, onSwitchChat);
             }
         }
 

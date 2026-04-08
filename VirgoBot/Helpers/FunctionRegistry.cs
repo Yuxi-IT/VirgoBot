@@ -21,6 +21,7 @@ public class FunctionRegistry
     public FunctionRegistry()
     {
         RegisterDefaultFunctions();
+        RegisterDouyinFunctions();
     }
 
     public void SetEmailService(EmailService emailService)
@@ -388,6 +389,24 @@ public class FunctionRegistry
             var id = input.GetProperty("id").GetInt32();
             _contactService!.DeleteContact(id);
             return "联系人删除成功";
+        });
+    }
+
+    private void RegisterDouyinFunctions()
+    {
+        Register("switch_douyin_chat", "切换抖音聊天到指定用户", new
+        {
+            type = "object",
+            properties = new
+            {
+                username = new { type = "string", description = "要切换到的用户名" }
+            },
+            required = new[] { "username" }
+        }, async input =>
+        {
+            var username = input.GetProperty("username").GetString() ?? "";
+            // 通过WebSocket通知客户端切换聊天
+            return $"switch_chat:{username}";
         });
     }
 
