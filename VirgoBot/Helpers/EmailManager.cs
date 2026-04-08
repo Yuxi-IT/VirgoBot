@@ -11,16 +11,16 @@ public class EmailManager
     private readonly EmailService _emailService;
     private readonly TelegramBotClient _bot;
     private readonly long _userId;
-    private readonly ClaudeService _claudeService;
+    private readonly LLMService _llmService;
     private readonly Dictionary<string, EmailMessage> _pendingEmails = new();
     private readonly List<WebSocket> _wsClients;
 
-    public EmailManager(EmailService emailService, TelegramBotClient bot, long userId, ClaudeService claudeService, List<WebSocket> wsClients)
+    public EmailManager(EmailService emailService, TelegramBotClient bot, long userId, LLMService llmService, List<WebSocket> wsClients)
     {
         _emailService = emailService;
         _bot = bot;
         _userId = userId;
-        _claudeService = claudeService;
+        _llmService = llmService;
         _wsClients = wsClients;
     }
 
@@ -55,7 +55,7 @@ public class EmailManager
         ColorLog.Info("EMAIL", $"新邮件: [{email.From}] {email.Subject}");
         var prompt = $"有新邮件：\n发件人: {email.From}\n主题: {email.Subject}\n内容: {email.Body.Substring(0, Math.Min(300, email.Body.Length))}\n\nUID: {email.Uid}\n\n请用你的风格提醒我有新邮件。";
 
-        var aiResponse = await _claudeService.AskAsync(_userId, prompt);
+        var aiResponse = await _llmService.AskAsync(_userId, prompt);
 
         var keyboard = new InlineKeyboardMarkup(
         [

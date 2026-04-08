@@ -31,7 +31,16 @@ if (!File.Exists(configPath))
             Address = "your@email.com",
             Password = "your_password"
         },
-        MemoryFile = memoryPath
+        MemoryFile = memoryPath,
+        ILink = new ILinkConfig
+        {
+            Enabled = false,
+            Token = "YOUR_ILINK_TOKEN",
+            WebSocketUrl = "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
+            SendUrl = "http:/localhost/bot/v1/message/send",
+            WebhookPath = "/ilink/webhook",
+            DefaultUserId = "ilink"
+        }
     };
     File.WriteAllText(configPath, JsonSerializer.Serialize(defaultConfig, new JsonSerializerOptions { WriteIndented = true }));
     ColorLog.Info("CONFIG", $"已创建默认配置文件: {configPath}");
@@ -48,8 +57,8 @@ var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))!;
 var wsClients = new List<WebSocket>();
 
 var http = new HttpClient();
-http.DefaultRequestHeaders.Add("x-api-key", config.ApiKey);
-http.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+http.DefaultRequestHeaders.Authorization =
+    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
 var memoryService = new MemoryService();
 var functionRegistry = new FunctionRegistry();
@@ -60,7 +69,8 @@ systemMemory = systemMemory.Replace("{{EMAIL}}", config.Email.Address);
 
 ColorLog.Info("MEMORY", $"记忆已加载, [{systemMemory.Length}]Tokens");
 
-var claudeService = new ClaudeService(http, config.BaseUrl, config.Model, memoryService, functionRegistry, systemMemory);
+var llmService = new LLMService(http, config.BaseUrl, config.Model, memoryService, functionRegistry, systemMemory);
+var iLinkBridge = new ILinkBridgeService(config.ILink);
 
 using var cts = new CancellationTokenSource();
 var bot = new TelegramBotClient(config.BotToken, cancellationToken: cts.Token);
@@ -76,14 +86,19 @@ functionRegistry.SetEmailService(emailService);
 functionRegistry.SetPlaywrightService(new PlaywrightService());
 functionRegistry.SetStickerService(stickerService);
 functionRegistry.SetContactService(contactService);
-var emailManager = new EmailManager(emailService, bot, config.AllowedUsers[0], claudeService, wsClients);
-var activityMonitor = new ActivityMonitor(claudeService, bot, wsClients, config.AllowedUsers[0]);
+var emailManager = new EmailManager(emailService, bot, config.AllowedUsers[0], llmService, wsClients);
+var activityMonitor = new ActivityMonitor(llmService, bot, wsClients, config.AllowedUsers[0]);
 
 _ = Task.Run(() => emailManager.StartMonitoring());
 _ = Task.Run(() => StartHttpServer());
 activityMonitor.Start();
+await iLinkBridge.StartAsync(HandleILinkIncomingMessageAsync, cts.Token);
 
 ColorLog.Success("HTTP", "API: http://localhost:5000/chat");
+if (config.ILink.Enabled)
+{
+    ColorLog.Success("ILINK", $"Bridge enabled: {config.ILink.WebhookPath}");
+}
 
 try
 {
@@ -146,7 +161,7 @@ async Task StartHttpServer()
 
                                     var prompt = $"系统提示：用户 {username} 发来了新消息，请使用 switch_douyin_chat 函数回复";
                                     ColorLog.Info("→AI", prompt);
-                                    var reply = await claudeService.AskAsync(username.GetHashCode(), prompt, null, null, async (targetUser) =>
+                                    var reply = await llmService.AskAsync(username.GetHashCode(), prompt, null, null, async (targetUser) =>
                                     {
                                         var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username = targetUser }));
                                         await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -161,7 +176,7 @@ async Task StartHttpServer()
                                     ColorLog.Info("→AI", $"[@{userId}] {message}");
 
                                     activityMonitor.UpdateActivity();
-                                    var reply = await claudeService.AskAsync(userId.GetHashCode(), message ?? "");
+                                    var reply = await llmService.AskAsync(userId.GetHashCode(), message ?? "");
                                     ColorLog.Success("AI→", reply);
 
                                     var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
@@ -181,7 +196,7 @@ async Task StartHttpServer()
                                 ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
 
                                 activityMonitor.UpdateActivity();
-                                var reply = await claudeService.AskAsync(config.AllowedUsers[0], chatReq?.message ?? "");
+                                var reply = await llmService.AskAsync(config.AllowedUsers[0], chatReq?.message ?? "");
 
                                 var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
                                 await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -205,7 +220,7 @@ async Task StartHttpServer()
                     var body = await reader.ReadToEndAsync();
                     var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
-                    var reply = await claudeService.AskAsync(8216081829, req?.message ?? "");
+                    var reply = await llmService.AskAsync(8216081829, req?.message ?? "");
                     var response = Encoding.UTF8.GetBytes(reply);
 
                     ColorLog.Info($"MSG-HTTP", $"[@{req?.userId ?? ""}] '{req?.message ?? ""}'");
@@ -213,6 +228,22 @@ async Task StartHttpServer()
                     ctx.Response.ContentType = "text/plain; charset=utf-8";
                     ctx.Response.ContentLength64 = response.Length;
                     await ctx.Response.OutputStream.WriteAsync(response);
+                }
+                else if (config.ILink.Enabled &&
+                         ctx.Request.Url?.AbsolutePath == config.ILink.WebhookPath &&
+                         ctx.Request.HttpMethod == "POST")
+                {
+                    using var reader = new StreamReader(ctx.Request.InputStream);
+                    var body = await reader.ReadToEndAsync();
+
+                    if (iLinkBridge.TryParseIncoming(body, out var incoming) && incoming is not null)
+                    {
+                        await HandleILinkIncomingMessageAsync(incoming);
+                    }
+
+                    ctx.Response.StatusCode = 200;
+                    var ok = Encoding.UTF8.GetBytes("ok");
+                    await ctx.Response.OutputStream.WriteAsync(ok);
                 }
                 else if (ctx.Request.Url?.AbsolutePath.StartsWith("/sticker/") == true && ctx.Request.HttpMethod == "GET")
                 {
@@ -271,7 +302,7 @@ async Task OnMessage(Message msg)
 
     functionRegistry.SetTelegramBot(bot, msg.Chat.Id);
 
-    var reply = await claudeService.AskAsync(msg.From.Id, msg.Text, async (text) =>
+    var reply = await llmService.AskAsync(msg.From.Id, msg.Text, async (text) =>
     {
         var processed = messageHelper.ProcessThinkTags(text);
         await messageHelper.SendLongMessage(msg.Chat.Id, processed);
@@ -306,6 +337,28 @@ async Task OnUpdate(Update update)
             await bot.AnswerCallbackQuery(query.Id, "已忽略");
         }
     }
+}
+
+async Task HandleILinkIncomingMessageAsync(ILinkIncomingMessage incoming)
+{
+    var content = incoming.Content?.Trim();
+    if (string.IsNullOrWhiteSpace(content))
+    {
+        return;
+    }
+
+    ColorLog.Info("ILINK-IN", $"[@{incoming.Username}] {content}");
+
+    activityMonitor.UpdateActivity();
+    var reply = await llmService.AskAsync(incoming.UserId.GetHashCode(), content);
+
+    if (string.IsNullOrWhiteSpace(reply))
+    {
+        return;
+    }
+
+    await iLinkBridge.SendLongMessageAsync(reply, cts.Token);
+    ColorLog.Success("ILINK-OUT", reply);
 }
 
 record ChatRequest(string? message, string? userId);

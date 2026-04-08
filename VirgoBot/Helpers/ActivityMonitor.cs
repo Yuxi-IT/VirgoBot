@@ -7,7 +7,7 @@ namespace VirgoBot.Helpers;
 
 public class ActivityMonitor
 {
-    private readonly ClaudeService _claudeService;
+    private readonly LLMService _llmService;
     private readonly TelegramBotClient _bot;
     private readonly List<WebSocket> _wsClients;
     private readonly long _userId;
@@ -15,9 +15,9 @@ public class ActivityMonitor
     private Timer? _proactiveTimer;
     private readonly Random _random = new();
 
-    public ActivityMonitor(ClaudeService claudeService, TelegramBotClient bot, List<WebSocket> wsClients, long userId)
+    public ActivityMonitor(LLMService llmService, TelegramBotClient bot, List<WebSocket> wsClients, long userId)
     {
-        _claudeService = claudeService;
+        _llmService = llmService;
         _bot = bot;
         _wsClients = wsClients;
         _userId = userId;
@@ -51,7 +51,7 @@ public class ActivityMonitor
                             var totalIdle = DateTime.Now - _lastActivity;
                             var prompt = $"服务提示：用户已经{totalIdle.TotalMinutes:F0}分钟没有给您发消息了";
 
-                            var reply = await _claudeService.AskAsync(_userId, prompt);
+                            var reply = await _llmService.AskAsync(_userId, prompt);
 
                             try
                             {
