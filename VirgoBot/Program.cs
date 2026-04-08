@@ -19,8 +19,8 @@ if (!File.Exists(configPath))
     {
         BotToken = "YOUR_BOT_TOKEN",
         ApiKey = "YOUR_API_KEY",
-        BaseUrl = "https://api.anthropic.com/v1/messages",
-        Model = "claude-haiku-4-5-20251001",
+        BaseUrl = "https://localhost/",
+        Model = "gpt-4.5",
         AllowedUsers = Array.Empty<long>(),
         Email = new EmailConfig
         {

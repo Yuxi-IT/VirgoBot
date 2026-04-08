@@ -154,7 +154,7 @@ public sealed class ILinkBridgeService
                 socket = new ClientWebSocket();
                 _socket = socket;
                 await socket.ConnectAsync(new Uri(webSocketUrl), cancellationToken);
-                ColorLog.Success("ILINK", $"WebSocket connected: {webSocketUrl}");
+                ColorLog.Success("ILINK", $"WebSocket connected");
 
                 while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
                 {
