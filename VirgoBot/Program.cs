@@ -5,7 +5,11 @@ using System.Text;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using VirgoBot.Configuration;
+using VirgoBot.Contracts;
+using VirgoBot.Features.Email;
 using VirgoBot.Helpers;
+using VirgoBot.Integrations.ILink;
 
 var configDir = "config";
 var configPath = Path.Combine(configDir, "config.json");
@@ -83,10 +87,11 @@ var emailService = new EmailService(
 
 await emailService.InitializeAsync();
 functionRegistry.SetEmailService(emailService);
-functionRegistry.SetPlaywrightService(new PlaywrightService());
+//functionRegistry.SetPlaywrightService(new PlaywrightService());
 functionRegistry.SetStickerService(stickerService);
 functionRegistry.SetContactService(contactService);
-var emailManager = new EmailManager(emailService, bot, config.AllowedUsers[0], llmService, wsClients);
+var emailNotificationDispatcher = new EmailNotificationDispatcher(bot, config.AllowedUsers[0], wsClients, iLinkBridge);
+var emailManager = new EmailManager(emailService, emailNotificationDispatcher, config.AllowedUsers[0], llmService);
 var activityMonitor = new ActivityMonitor(llmService, bot, wsClients, config.AllowedUsers[0]);
 
 _ = Task.Run(() => emailManager.StartMonitoring());
@@ -156,12 +161,13 @@ async Task StartHttpServer()
                                 if (type == "newMessage")
                                 {
                                     var username = req.GetProperty("username").GetString();
+                                    var effectiveUsername = username ?? "unknown";
                                     var queueLength = req.GetProperty("queueLength").GetInt32();
                                     ColorLog.Info("NEW-MSG", $"来自 {username}, 队列: {queueLength}");
 
                                     var prompt = $"系统提示：用户 {username} 发来了新消息，请使用 switch_douyin_chat 函数回复";
                                     ColorLog.Info("→AI", prompt);
-                                    var reply = await llmService.AskAsync(username.GetHashCode(), prompt, null, null, async (targetUser) =>
+                                    var reply = await llmService.AskAsync(effectiveUsername.GetHashCode(), prompt, null, null, async (targetUser) =>
                                     {
                                         var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username = targetUser }));
                                         await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -173,10 +179,11 @@ async Task StartHttpServer()
                                 {
                                     var message = req.GetProperty("message").GetString();
                                     var userId = req.GetProperty("userId").GetString();
+                                    var effectiveUserId = userId ?? "unknown";
                                     ColorLog.Info("→AI", $"[@{userId}] {message}");
 
                                     activityMonitor.UpdateActivity();
-                                    var reply = await llmService.AskAsync(userId.GetHashCode(), message ?? "");
+                                    var reply = await llmService.AskAsync(effectiveUserId.GetHashCode(), message ?? "");
                                     ColorLog.Success("AI→", reply);
 
                                     var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
@@ -361,4 +368,3 @@ async Task HandleILinkIncomingMessageAsync(ILinkIncomingMessage incoming)
     ColorLog.Success("ILINK-OUT", reply);
 }
 
-record ChatRequest(string? message, string? userId);

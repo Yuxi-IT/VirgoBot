@@ -17,6 +17,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Helpers\Config.cs" />
+    <Compile Remove="Helpers\EmailManager.cs" />
+    <Compile Remove="Helpers\EmailService.cs" />
+    <Compile Remove="Helpers\ILinkBridgeService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="stickers\1.gif">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

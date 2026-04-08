@@ -4,6 +4,7 @@ using System.Text.Json;
 using HtmlAgilityPack;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using VirgoBot.Features.Email;
 
 namespace VirgoBot.Helpers;
 
