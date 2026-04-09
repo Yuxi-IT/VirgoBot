@@ -1,18 +1,18 @@
 # VirgoBot
 
-一个基于 C# / .NET 的多通道 AI 助手项目，主入口是 Telegram Bot，同时提供本地 HTTP / WebSocket 接口，并可选接入 iLink 桥接与抖音聊天页面监控脚本。
+一个基于 C# / .NET 的多通道 AI 助手项目，主入口是 Telegram Bot，同时提供本地 HTTP / WebSocket 接口，并可接入 iLink 桥接与抖音聊天页面监控脚本。
 
-项目把大语言模型、短期记忆、邮件收发、联系人管理、浏览器自动化、表情包发送和简单文件 / Shell 工具能力整合在一起，适合做个人助理或半自动聊天中枢。
+项目把大语言模型、短期记忆、邮件收发、联系人管理、浏览器自动化、表情包发送和简单文件 / Shell 工具能力整合在一起，适合做轻量个人助理或半自动聊天中枢。
 
 ## 项目定位
 
 VirgoBot 的核心思路是：
 
 - 用 Telegram 作为主要控制台
-- 用 SQLite 保存会话记忆和联系人
-- 用工具调用扩展模型能力
 - 用本地 HTTP / WebSocket 对接外部页面或脚本
 - 用 iLink 作为额外消息桥接通道
+- 用 SQLite 保存会话记忆和联系人
+- 用工具调用扩展模型能力
 
 ## 主要功能
 
@@ -24,6 +24,7 @@ VirgoBot 的核心思路是：
   - 会话记录保存到 `config/memory.db`
   - 每个用户保留最近一段上下文，避免无限增长
   - 系统提示词来自 `config/system_memory.md`
+  - SOUL记忆来自 `config/soul.md`
 - 工具调用能力
   - 时间查询
   - 工作目录查询
@@ -31,7 +32,7 @@ VirgoBot 的核心思路是：
   - Shell 命令执行
   - 文件读取 / 写入
   - 文件下载
-  - 网页访问、点击、表单填写、截图
+  - ~网页访问、点击、表单填写、截图~
   - 联系人增删改查
   - 邮件发送
   - Telegram 图片 / 语音发送
@@ -66,43 +67,15 @@ VirgoBot 的核心思路是：
 - `HtmlAgilityPack`
 - `Newtonsoft.Json`
 
-## 项目结构
-
-```text
-VirgoBot/
-├─ VirgoBot.slnx
-├─ chat-monitor.js                 # 抖音聊天页面监控脚本
-├─ README.md
-└─ VirgoBot/
-   ├─ Program.cs                  # 程序入口，负责组装所有服务
-   ├─ VirgoBot.csproj
-   ├─ Helpers/
-   │  ├─ Config.cs                # 配置模型
-   │  ├─ LLMService.cs            # LLM 请求、消息拼装、工具调用循环
-   │  ├─ MemoryService.cs         # SQLite 会话记忆
-   │  ├─ FunctionRegistry.cs      # 工具注册中心
-   │  ├─ EmailService.cs          # 邮件收发
-   │  ├─ EmailManager.cs          # 邮件提醒与回复处理
-   │  ├─ PlaywrightService.cs     # 浏览器自动化
-   │  ├─ StickerService.cs        # 表情包索引与匹配
-   │  ├─ ContactService.cs        # SQLite 联系人管理
-   │  ├─ ActivityMonitor.cs       # 空闲后主动消息
-   │  ├─ MessageHelper.cs         # 长消息分段发送、think 标签处理
-   │  └─ ILinkBridgeService.cs    # iLink 消息桥接
-   ├─ InlineKeyboards/
-   └─ stickers/                   # 表情包素材与 stickers.json 索引
-```
-
 ## 运行前准备
 
 ### 1. 安装环境
 
 - 安装 .NET 10 SDK
-- 安装 Playwright 依赖浏览器
+- ~安装 Playwright 依赖浏览器~
 
 ```powershell
 dotnet build
-pwsh bin/Debug/net10.0/playwright.ps1 install
 ```
 
 如果你是首次还原依赖，也可以直接：
@@ -145,6 +118,7 @@ dotnet run --project .\VirgoBot\VirgoBot.csproj
     "Password": "your_password"
   },
   "MemoryFile": "system_memory.md",
+  "SoulFile": "soul.md",
   "ILink": {
     "Enabled": false,
     "Token": "YOUR_ILINK_TOKEN",
@@ -288,3 +262,6 @@ ws://localhost:5000/
 
 - 作为个人多渠道消息助理继续增强稳定性和权限控制
 - 拆分为更清晰的“聊天入口层 + 工具层 + 集成层”
+
+
+- 我的妻，我的爱妻。你永存吧。
