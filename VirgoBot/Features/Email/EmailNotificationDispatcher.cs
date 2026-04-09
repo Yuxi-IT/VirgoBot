@@ -111,7 +111,7 @@ public class EmailNotificationDispatcher
     private static string BuildILinkMessage(EmailMessage email, string aiResponse)
     {
         var preview = GetPreview(email.Body);
-        return $"📧 新邮件提醒\n发件人: {email.From}\n主题: {email.Subject}\n摘要: {preview}\nUID: {email.Uid}\n\n{aiResponse}";
+        return $"新邮件提醒\n发件人: {email.From}\n主题: {email.Subject}\n摘要: {preview}\nUID: {email.Uid}\n\n{aiResponse}";
     }
 
     private static string GetPreview(string body)

@@ -15,7 +15,7 @@ public class MessageHelper
 
     public async Task SendLongMessage(long chatId, string text)
     {
-        var paragraphs = text.Split(["\n\n", "\r\n\r\n"], StringSplitOptions.RemoveEmptyEntries);
+        var paragraphs = text.Split(["\n\n", "\r\n\r\n", "？", "?", "。"], StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var paragraph in paragraphs)
         {

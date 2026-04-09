@@ -69,7 +69,9 @@ var functionRegistry = new FunctionRegistry();
 var stickerService = new StickerService("stickers");
 var contactService = new ContactService();
 var systemMemory = File.ReadAllText(Path.Combine("config", config.MemoryFile));
-systemMemory = systemMemory.Replace("{{EMAIL}}", config.Email.Address);
+var soulMemory = File.ReadAllText(Path.Combine("config", config.SoulFile));
+
+systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\n{soulMemory}" ;
 
 ColorLog.Info("MEMORY", $"记忆已加载, [{systemMemory.Length}]Tokens");
 
@@ -365,6 +367,6 @@ async Task HandleILinkIncomingMessageAsync(ILinkIncomingMessage incoming)
     }
 
     await iLinkBridge.SendLongMessageAsync(reply, cts.Token);
-    ColorLog.Success("ILINK-OUT", reply);
+    //ColorLog.Success("ILINK-OUT", reply);
 }
 

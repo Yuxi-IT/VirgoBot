@@ -1,9 +1,11 @@
+using HtmlAgilityPack;
 using System.Diagnostics;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
-using HtmlAgilityPack;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using VirgoBot.Configuration;
 using VirgoBot.Features.Email;
 
 namespace VirgoBot.Helpers;
@@ -23,6 +25,7 @@ public class FunctionRegistry
     {
         RegisterDefaultFunctions();
         RegisterDouyinFunctions();
+        RegisterSoulFunctions();
     }
 
     public void SetEmailService(EmailService emailService)
@@ -185,6 +188,34 @@ public class FunctionRegistry
             var body = input.GetProperty("body").GetString() ?? "";
             await _emailService!.SendEmailAsync(to, subject, body);
             return "邮件发送成功";
+        });
+    }
+
+    private void RegisterSoulFunctions()
+    {
+        var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(Path.Combine("config", "config.json")));
+        Register("read_soul", "获取最近关于用户的记忆", new
+        {
+            type = "object"
+        }, async input =>
+        {
+            var soulContent = File.ReadAllText(Path.Combine("config", config.SoulFile));
+            return soulContent;
+        });
+
+        Register("append_soul", "追加可更改的记忆[例如用户最近的事情(必须标注日期)]", new
+        {
+            type = "object",
+            properties = new
+            {
+                content = new { type = "string", description = "要新追加的关于用户记忆的文本内容" },
+            },
+            required = new[] { "content" }
+        }, async input =>
+        {
+            var content = input.GetProperty("content").GetString() ?? "";
+            File.AppendAllText(Path.Combine("config", config.SoulFile + Environment.NewLine), content);
+            return "新记忆追加成功";
         });
     }
 

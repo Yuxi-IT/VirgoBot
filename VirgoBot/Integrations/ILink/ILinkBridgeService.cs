@@ -64,7 +64,7 @@ public sealed class ILinkBridgeService
 
     public async Task SendLongMessageAsync(string text, CancellationToken cancellationToken = default)
     {
-        var paragraphs = text.Split(["\n\n", "\r\n\r\n"], StringSplitOptions.RemoveEmptyEntries);
+        var paragraphs = text.Split(["\n\n", "\r\n\r\n", "？", "?", "。"], StringSplitOptions.RemoveEmptyEntries);
 
         foreach (var paragraph in paragraphs)
         {
@@ -74,7 +74,7 @@ public sealed class ILinkBridgeService
                 continue;
             }
 
-            Console.WriteLine($"[ILINK] {trimmed}");
+            ColorLog.Success("ILINK", trimmed);
             await SendMessageAsync(trimmed, cancellationToken);
             await Task.Delay(300, cancellationToken);
         }
