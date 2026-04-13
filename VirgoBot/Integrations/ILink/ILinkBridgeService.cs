@@ -3,7 +3,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using VirgoBot.Configuration;
-using VirgoBot.Helpers;
+using VirgoBot.Utilities;
 
 namespace VirgoBot.Integrations.ILink;
 

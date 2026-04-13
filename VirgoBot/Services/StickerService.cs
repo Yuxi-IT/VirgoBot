@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Services;
 
 public class StickerService
 {

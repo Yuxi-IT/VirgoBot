@@ -1,4 +1,4 @@
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Utilities;
 
 public static class ColorLog
 {

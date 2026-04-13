@@ -3,7 +3,7 @@ using MailKit.Net.Imap;
 using MailKit.Net.Smtp;
 using MailKit.Search;
 using MimeKit;
-using VirgoBot.Helpers;
+using VirgoBot.Utilities;
 
 namespace VirgoBot.Features.Email;
 

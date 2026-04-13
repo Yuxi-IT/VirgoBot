@@ -1,4 +1,5 @@
-using VirgoBot.Helpers;
+using VirgoBot.Services;
+using VirgoBot.Utilities;
 
 namespace VirgoBot.Features.Email;
 

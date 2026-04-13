@@ -4,8 +4,9 @@ using System.Text.Json;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using VirgoBot.Helpers;
 using VirgoBot.Integrations.ILink;
+using VirgoBot.Services;
+using VirgoBot.Utilities;
 
 namespace VirgoBot.Features.Email;
 
@@ -13,18 +14,18 @@ public class EmailNotificationDispatcher
 {
     private readonly TelegramBotClient _bot;
     private readonly long _userId;
-    private readonly List<WebSocket> _wsClients;
+    private readonly WebSocketClientManager _wsManager;
     private readonly ILinkBridgeService? _iLinkBridge;
 
     public EmailNotificationDispatcher(
         TelegramBotClient bot,
         long userId,
-        List<WebSocket> wsClients,
+        WebSocketClientManager wsManager,
         ILinkBridgeService? iLinkBridge = null)
     {
         _bot = bot;
         _userId = userId;
-        _wsClients = wsClients;
+        _wsManager = wsManager;
         _iLinkBridge = iLinkBridge;
     }
 
@@ -62,31 +63,7 @@ public class EmailNotificationDispatcher
             message = aiResponse
         });
 
-        var buffer = Encoding.UTF8.GetBytes(notification);
-        var sentCount = 0;
-
-        foreach (var ws in _wsClients.ToList())
-        {
-            if (ws.State != WebSocketState.Open)
-            {
-                continue;
-            }
-
-            try
-            {
-                await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationToken);
-                sentCount++;
-            }
-            catch
-            {
-                _wsClients.Remove(ws);
-            }
-        }
-
-        if (sentCount > 0)
-        {
-            ColorLog.Success("WS", $"邮件通知已推送到 {sentCount} 个客户端");
-        }
+        await _wsManager.BroadcastAsync(notification, cancellationToken);
     }
 
     private async Task SendILinkNotificationAsync(EmailMessage email, string aiResponse, CancellationToken cancellationToken)

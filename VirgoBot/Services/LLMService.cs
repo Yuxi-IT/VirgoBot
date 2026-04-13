@@ -1,7 +1,9 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
+using VirgoBot.Functions;
+using VirgoBot.Utilities;
 
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Services;
 
 public class LLMService
 {
@@ -11,6 +13,7 @@ public class LLMService
     private readonly MemoryService _memory;
     private readonly FunctionRegistry _functions;
     private readonly string _systemMemory;
+    private readonly int _maxTokens;
 
     public LLMService(
         HttpClient http,
@@ -18,7 +21,8 @@ public class LLMService
         string model,
         MemoryService memory,
         FunctionRegistry functions,
-        string systemMemory)
+        string systemMemory,
+        int maxTokens = 8192)
     {
         _http = http;
         _baseUrl = baseUrl;
@@ -26,6 +30,7 @@ public class LLMService
         _memory = memory;
         _functions = functions;
         _systemMemory = systemMemory;
+        _maxTokens = maxTokens;
     }
 
     public async Task<string> AskAsync(
@@ -48,7 +53,7 @@ public class LLMService
         var body = new
         {
             model = _model,
-            max_tokens = 8192,
+            max_tokens = _maxTokens,
             messages,
             tools = BuildOpenAiTools(),
             tool_choice = "auto"
@@ -65,10 +70,8 @@ public class LLMService
             new StringContent(json, Encoding.UTF8, "application/json"));
 
         var result = await response.Content.ReadAsStringAsync();
-        
 
         using var doc = JsonDocument.Parse(result);
-
 
         if (!response.IsSuccessStatusCode)
         {
@@ -419,8 +422,9 @@ public class LLMService
             {
                 input = JsonSerializer.Deserialize<object>(arguments) ?? new { };
             }
-            catch
+            catch (Exception ex)
             {
+                ColorLog.Error("LLM", $"参数解析失败: {ex.Message}, arguments={arguments}");
                 input = new { };
             }
 

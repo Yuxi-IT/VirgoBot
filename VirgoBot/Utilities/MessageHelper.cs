@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Utilities;
 
 public class MessageHelper
 {

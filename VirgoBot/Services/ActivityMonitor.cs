@@ -1,25 +1,25 @@
-using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Telegram.Bot;
+using VirgoBot.Utilities;
 
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Services;
 
 public class ActivityMonitor
 {
     private readonly LLMService _llmService;
     private readonly TelegramBotClient _bot;
-    private readonly List<WebSocket> _wsClients;
+    private readonly WebSocketClientManager _wsManager;
     private readonly long _userId;
     private DateTime _lastActivity = DateTime.Now;
     private Timer? _proactiveTimer;
     private readonly Random _random = new();
 
-    public ActivityMonitor(LLMService llmService, TelegramBotClient bot, List<WebSocket> wsClients, long userId)
+    public ActivityMonitor(LLMService llmService, TelegramBotClient bot, WebSocketClientManager wsManager, long userId)
     {
         _llmService = llmService;
         _bot = bot;
-        _wsClients = wsClients;
+        _wsManager = wsManager;
         _userId = userId;
     }
 
@@ -63,16 +63,7 @@ public class ActivityMonitor
                             catch (Exception ex) { ColorLog.Error("TG", $"发送失败: {ex.Message}"); }
 
                             var msg = JsonSerializer.Serialize(new { type = "proactive", content = reply });
-                            var buffer = Encoding.UTF8.GetBytes(msg);
-
-                            foreach (var ws in _wsClients.ToList())
-                            {
-                                if (ws.State == WebSocketState.Open)
-                                {
-                                    try { await ws.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None); }
-                                    catch { _wsClients.Remove(ws); }
-                                }
-                            }
+                            await _wsManager.BroadcastAsync(msg);
 
                             UpdateActivity();
                         }

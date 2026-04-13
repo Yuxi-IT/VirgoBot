@@ -1,6 +1,6 @@
 using Microsoft.Playwright;
 
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Services;
 
 public class PlaywrightService : IAsyncDisposable
 {

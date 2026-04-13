@@ -1,24 +1,31 @@
 using Microsoft.Data.Sqlite;
 using System.Text.Json;
 
-namespace VirgoBot.Helpers;
+namespace VirgoBot.Services;
 
-public class MemoryService
+public class MemoryService : IDisposable
 {
-    private readonly string _dbPath;
+    private readonly SqliteConnection _conn;
+    private readonly int _messageLimit;
+    private bool _disposed;
 
-    public MemoryService(string dbPath = "memory.db")
+    public MemoryService(string dbPath = "memory.db", int messageLimit = 20)
     {
-        _dbPath = Path.Combine("config", dbPath);
+        _messageLimit = messageLimit;
+        var fullPath = Path.Combine("config", dbPath);
+        _conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
+        _conn.Open();
+
+        using var pragmaCmd = _conn.CreateCommand();
+        pragmaCmd.CommandText = "PRAGMA journal_mode=WAL;";
+        pragmaCmd.ExecuteNonQuery();
+
         InitDatabase();
     }
 
     private void InitDatabase()
     {
-        using var conn = new SqliteConnection($"Data Source={_dbPath}");
-        conn.Open();
-
-        var cmd = conn.CreateCommand();
+        using var cmd = _conn.CreateCommand();
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,10 +39,7 @@ public class MemoryService
 
     public void SaveMessage(long userId, string role, object content)
     {
-        using var conn = new SqliteConnection($"Data Source={_dbPath}");
-        conn.Open();
-
-        var cmd = conn.CreateCommand();
+        using var cmd = _conn.CreateCommand();
         cmd.CommandText = "INSERT INTO messages (user_id, role, content) VALUES (@uid, @role, @content)";
         cmd.Parameters.AddWithValue("@uid", userId);
         cmd.Parameters.AddWithValue("@role", role);
@@ -43,15 +47,13 @@ public class MemoryService
         cmd.ExecuteNonQuery();
     }
 
-    public List<object> LoadMessages(long userId, int limit = 20)
+    public List<object> LoadMessages(long userId, int? limit = null)
     {
-        using var conn = new SqliteConnection($"Data Source={_dbPath}");
-        conn.Open();
-
-        var cmd = conn.CreateCommand();
+        var effectiveLimit = limit ?? _messageLimit;
+        using var cmd = _conn.CreateCommand();
         cmd.CommandText = "SELECT role, content FROM messages WHERE user_id = @uid ORDER BY id DESC LIMIT @limit";
         cmd.Parameters.AddWithValue("@uid", userId);
-        cmd.Parameters.AddWithValue("@limit", limit);
+        cmd.Parameters.AddWithValue("@limit", effectiveLimit);
 
         var messages = new List<object>();
         using var reader = cmd.ExecuteReader();
@@ -68,12 +70,10 @@ public class MemoryService
         return messages;
     }
 
-    public void ClearOldMessages(long userId, int keepLast = 20)
+    public void ClearOldMessages(long userId, int? keepLast = null)
     {
-        using var conn = new SqliteConnection($"Data Source={_dbPath}");
-        conn.Open();
-
-        var cmd = conn.CreateCommand();
+        var effectiveKeep = keepLast ?? _messageLimit;
+        using var cmd = _conn.CreateCommand();
         cmd.CommandText = @"
             DELETE FROM messages
             WHERE user_id = @uid
@@ -84,18 +84,24 @@ public class MemoryService
                 LIMIT @keep
             )";
         cmd.Parameters.AddWithValue("@uid", userId);
-        cmd.Parameters.AddWithValue("@keep", keepLast);
+        cmd.Parameters.AddWithValue("@keep", effectiveKeep);
         cmd.ExecuteNonQuery();
     }
 
     public void ClearAllMessages(long userId)
     {
-        using var conn = new SqliteConnection($"Data Source={_dbPath}");
-        conn.Open();
-
-        var cmd = conn.CreateCommand();
+        using var cmd = _conn.CreateCommand();
         cmd.CommandText = "DELETE FROM messages WHERE user_id = @uid";
         cmd.Parameters.AddWithValue("@uid", userId);
         cmd.ExecuteNonQuery();
+    }
+
+    public void Dispose()
+    {
+        if (!_disposed)
+        {
+            _conn.Dispose();
+            _disposed = true;
+        }
     }
 }

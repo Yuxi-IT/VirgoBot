@@ -1,0 +1,85 @@
+using System.Text.Json;
+using VirgoBot.Utilities;
+
+namespace VirgoBot.Configuration;
+
+public static class ConfigLoader
+{
+    public static Config Load()
+    {
+        var configDir = AppConstants.ConfigDirectory;
+        var configPath = Path.Combine(configDir, AppConstants.ConfigFileName);
+
+        Directory.CreateDirectory(configDir);
+
+        if (!File.Exists(configPath))
+        {
+            var defaultConfig = new Config
+            {
+                BotToken = "YOUR_BOT_TOKEN",
+                ApiKey = "YOUR_API_KEY",
+                BaseUrl = "https://localhost/",
+                Model = "gpt-4.5",
+                AllowedUsers = Array.Empty<long>(),
+                Email = new EmailConfig
+                {
+                    ImapHost = "imap.example.com",
+                    ImapPort = 993,
+                    SmtpHost = "smtp.example.com",
+                    SmtpPort = 587,
+                    Address = "your@email.com",
+                    Password = "your_password"
+                },
+                ILink = new ILinkConfig
+                {
+                    Enabled = false,
+                    Token = "YOUR_ILINK_TOKEN",
+                    WebSocketUrl = "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
+                    SendUrl = "http:/localhost/bot/v1/message/send",
+                    WebhookPath = "/ilink/webhook",
+                    DefaultUserId = "ilink"
+                }
+            };
+            File.WriteAllText(configPath, JsonSerializer.Serialize(defaultConfig, new JsonSerializerOptions { WriteIndented = true }));
+            ColorLog.Info("CONFIG", $"已创建默认配置文件: {configPath}");
+        }
+
+        var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))
+            ?? throw new InvalidOperationException($"无法解析配置文件: {configPath}");
+
+        if (config.AllowedUsers.Length == 0)
+        {
+            throw new InvalidOperationException("配置错误: AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
+        }
+
+        return config;
+    }
+
+    public static string LoadSystemMemory(Config config)
+    {
+        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, config.MemoryFile);
+        var soulPath = Path.Combine(AppConstants.ConfigDirectory, config.SoulFile);
+
+        if (!File.Exists(memoryPath))
+        {
+            File.WriteAllText(memoryPath, "# 系统记忆\n\n你是 Virgo，一个智能助手。\n\n## 能力\n- 邮件收发管理\n- 文件读写操作\n- Shell命令执行\n- 网页浏览\n- 通讯录管理\n");
+            ColorLog.Info("MEMORY", $"已创建默认记忆文件: {memoryPath}");
+        }
+
+        var systemMemory = File.ReadAllText(memoryPath);
+
+        if (File.Exists(soulPath))
+        {
+            var soulMemory = File.ReadAllText(soulPath);
+            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\n{soulMemory}";
+        }
+        else
+        {
+            systemMemory = systemMemory.Replace("{{EMAIL}}", config.Email.Address);
+            ColorLog.Warning("MEMORY", $"Soul 文件不存在: {soulPath}");
+        }
+
+        ColorLog.Info("MEMORY", $"记忆已加载, [{systemMemory.Length}]Tokens");
+        return systemMemory;
+    }
+}
