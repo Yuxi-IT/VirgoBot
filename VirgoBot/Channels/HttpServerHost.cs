@@ -137,6 +137,14 @@ public class HttpServerHost
                     {
                         await HandleUpdateSoulRequest(ctx);
                     }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/rule" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetRuleRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/rule" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateRuleRequest(ctx);
+                    }
                     else if (ctx.Request.Url?.AbsolutePath == "/api/logs" && ctx.Request.HttpMethod == "GET")
                     {
                         await HandleGetLogsRequest(ctx);
@@ -412,6 +420,28 @@ public class HttpServerHost
         await SendJsonResponse(ctx, new { success = true, message = "Soul updated" });
     }
 
+    private async Task HandleGetRuleRequest(HttpListenerContext ctx)
+    {
+        var rulePath = Path.Combine(AppConstants.ConfigDirectory, _config.RuleFile);
+        var content = File.Exists(rulePath) ? await File.ReadAllTextAsync(rulePath) : "";
+        await SendJsonResponse(ctx, new { success = true, data = new { content } });
+    }
+
+    private async Task HandleUpdateRuleRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<ContentRequest>(ctx);
+        if (body == null)
+        {
+            await SendErrorResponse(ctx, 400, "Invalid request body");
+            return;
+        }
+
+        var rulePath = Path.Combine(AppConstants.ConfigDirectory, _config.RuleFile);
+        await File.WriteAllTextAsync(rulePath, body.Content ?? "");
+        ColorLog.Success("CONFIG", "Rule 文件已更新");
+        await SendJsonResponse(ctx, new { success = true, message = "Rule updated" });
+    }
+
     // ===== Logs API =====
 
     private async Task HandleGetLogsRequest(HttpListenerContext ctx)
@@ -489,7 +519,7 @@ public class HttpServerHost
 
                         var prompt = $"系统提示：用户 {username} 发来了新消息，请使用 switch_douyin_chat 函数回复";
                         ColorLog.Info("→AI", prompt);
-                        var reply = await _llmService.AskAsync(effectiveUsername.GetHashCode(), prompt, null, null, async (targetUser) =>
+                        var reply = await _llmService.AskAsync(GetStableHashCode(effectiveUsername), prompt, null, null, async (targetUser) =>
                         {
                             var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username = targetUser }));
                             await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -505,7 +535,7 @@ public class HttpServerHost
                         ColorLog.Info("→AI", $"[@{userId}] {message}");
 
                         _activityMonitor.UpdateActivity();
-                        var reply = await _llmService.AskAsync(effectiveUserId.GetHashCode(), message ?? "");
+                        var reply = await _llmService.AskAsync(GetStableHashCode(effectiveUserId), message ?? "");
                         ColorLog.Success("AI→", reply);
 
                         var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
@@ -578,6 +608,24 @@ public class HttpServerHost
             await ctx.Response.OutputStream.WriteAsync(data);
         }
         else ctx.Response.StatusCode = 404;
+    }
+
+    private static long GetStableHashCode(string str)
+    {
+        unchecked
+        {
+            long hash1 = 5381;
+            long hash2 = hash1;
+
+            for (var i = 0; i < str.Length && str[i] != '\0'; i += 2)
+            {
+                hash1 = ((hash1 << 5) + hash1) ^ str[i];
+                if (i == str.Length - 1) break;
+                hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
+            }
+
+            return hash1 + hash2 * 1566083941;
+        }
     }
 }
 

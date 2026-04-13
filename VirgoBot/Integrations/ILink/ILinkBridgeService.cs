@@ -40,6 +40,56 @@ public sealed class ILinkBridgeService
         return Task.CompletedTask;
     }
 
+    public async Task<string> SendImageAsync(string imagePath, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(imagePath))
+        {
+            return "图片路径不能为空";
+        }
+
+        if (string.IsNullOrWhiteSpace(_config.SendUrl))
+        {
+            throw new InvalidOperationException("iLink send url is not configured.");
+        }
+
+        try
+        {
+            using var form = new MultipartFormDataContent();
+
+            if (imagePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                imagePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                var imageBytes = await _httpClient.GetByteArrayAsync(imagePath, cancellationToken);
+                var fileName = Path.GetFileName(new Uri(imagePath).AbsolutePath);
+                if (string.IsNullOrWhiteSpace(fileName)) fileName = "image.png";
+                var byteContent = new ByteArrayContent(imageBytes);
+                byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GuessMimeType(fileName));
+                form.Add(byteContent, "file", fileName);
+            }
+            else
+            {
+                if (!File.Exists(imagePath))
+                {
+                    return "文件不存在: " + imagePath;
+                }
+
+                var fileBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
+                var fileName = Path.GetFileName(imagePath);
+                var byteContent = new ByteArrayContent(fileBytes);
+                byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GuessMimeType(fileName));
+                form.Add(byteContent, "file", fileName);
+            }
+
+            using var response = await _httpClient.PostAsync(_config.SendUrl, form, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            return "图片已发送到iLink";
+        }
+        catch (Exception ex)
+        {
+            return $"发送图片失败: {ex.Message}";
+        }
+    }
+
     public async Task SendMessageAsync(string content, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -322,6 +372,20 @@ public sealed class ILinkBridgeService
         }
 
         return GetString(final, finalPropertyName);
+    }
+
+    private static string GuessMimeType(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            _ => "application/octet-stream"
+        };
     }
 }
 

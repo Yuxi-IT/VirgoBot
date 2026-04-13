@@ -2,6 +2,7 @@ using System.Text.Json;
 using Telegram.Bot;
 using VirgoBot.Configuration;
 using VirgoBot.Features.Email;
+using VirgoBot.Integrations.ILink;
 using VirgoBot.Services;
 
 namespace VirgoBot.Functions;
@@ -33,6 +34,9 @@ public class FunctionRegistry
 
     public void SetContactService(ContactService contactService)
         => RegisterAll(ContactFunctions.Register(contactService));
+
+    public void SetILinkBridgeService(ILinkBridgeService iLinkBridge)
+        => RegisterAll(ILinkFunctions.Register(iLinkBridge));
 
     public void SetTelegramBot(TelegramBotClient bot, long chatId)
     {

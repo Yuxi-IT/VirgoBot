@@ -10,6 +10,7 @@ public class Config
     public EmailConfig Email { get; set; } = new();
     public string MemoryFile { get; set; } = "system_memory.md";
     public string SoulFile { get; set; } = "soul.md";
+    public string RuleFile { get; set; } = "RULE.md";
     public ILinkConfig ILink { get; set; } = new();
     public ServerConfig Server { get; set; } = new();
 }

@@ -86,6 +86,7 @@ export default {
     ilink: 'iLink',
     systemMemory: '系统记忆',
     soul: 'Soul',
+    rule: '规则',
     model: '模型',
     baseUrl: '接口地址',
     listenUrl: '监听地址',

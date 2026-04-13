@@ -39,8 +39,10 @@ function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [systemMemory, setSystemMemory] = useState('');
   const [soulContent, setSoulContent] = useState('');
+  const [ruleContent, setRuleContent] = useState('');
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [soulLoading, setSoulLoading] = useState(false);
+  const [ruleLoading, setRuleLoading] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -88,6 +90,20 @@ function SettingsPage() {
     }
   };
 
+  const loadRule = async () => {
+    try {
+      setRuleLoading(true);
+      const res = await api.get<ContentResponse>('/api/config/rule');
+      if (res.success) {
+        setRuleContent(res.data.content);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setRuleLoading(false);
+    }
+  };
+
   const saveSystemMemory = async () => {
     try {
       await api.put('/api/config/system-memory', { content: systemMemory });
@@ -106,12 +122,23 @@ function SettingsPage() {
     }
   };
 
+  const saveRule = async () => {
+    try {
+      await api.put('/api/config/rule', { content: ruleContent });
+      toast.success(t('settings.saveSuccess'));
+    } catch {
+      toast.danger(t('settings.saveFailed'));
+    }
+  };
+
   const handleTabChange = (key: string | number) => {
     const tabKey = String(key);
     if (tabKey === 'systemMemory') {
       loadSystemMemory();
     } else if (tabKey === 'soul') {
       loadSoul();
+    } else if (tabKey === 'rule') {
+      loadRule();
     }
   };
 
@@ -147,6 +174,10 @@ function SettingsPage() {
               </Tabs.Tab>
               <Tabs.Tab id="soul">
                 {t('settings.soul')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="rule">
+                {t('settings.rule')}
                 <Tabs.Indicator />
               </Tabs.Tab>
             </Tabs.List>
@@ -292,6 +323,34 @@ function SettingsPage() {
                       className="font-mono w-full"
                     />
                     <Button onPress={saveSoul}>
+                      {t('common.save')}
+                    </Button>
+                  </div>
+                )}
+              </Card.Content>
+            </Card>
+          </Tabs.Panel>
+
+          {/* Rule Tab */}
+          <Tabs.Panel id="rule">
+            <Card className="mt-4">
+              <Card.Header>
+                <Card.Title>{t('settings.rule')}</Card.Title>
+              </Card.Header>
+              <Card.Content>
+                {ruleLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Spinner size="lg" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <TextArea
+                      value={ruleContent}
+                      onChange={(e) => setRuleContent(e.target.value)}
+                      rows={15}
+                      className="font-mono w-full"
+                    />
+                    <Button onPress={saveRule}>
                       {t('common.save')}
                     </Button>
                   </div>

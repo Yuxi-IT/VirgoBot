@@ -42,6 +42,7 @@ await emailService.InitializeAsync();
 functionRegistry.SetEmailService(emailService);
 functionRegistry.SetStickerService(stickerService);
 functionRegistry.SetContactService(contactService);
+functionRegistry.SetILinkBridgeService(iLinkBridge);
 
 // Create channel handlers
 var emailNotificationDispatcher = new EmailNotificationDispatcher(bot, config.AllowedUsers[0], wsManager, iLinkBridge);

@@ -86,6 +86,7 @@ export default {
     ilink: 'iLink',
     systemMemory: 'System Memory',
     soul: 'Soul',
+    rule: 'Rule',
     model: 'Model',
     baseUrl: 'Base URL',
     listenUrl: 'Listen URL',

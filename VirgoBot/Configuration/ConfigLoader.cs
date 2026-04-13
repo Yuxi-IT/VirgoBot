@@ -59,11 +59,18 @@ public static class ConfigLoader
     {
         var memoryPath = Path.Combine(AppConstants.ConfigDirectory, config.MemoryFile);
         var soulPath = Path.Combine(AppConstants.ConfigDirectory, config.SoulFile);
+        var rulePath = Path.Combine(AppConstants.ConfigDirectory, config.RuleFile);
 
         if (!File.Exists(memoryPath))
         {
             File.WriteAllText(memoryPath, "# 系统记忆\n\n你是 Virgo，一个智能助手。\n\n## 能力\n- 邮件收发管理\n- 文件读写操作\n- Shell命令执行\n- 网页浏览\n- 通讯录管理\n");
             ColorLog.Info("MEMORY", $"已创建默认记忆文件: {memoryPath}");
+        }
+
+        if (!File.Exists(rulePath))
+        {
+            File.WriteAllText(rulePath, "# Rules\n\n在此添加自定义规则，这些规则会自动加载到系统提示中。\n");
+            ColorLog.Info("RULE", $"已创建默认规则文件: {rulePath}");
         }
 
         var systemMemory = File.ReadAllText(memoryPath);
@@ -77,6 +84,12 @@ public static class ConfigLoader
         {
             systemMemory = systemMemory.Replace("{{EMAIL}}", config.Email.Address);
             ColorLog.Warning("MEMORY", $"Soul 文件不存在: {soulPath}");
+        }
+
+        var ruleContent = File.ReadAllText(rulePath);
+        if (!string.IsNullOrWhiteSpace(ruleContent))
+        {
+            systemMemory = $"{ruleContent}\n{systemMemory}";
         }
 
         ColorLog.Info("MEMORY", $"记忆已加载, [{systemMemory.Length}]Tokens");
