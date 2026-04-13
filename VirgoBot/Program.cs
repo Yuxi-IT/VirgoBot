@@ -13,7 +13,10 @@ using VirgoBot.Integrations.ILink;
 
 var configDir = "config";
 var configPath = Path.Combine(configDir, "config.json");
-var memoryPath = Path.Combine(configDir, "system_memory.md");
+
+var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))!;
+var memoryPath = Path.Combine("config", config.MemoryFile);
+var soulPath = Path.Combine("config", config.SoulFile);
 
 Directory.CreateDirectory(configDir);
 
@@ -56,7 +59,6 @@ if (!File.Exists(memoryPath))
     ColorLog.Info("MEMORY", $"已创建默认记忆文件: {memoryPath}");
 }
 
-var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))!;
 
 var wsClients = new List<WebSocket>();
 
@@ -68,8 +70,8 @@ var memoryService = new MemoryService();
 var functionRegistry = new FunctionRegistry();
 var stickerService = new StickerService("stickers");
 var contactService = new ContactService();
-var systemMemory = File.ReadAllText(Path.Combine("config", config.MemoryFile));
-var soulMemory = File.ReadAllText(Path.Combine("config", config.SoulFile));
+var systemMemory = File.ReadAllText(memoryPath);
+var soulMemory = File.ReadAllText(soulPath);
 
 systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\n{soulMemory}" ;
 
@@ -102,10 +104,6 @@ activityMonitor.Start();
 await iLinkBridge.StartAsync(HandleILinkIncomingMessageAsync, cts.Token);
 
 ColorLog.Success("HTTP", "API: http://localhost:5000/chat");
-if (config.ILink.Enabled)
-{
-    ColorLog.Success("ILINK", $"Bridge enabled: {config.ILink.WebhookPath}");
-}
 
 try
 {

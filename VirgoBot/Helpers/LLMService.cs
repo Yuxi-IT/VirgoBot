@@ -65,9 +65,10 @@ public class LLMService
             new StringContent(json, Encoding.UTF8, "application/json"));
 
         var result = await response.Content.ReadAsStringAsync();
-        ColorLog.Debug("API", $"响应: {result[..Math.Min(500, result.Length)]}");
+        
 
         using var doc = JsonDocument.Parse(result);
+
 
         if (!response.IsSuccessStatusCode)
         {
@@ -80,9 +81,19 @@ public class LLMService
             var error = TryGetErrorMessage(doc.RootElement) ?? "API 响应格式错误";
             return $"错误: {error}";
         }
-
         var message = choices[0].GetProperty("message");
         var assistantText = ExtractAssistantText(message);
+
+        try
+        {
+            ColorLog.Debug("API", $"思考：{ExtractTextContent(message.GetProperty("reasoning_content"))}");
+            ColorLog.Debug("API", $"输出：{assistantText}");
+            ColorLog.Debug("API", $"模型：{ExtractTextContent(doc.RootElement.GetProperty("model"))}");
+        }
+        catch(Exception ex)
+        {
+            ColorLog.Error("API", $"{ex.Message}\n{result}");
+        }
 
         if (!string.IsNullOrWhiteSpace(assistantText))
         {
