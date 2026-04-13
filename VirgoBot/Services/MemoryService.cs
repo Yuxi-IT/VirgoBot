@@ -96,6 +96,103 @@ public class MemoryService : IDisposable
         cmd.ExecuteNonQuery();
     }
 
+    public List<long> GetAllUserIds()
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT DISTINCT user_id FROM messages ORDER BY user_id";
+
+        var userIds = new List<long>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            userIds.Add(reader.GetInt64(0));
+        }
+        return userIds;
+    }
+
+    public int GetMessageCount(long userId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM messages WHERE user_id = @uid";
+        cmd.Parameters.AddWithValue("@uid", userId);
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    public DateTime? GetLastActiveTime(long userId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT MAX(created_at) FROM messages WHERE user_id = @uid";
+        cmd.Parameters.AddWithValue("@uid", userId);
+        var result = cmd.ExecuteScalar();
+        if (result is string dateStr)
+            return DateTime.Parse(dateStr);
+        return null;
+    }
+
+    public (List<MessageRecord> Messages, int Total) LoadMessagesWithPagination(long userId, int limit, int offset)
+    {
+        // Get total count
+        using var countCmd = _conn.CreateCommand();
+        countCmd.CommandText = "SELECT COUNT(*) FROM messages WHERE user_id = @uid";
+        countCmd.Parameters.AddWithValue("@uid", userId);
+        var total = Convert.ToInt32(countCmd.ExecuteScalar());
+
+        // Get paginated messages
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, role, content, created_at FROM messages WHERE user_id = @uid ORDER BY id DESC LIMIT @limit OFFSET @offset";
+        cmd.Parameters.AddWithValue("@uid", userId);
+        cmd.Parameters.AddWithValue("@limit", limit);
+        cmd.Parameters.AddWithValue("@offset", offset);
+
+        var messages = new List<MessageRecord>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            var contentJson = reader.GetString(2);
+            // Try to extract plain text from JSON content
+            string contentText;
+            try
+            {
+                var content = JsonSerializer.Deserialize<JsonElement>(contentJson);
+                if (content.ValueKind == JsonValueKind.Array)
+                {
+                    var parts = new List<string>();
+                    foreach (var item in content.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("text", out var textEl))
+                            parts.Add(textEl.GetString() ?? "");
+                        else if (item.TryGetProperty("type", out var typeEl) && typeEl.GetString() == "tool_use")
+                            parts.Add($"[tool: {item.GetProperty("name").GetString()}]");
+                    }
+                    contentText = string.Join(" ", parts);
+                }
+                else if (content.ValueKind == JsonValueKind.String)
+                {
+                    contentText = content.GetString() ?? "";
+                }
+                else
+                {
+                    contentText = contentJson;
+                }
+            }
+            catch
+            {
+                contentText = contentJson;
+            }
+
+            messages.Add(new MessageRecord
+            {
+                Id = reader.GetInt32(0),
+                Role = reader.GetString(1),
+                Content = contentText,
+                CreatedAt = reader.IsDBNull(3) ? DateTime.UtcNow : DateTime.Parse(reader.GetString(3))
+            });
+        }
+
+        messages.Reverse();
+        return (messages, total);
+    }
+
     public void Dispose()
     {
         if (!_disposed)
@@ -104,4 +201,12 @@ public class MemoryService : IDisposable
             _disposed = true;
         }
     }
+}
+
+public class MessageRecord
+{
+    public int Id { get; set; }
+    public string Role { get; set; } = "";
+    public string Content { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
 }
