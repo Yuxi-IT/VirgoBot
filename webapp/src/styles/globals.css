@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+*{
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+
+  font-family: 'vivo Sans', sans-serif;
+}
+
+body{
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  zoom: 1;
+  -moz-text-size-adjust: none;
+  -webkit-text-size-adjust: none;
+  -ms-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+#root {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+p{
+  -webkit-user-select: auto;
+  -khtml-user-select: auto;
+  -moz-user-select: auto;
+  -o-user-select: auto;
+  user-select: auto;
+}
+
+@font-face {
+  font-family: 'Libre Bodoni';
+  src: url('libre-bodoni.regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Libre Bodoni';
+  src: url('libre-bodoni.bold-italic.ttf') format('truetype');
+  font-weight: bold;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Libre Bodoni';
+  src: url('libre-bodoni.italic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'Libre Bodoni';
+  src: url('libre-bodoni.bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+.libre {
+  font-family: 'Libre Bodoni', serif;
+}
+
+
+@font-face {
+  font-family: 'vivo Sans';
+  src: url('/fonts/vivoSans-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'vivo Sans';
+  src: url('/fonts/vivoSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
