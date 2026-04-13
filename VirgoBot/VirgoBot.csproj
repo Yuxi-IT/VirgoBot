@@ -21,4 +21,10 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="config\RULE.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

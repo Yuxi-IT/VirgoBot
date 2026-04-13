@@ -71,7 +71,7 @@ public static class ConfigLoader
         if (File.Exists(soulPath))
         {
             var soulMemory = File.ReadAllText(soulPath);
-            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\n{soulMemory}";
+            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\nyour SoulMemory: \n{soulMemory}";
         }
         else
         {
