@@ -1,0 +1,308 @@
+import { useEffect, useState } from 'react';
+import { Card, Tabs, Button, Spinner, Switch, TextField, Label, Input, TextArea, Separator, Chip, toast } from '@heroui/react';
+import DefaultLayout from '../../layout/DefaultLayout';
+import { useI18n } from '../../i18n';
+import { api } from '../../services/api';
+
+interface ConfigData {
+  model: string;
+  baseUrl: string;
+  server: {
+    listenUrl: string;
+    maxTokens: number;
+    messageLimit: number;
+  };
+  email: {
+    imapHost: string;
+    address: string;
+    enabled: boolean;
+  };
+  iLink: {
+    enabled: boolean;
+  };
+  allowedUsers: number[];
+}
+
+interface ConfigResponse {
+  success: boolean;
+  data: ConfigData;
+}
+
+interface ContentResponse {
+  success: boolean;
+  data: { content: string };
+}
+
+function SettingsPage() {
+  const { t } = useI18n();
+  const [config, setConfig] = useState<ConfigData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [systemMemory, setSystemMemory] = useState('');
+  const [soulContent, setSoulContent] = useState('');
+  const [memoryLoading, setMemoryLoading] = useState(false);
+  const [soulLoading, setSoulLoading] = useState(false);
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get<ConfigResponse>('/api/config');
+      if (res.success) {
+        setConfig(res.data);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSystemMemory = async () => {
+    try {
+      setMemoryLoading(true);
+      const res = await api.get<ContentResponse>('/api/config/system-memory');
+      if (res.success) {
+        setSystemMemory(res.data.content);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setMemoryLoading(false);
+    }
+  };
+
+  const loadSoul = async () => {
+    try {
+      setSoulLoading(true);
+      const res = await api.get<ContentResponse>('/api/config/soul');
+      if (res.success) {
+        setSoulContent(res.data.content);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setSoulLoading(false);
+    }
+  };
+
+  const saveSystemMemory = async () => {
+    try {
+      await api.put('/api/config/system-memory', { content: systemMemory });
+      toast.success(t('settings.saveSuccess'));
+    } catch {
+      toast.danger(t('settings.saveFailed'));
+    }
+  };
+
+  const saveSoul = async () => {
+    try {
+      await api.put('/api/config/soul', { content: soulContent });
+      toast.success(t('settings.saveSuccess'));
+    } catch {
+      toast.danger(t('settings.saveFailed'));
+    }
+  };
+
+  const handleTabChange = (key: string | number) => {
+    const tabKey = String(key);
+    if (tabKey === 'systemMemory') {
+      loadSystemMemory();
+    } else if (tabKey === 'soul') {
+      loadSoul();
+    }
+  };
+
+  if (loading) {
+    return (
+      <DefaultLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <Spinner size="lg" />
+        </div>
+      </DefaultLayout>
+    );
+  }
+
+  return (
+    <DefaultLayout>
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-6">{t('settings.title')}</h1>
+
+        <Tabs onSelectionChange={handleTabChange}>
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="Settings tabs">
+              <Tabs.Tab id="general">
+                {t('settings.general')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="email">
+                {t('settings.email')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="systemMemory">
+                {t('settings.systemMemory')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="soul">
+                {t('settings.soul')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+
+          {/* General Tab */}
+          <Tabs.Panel id="general">
+            <Card className="mt-4">
+              <Card.Header>
+                <Card.Title>{t('settings.general')}</Card.Title>
+              </Card.Header>
+              <Card.Content>
+                <div className="space-y-4">
+                  <TextField isDisabled value={config?.model ?? ''}>
+                    <Label>{t('settings.model')}</Label>
+                    <Input />
+                  </TextField>
+                  <TextField isDisabled value={config?.baseUrl ?? ''}>
+                    <Label>{t('settings.baseUrl')}</Label>
+                    <Input />
+                  </TextField>
+
+                  <Separator />
+
+                  <h3 className="font-semibold">{t('dashboard.serverConfig')}</h3>
+                  <TextField isDisabled value={config?.server.listenUrl ?? ''}>
+                    <Label>{t('settings.listenUrl')}</Label>
+                    <Input />
+                  </TextField>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <TextField isDisabled value={String(config?.server.maxTokens ?? '')}>
+                      <Label>{t('settings.maxTokens')}</Label>
+                      <Input />
+                    </TextField>
+                    <TextField isDisabled value={String(config?.server.messageLimit ?? '')}>
+                      <Label>{t('settings.messageLimit')}</Label>
+                      <Input />
+                    </TextField>
+                  </div>
+
+                  <Separator />
+
+                  <h3 className="font-semibold">{t('settings.allowedUsers')}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {config?.allowedUsers.map(userId => (
+                      <Chip key={userId} size="sm" variant="soft">{userId}</Chip>
+                    ))}
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex items-center gap-4">
+                    <Switch isSelected={config?.iLink.enabled ?? false} isDisabled>
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                      <Switch.Content>
+                        <Label>iLink {t('settings.enabled')}</Label>
+                      </Switch.Content>
+                    </Switch>
+                  </div>
+                </div>
+              </Card.Content>
+            </Card>
+          </Tabs.Panel>
+
+          {/* Email Tab */}
+          <Tabs.Panel id="email">
+            <Card className="mt-4">
+              <Card.Header>
+                <Card.Title>{t('settings.email')}</Card.Title>
+              </Card.Header>
+              <Card.Content>
+                <div className="space-y-4">
+                  <TextField isDisabled value={config?.email.imapHost ?? ''}>
+                    <Label>{t('settings.imapHost')}</Label>
+                    <Input />
+                  </TextField>
+                  <TextField isDisabled value={config?.email.address ?? ''}>
+                    <Label>{t('settings.emailAddress')}</Label>
+                    <Input />
+                  </TextField>
+                  <div className="flex items-center gap-4">
+                    <Switch isSelected={config?.email.enabled ?? false} isDisabled>
+                      <Switch.Control>
+                        <Switch.Thumb />
+                      </Switch.Control>
+                      <Switch.Content>
+                        <Label>{t('settings.enabled')}</Label>
+                      </Switch.Content>
+                    </Switch>
+                  </div>
+                </div>
+              </Card.Content>
+            </Card>
+          </Tabs.Panel>
+
+          {/* System Memory Tab */}
+          <Tabs.Panel id="systemMemory">
+            <Card className="mt-4">
+              <Card.Header>
+                <Card.Title>{t('settings.systemMemory')}</Card.Title>
+              </Card.Header>
+              <Card.Content>
+                {memoryLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Spinner size="lg" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <TextArea
+                      value={systemMemory}
+                      onChange={(e) => setSystemMemory(e.target.value)}
+                      rows={15}
+                      className="font-mono w-full"
+                    />
+                    <Button onPress={saveSystemMemory}>
+                      {t('common.save')}
+                    </Button>
+                  </div>
+                )}
+              </Card.Content>
+            </Card>
+          </Tabs.Panel>
+
+          {/* Soul Tab */}
+          <Tabs.Panel id="soul">
+            <Card className="mt-4">
+              <Card.Header>
+                <Card.Title>{t('settings.soul')}</Card.Title>
+              </Card.Header>
+              <Card.Content>
+                {soulLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Spinner size="lg" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <TextArea
+                      value={soulContent}
+                      onChange={(e) => setSoulContent(e.target.value)}
+                      rows={15}
+                      className="font-mono w-full"
+                    />
+                    <Button onPress={saveSoul}>
+                      {t('common.save')}
+                    </Button>
+                  </div>
+                )}
+              </Card.Content>
+            </Card>
+          </Tabs.Panel>
+        </Tabs>
+      </div>
+    </DefaultLayout>
+  );
+}
+
+export default SettingsPage;
