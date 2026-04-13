@@ -19,6 +19,11 @@ public class HttpServerHost
     private readonly ActivityMonitor _activityMonitor;
     private readonly ILinkBridgeService _iLinkBridge;
     private readonly Func<ILinkIncomingMessage, Task> _handleILinkMessage;
+    private readonly MemoryService _memoryService;
+    private readonly ContactService _contactService;
+    private readonly LogService _logService;
+
+    private static readonly DateTime StartTime = DateTime.UtcNow;
 
     public HttpServerHost(
         Config config,
@@ -26,7 +31,10 @@ public class HttpServerHost
         WebSocketClientManager wsManager,
         ActivityMonitor activityMonitor,
         ILinkBridgeService iLinkBridge,
-        Func<ILinkIncomingMessage, Task> handleILinkMessage)
+        Func<ILinkIncomingMessage, Task> handleILinkMessage,
+        MemoryService memoryService,
+        ContactService contactService,
+        LogService logService)
     {
         _config = config;
         _llmService = llmService;
@@ -34,6 +42,9 @@ public class HttpServerHost
         _activityMonitor = activityMonitor;
         _iLinkBridge = iLinkBridge;
         _handleILinkMessage = handleILinkMessage;
+        _memoryService = memoryService;
+        _contactService = contactService;
+        _logService = logService;
     }
 
     public async Task StartAsync()
@@ -56,7 +67,7 @@ public class HttpServerHost
                     }
 
                     ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-                    ctx.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                    ctx.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
                     ctx.Response.Headers.Add("Access-Control-Allow-Headers", "*");
 
                     if (ctx.Request.HttpMethod == "OPTIONS")
@@ -77,6 +88,63 @@ public class HttpServerHost
                     {
                         await HandleStickerRequest(ctx);
                     }
+                    // ===== Management API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/status" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleStatusRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/messages/users" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetUsersRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/messages" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetMessagesRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/contacts" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetContactsRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/contacts" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleAddContactRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/contacts/") == true && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateContactRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/contacts/") == true && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await HandleDeleteContactRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetConfigRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/system-memory" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetSystemMemoryRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/system-memory" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateSystemMemoryRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/soul" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetSoulRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/soul" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateSoulRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/logs" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetLogsRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/logs" && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await HandleClearLogsRequest(ctx);
+                    }
                     else
                     {
                         ctx.Response.StatusCode = 404;
@@ -85,12 +153,306 @@ public class HttpServerHost
                 catch (Exception ex)
                 {
                     ColorLog.Error("HTTP", $"请求处理失败: {ex.Message}");
-                    ctx.Response.StatusCode = 500;
+                    try { await SendErrorResponse(ctx, 500, ex.Message); } catch { ctx.Response.StatusCode = 500; }
                 }
                 finally { ctx.Response.Close(); }
             });
         }
     }
+
+    // ===== Helper Methods =====
+
+    private static async Task SendJsonResponse(HttpListenerContext ctx, object data, int statusCode = 200)
+    {
+        ctx.Response.StatusCode = statusCode;
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        var bytes = Encoding.UTF8.GetBytes(json);
+        ctx.Response.ContentLength64 = bytes.Length;
+        await ctx.Response.OutputStream.WriteAsync(bytes);
+    }
+
+    private static async Task SendErrorResponse(HttpListenerContext ctx, int statusCode, string message)
+    {
+        await SendJsonResponse(ctx, new { success = false, error = message }, statusCode);
+    }
+
+    private static async Task<T?> ReadRequestBody<T>(HttpListenerContext ctx)
+    {
+        using var reader = new StreamReader(ctx.Request.InputStream);
+        var body = await reader.ReadToEndAsync();
+        return JsonSerializer.Deserialize<T>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+    }
+
+    private static string GetQueryParam(HttpListenerContext ctx, string key, string defaultValue = "")
+    {
+        return ctx.Request.QueryString[key] ?? defaultValue;
+    }
+
+    // ===== Status API =====
+
+    private async Task HandleStatusRequest(HttpListenerContext ctx)
+    {
+        var uptime = DateTime.UtcNow - StartTime;
+        var uptimeStr = uptime.TotalHours >= 1
+            ? $"{(int)uptime.TotalHours}h {uptime.Minutes}m"
+            : $"{uptime.Minutes}m {uptime.Seconds}s";
+
+        var clients = _wsManager.GetSnapshot();
+
+        var data = new
+        {
+            success = true,
+            data = new
+            {
+                botName = "VirgoBot",
+                model = _config.Model,
+                uptime = uptimeStr,
+                startTime = StartTime.ToString("o"),
+                connectedClients = clients.Count,
+                channels = new Dictionary<string, object>
+                {
+                    ["telegram"] = new { enabled = true, status = "running" },
+                    ["http"] = new { enabled = true, status = "running" },
+                    ["webSocket"] = new { enabled = true, status = "running", clients = clients.Count },
+                    ["email"] = new { enabled = true, status = "monitoring" },
+                    ["iLink"] = new { enabled = _config.ILink.Enabled, status = _config.ILink.Enabled ? "running" : "disabled" }
+                },
+                server = new
+                {
+                    listenUrl = _config.Server.ListenUrl,
+                    maxTokens = _config.Server.MaxTokens,
+                    messageLimit = _config.Server.MessageLimit
+                }
+            }
+        };
+
+        await SendJsonResponse(ctx, data);
+    }
+
+    // ===== Messages API =====
+
+    private async Task HandleGetUsersRequest(HttpListenerContext ctx)
+    {
+        var userIds = _memoryService.GetAllUserIds();
+        var users = userIds.Select(uid => new
+        {
+            userId = uid.ToString(),
+            messageCount = _memoryService.GetMessageCount(uid),
+            lastActive = _memoryService.GetLastActiveTime(uid)?.ToString("o") ?? ""
+        }).ToList();
+
+        await SendJsonResponse(ctx, new { success = true, data = users });
+    }
+
+    private async Task HandleGetMessagesRequest(HttpListenerContext ctx)
+    {
+        var userIdStr = GetQueryParam(ctx, "userId");
+        var limitStr = GetQueryParam(ctx, "limit", "50");
+        var offsetStr = GetQueryParam(ctx, "offset", "0");
+
+        if (!long.TryParse(userIdStr, out var userId))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid userId");
+            return;
+        }
+
+        int.TryParse(limitStr, out var limit);
+        int.TryParse(offsetStr, out var offset);
+        if (limit <= 0) limit = 50;
+        if (offset < 0) offset = 0;
+
+        var (messages, total) = _memoryService.LoadMessagesWithPagination(userId, limit, offset);
+
+        var data = new
+        {
+            messages = messages.Select(m => new
+            {
+                id = m.Id,
+                role = m.Role,
+                content = m.Content,
+                createdAt = m.CreatedAt.ToString("o")
+            }),
+            total,
+            userId = userIdStr
+        };
+
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    // ===== Contacts API =====
+
+    private async Task HandleGetContactsRequest(HttpListenerContext ctx)
+    {
+        var contacts = _contactService.GetAllContacts();
+        await SendJsonResponse(ctx, new { success = true, data = contacts });
+    }
+
+    private async Task HandleAddContactRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<ContactRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Name))
+        {
+            await SendErrorResponse(ctx, 400, "Name is required");
+            return;
+        }
+
+        _contactService.AddContact(body.Name, body.Email, body.Phone, body.Notes);
+        await SendJsonResponse(ctx, new { success = true, message = "Contact added" });
+    }
+
+    private async Task HandleUpdateContactRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/contacts/", "");
+
+        if (!int.TryParse(idStr, out var id))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid contact ID");
+            return;
+        }
+
+        var body = await ReadRequestBody<ContactRequest>(ctx);
+        if (body == null)
+        {
+            await SendErrorResponse(ctx, 400, "Invalid request body");
+            return;
+        }
+
+        _contactService.UpdateContact(id, body.Name, body.Email, body.Phone, body.Notes);
+        await SendJsonResponse(ctx, new { success = true, message = "Contact updated" });
+    }
+
+    private async Task HandleDeleteContactRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/contacts/", "");
+
+        if (!int.TryParse(idStr, out var id))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid contact ID");
+            return;
+        }
+
+        _contactService.DeleteContact(id);
+        await SendJsonResponse(ctx, new { success = true, message = "Contact deleted" });
+    }
+
+    // ===== Config API =====
+
+    private async Task HandleGetConfigRequest(HttpListenerContext ctx)
+    {
+        var data = new
+        {
+            model = _config.Model,
+            baseUrl = _config.BaseUrl,
+            server = new
+            {
+                listenUrl = _config.Server.ListenUrl,
+                maxTokens = _config.Server.MaxTokens,
+                messageLimit = _config.Server.MessageLimit
+            },
+            email = new
+            {
+                imapHost = _config.Email.ImapHost,
+                address = _config.Email.Address,
+                enabled = !string.IsNullOrEmpty(_config.Email.Address) && _config.Email.Address != "your@email.com"
+            },
+            iLink = new
+            {
+                enabled = _config.ILink.Enabled
+            },
+            allowedUsers = _config.AllowedUsers
+        };
+
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private async Task HandleGetSystemMemoryRequest(HttpListenerContext ctx)
+    {
+        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, _config.MemoryFile);
+        var content = File.Exists(memoryPath) ? await File.ReadAllTextAsync(memoryPath) : "";
+        await SendJsonResponse(ctx, new { success = true, data = new { content } });
+    }
+
+    private async Task HandleUpdateSystemMemoryRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<ContentRequest>(ctx);
+        if (body == null)
+        {
+            await SendErrorResponse(ctx, 400, "Invalid request body");
+            return;
+        }
+
+        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, _config.MemoryFile);
+        await File.WriteAllTextAsync(memoryPath, body.Content ?? "");
+        ColorLog.Success("CONFIG", "系统记忆已更新");
+        await SendJsonResponse(ctx, new { success = true, message = "System memory updated" });
+    }
+
+    private async Task HandleGetSoulRequest(HttpListenerContext ctx)
+    {
+        var soulPath = Path.Combine(AppConstants.ConfigDirectory, _config.SoulFile);
+        var content = File.Exists(soulPath) ? await File.ReadAllTextAsync(soulPath) : "";
+        await SendJsonResponse(ctx, new { success = true, data = new { content } });
+    }
+
+    private async Task HandleUpdateSoulRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<ContentRequest>(ctx);
+        if (body == null)
+        {
+            await SendErrorResponse(ctx, 400, "Invalid request body");
+            return;
+        }
+
+        var soulPath = Path.Combine(AppConstants.ConfigDirectory, _config.SoulFile);
+        await File.WriteAllTextAsync(soulPath, body.Content ?? "");
+        ColorLog.Success("CONFIG", "Soul 文件已更新");
+        await SendJsonResponse(ctx, new { success = true, message = "Soul updated" });
+    }
+
+    // ===== Logs API =====
+
+    private async Task HandleGetLogsRequest(HttpListenerContext ctx)
+    {
+        var level = GetQueryParam(ctx, "level");
+        var limitStr = GetQueryParam(ctx, "limit", "100");
+        var offsetStr = GetQueryParam(ctx, "offset", "0");
+
+        int.TryParse(limitStr, out var limit);
+        int.TryParse(offsetStr, out var offset);
+        if (limit <= 0) limit = 100;
+        if (offset < 0) offset = 0;
+
+        var (logs, total) = _logService.GetLogs(
+            string.IsNullOrEmpty(level) ? null : level,
+            limit, offset);
+
+        var data = new
+        {
+            logs = logs.Select(l => new
+            {
+                id = l.Id,
+                level = l.Level,
+                component = l.Component,
+                message = l.Message,
+                timestamp = l.Timestamp.ToString("o")
+            }),
+            total
+        };
+
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private async Task HandleClearLogsRequest(HttpListenerContext ctx)
+    {
+        _logService.Clear();
+        ColorLog.Info("LOGS", "日志已清空");
+        await SendJsonResponse(ctx, new { success = true, message = "Logs cleared" });
+    }
+
+    // ===== Original Handlers =====
 
     private async Task HandleWebSocketConnection(HttpListenerContext ctx)
     {
@@ -217,4 +579,18 @@ public class HttpServerHost
         }
         else ctx.Response.StatusCode = 404;
     }
+}
+
+// Request DTOs for management API
+public record ContactRequest
+{
+    public string? Name { get; init; }
+    public string? Email { get; init; }
+    public string? Phone { get; init; }
+    public string? Notes { get; init; }
+}
+
+public record ContentRequest
+{
+    public string? Content { get; init; }
 }

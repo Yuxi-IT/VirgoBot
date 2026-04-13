@@ -7,6 +7,10 @@ using VirgoBot.Integrations.ILink;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
 
+// Create log service first so all logs are captured
+var logService = new LogService();
+ColorLog.SetLogService(logService);
+
 // Load configuration
 var config = ConfigLoader.Load();
 var systemMemory = ConfigLoader.LoadSystemMemory(config);
@@ -44,7 +48,7 @@ var emailNotificationDispatcher = new EmailNotificationDispatcher(bot, config.Al
 var emailManager = new EmailManager(emailService, emailNotificationDispatcher, config.AllowedUsers[0], llmService);
 var activityMonitor = new ActivityMonitor(llmService, bot, wsManager, config.AllowedUsers[0]);
 var telegramHandler = new TelegramBotHandler(config, bot, llmService, memoryService, functionRegistry, messageHelper, emailManager, activityMonitor, iLinkBridge, cts.Token);
-var httpServer = new HttpServerHost(config, llmService, wsManager, activityMonitor, iLinkBridge, telegramHandler.HandleILinkIncomingMessageAsync);
+var httpServer = new HttpServerHost(config, llmService, wsManager, activityMonitor, iLinkBridge, telegramHandler.HandleILinkIncomingMessageAsync, memoryService, contactService, logService);
 
 // Start all channels
 _ = Task.Run(() => emailManager.StartMonitoring());
