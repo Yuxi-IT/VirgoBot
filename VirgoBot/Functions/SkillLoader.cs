@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using VirgoBot.Configuration;
@@ -8,6 +9,11 @@ namespace VirgoBot.Functions;
 public static class SkillLoader
 {
     private const int CommandTimeoutSeconds = 60;
+
+    private static readonly HttpClient _httpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(CommandTimeoutSeconds)
+    };
 
     public static IEnumerable<FunctionDefinition> LoadAll()
     {
@@ -53,8 +59,8 @@ public static class SkillLoader
             ?? throw new InvalidOperationException("Skill 缺少 name 字段");
         var description = root.GetProperty("description").GetString()
             ?? throw new InvalidOperationException("Skill 缺少 description 字段");
-        var command = root.GetProperty("command").GetString()
-            ?? throw new InvalidOperationException("Skill 缺少 command 字段");
+
+        var mode = root.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
 
         var parameters = new List<SkillParameter>();
         if (root.TryGetProperty("parameters", out var paramsElement))
@@ -72,13 +78,41 @@ public static class SkillLoader
         }
 
         var inputSchema = BuildInputSchema(parameters);
-        var commandTemplate = command;
 
-        return new FunctionDefinition(name, description, inputSchema, input =>
+        if (mode == "http")
         {
-            var resolvedCommand = ResolveCommand(commandTemplate, parameters, input);
-            return Task.FromResult(ExecuteShell(resolvedCommand));
-        });
+            var httpEl = root.GetProperty("http");
+            var method = httpEl.GetProperty("method").GetString() ?? "GET";
+            var urlTemplate = httpEl.GetProperty("url").GetString() ?? "";
+
+            var headerTemplates = new Dictionary<string, string>();
+            if (httpEl.TryGetProperty("headers", out var headersEl) && headersEl.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var h in headersEl.EnumerateObject())
+                {
+                    headerTemplates[h.Name] = h.Value.GetString() ?? "";
+                }
+            }
+
+            var bodyTemplate = httpEl.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
+
+            return new FunctionDefinition(name, description, inputSchema, async input =>
+            {
+                return await ExecuteHttpAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input);
+            });
+        }
+        else
+        {
+            var command = root.GetProperty("command").GetString()
+                ?? throw new InvalidOperationException("Skill 缺少 command 字段");
+            var commandTemplate = command;
+
+            return new FunctionDefinition(name, description, inputSchema, input =>
+            {
+                var resolvedCommand = ResolveCommand(commandTemplate, parameters, input);
+                return Task.FromResult(ExecuteShell(resolvedCommand));
+            });
+        }
     }
 
     private static object BuildInputSchema(List<SkillParameter> parameters)
@@ -115,9 +149,9 @@ public static class SkillLoader
         };
     }
 
-    private static string ResolveCommand(string commandTemplate, List<SkillParameter> parameters, JsonElement input)
+    private static string ResolveTemplate(string template, List<SkillParameter> parameters, JsonElement input)
     {
-        var result = commandTemplate;
+        var result = template;
 
         foreach (var param in parameters)
         {
@@ -134,10 +168,86 @@ public static class SkillLoader
             result = result.Replace(placeholder, value);
         }
 
+        return result;
+    }
+
+    private static string ResolveCommand(string commandTemplate, List<SkillParameter> parameters, JsonElement input)
+    {
+        var result = ResolveTemplate(commandTemplate, parameters, input);
+
         // 清理多余空格
         result = Regex.Replace(result, @"\s{2,}", " ").Trim();
 
         return result;
+    }
+
+    private static async Task<string> ExecuteHttpAsync(
+        string method, string urlTemplate,
+        Dictionary<string, string> headerTemplates, string bodyTemplate,
+        List<SkillParameter> parameters, JsonElement input)
+    {
+        try
+        {
+            var url = ResolveTemplate(urlTemplate, parameters, input);
+            var body = ResolveTemplate(bodyTemplate, parameters, input);
+
+            var resolvedHeaders = new Dictionary<string, string>();
+            foreach (var kv in headerTemplates)
+            {
+                resolvedHeaders[kv.Key] = ResolveTemplate(kv.Value, parameters, input);
+            }
+
+            var httpMethod = method.ToUpperInvariant() switch
+            {
+                "GET" => HttpMethod.Get,
+                "POST" => HttpMethod.Post,
+                "PUT" => HttpMethod.Put,
+                "DELETE" => HttpMethod.Delete,
+                "PATCH" => HttpMethod.Patch,
+                _ => HttpMethod.Get
+            };
+
+            using var request = new HttpRequestMessage(httpMethod, url);
+
+            // Determine content type from headers
+            var contentType = "application/json";
+            foreach (var kv in resolvedHeaders)
+            {
+                if (kv.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))
+                {
+                    contentType = kv.Value;
+                }
+                else
+                {
+                    request.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
+                }
+            }
+
+            // Set body for methods that support it
+            if (!string.IsNullOrEmpty(body) &&
+                (httpMethod == HttpMethod.Post || httpMethod == HttpMethod.Put || httpMethod == HttpMethod.Patch))
+            {
+                request.Content = new StringContent(body, Encoding.UTF8, contentType);
+            }
+
+            var response = await _httpClient.SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                return responseBody;
+            }
+
+            return $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{responseBody}";
+        }
+        catch (TaskCanceledException)
+        {
+            return $"HTTP 请求超时({CommandTimeoutSeconds}秒)";
+        }
+        catch (Exception ex)
+        {
+            return $"HTTP 请求失败: {ex.Message}";
+        }
     }
 
     private static string ExecuteShell(string command)
@@ -193,6 +303,30 @@ public static class SkillLoader
 
         var json = JsonSerializer.Serialize(example, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(dir, "_example.json"), json);
+
+        var httpExample = new
+        {
+            name = "example_http_skill",
+            description = "这是一个 HTTP 模式的示例 Skill，以下划线开头的文件不会被加载",
+            mode = "http",
+            parameters = new[]
+            {
+                new { name = "city", type = "string", description = "城市名称", required = true }
+            },
+            http = new
+            {
+                method = "GET",
+                url = "https://api.example.com/weather/{{city}}",
+                headers = new Dictionary<string, string>
+                {
+                    ["Accept"] = "application/json"
+                },
+                body = ""
+            }
+        };
+
+        var httpJson = JsonSerializer.Serialize(httpExample, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(Path.Combine(dir, "_example_http.json"), httpJson);
     }
 
     private class SkillParameter

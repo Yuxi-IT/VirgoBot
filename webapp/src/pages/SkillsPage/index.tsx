@@ -5,11 +5,15 @@ import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 
+interface HttpHeader { key: string; value: string; }
+interface SkillHttpConfig { method: string; url: string; headers: Record<string, string>; body: string; }
+
 interface SkillInfo {
   fileName: string;
   name: string;
   description: string;
   command: string;
+  mode: string;
   parameterCount: number;
 }
 
@@ -37,8 +41,12 @@ interface SkillJson {
   name: string;
   description: string;
   parameters: SkillParam[];
-  command: string;
+  command?: string;
+  mode?: string;
+  http?: SkillHttpConfig;
 }
+
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
 function SkillsPage() {
   const { t } = useI18n();
@@ -58,6 +66,13 @@ function SkillsPage() {
   const [formParams, setFormParams] = useState<SkillParam[]>([]);
   const [formError, setFormError] = useState('');
 
+  // HTTP mode state
+  const [formMode, setFormMode] = useState<'command' | 'http'>('command');
+  const [formHttpMethod, setFormHttpMethod] = useState('GET');
+  const [formHttpUrl, setFormHttpUrl] = useState('');
+  const [formHttpHeaders, setFormHttpHeaders] = useState<HttpHeader[]>([]);
+  const [formHttpBody, setFormHttpBody] = useState('');
+
   useEffect(() => {
     loadSkills();
   }, []);
@@ -76,13 +91,22 @@ function SkillsPage() {
     }
   };
 
-  const openAddModal = () => {
-    setEditingSkill(null);
+  const resetForm = () => {
     setFormName('');
     setFormDescription('');
     setFormCommand('');
     setFormParams([]);
     setFormError('');
+    setFormMode('command');
+    setFormHttpMethod('GET');
+    setFormHttpUrl('');
+    setFormHttpHeaders([]);
+    setFormHttpBody('');
+  };
+
+  const openAddModal = () => {
+    setEditingSkill(null);
+    resetForm();
     formModal.open();
   };
 
@@ -95,9 +119,30 @@ function SkillsPage() {
         setEditingSkill(skillName);
         setFormName(parsed.name);
         setFormDescription(parsed.description || '');
-        setFormCommand(parsed.command || '');
         setFormParams(parsed.parameters || []);
         setFormError('');
+
+        const mode = parsed.mode === 'http' ? 'http' : 'command';
+        setFormMode(mode);
+
+        if (mode === 'http' && parsed.http) {
+          setFormHttpMethod(parsed.http.method || 'GET');
+          setFormHttpUrl(parsed.http.url || '');
+          setFormHttpBody(parsed.http.body || '');
+          // Convert headers object to array
+          const headers: HttpHeader[] = parsed.http.headers
+            ? Object.entries(parsed.http.headers).map(([key, value]) => ({ key, value }))
+            : [];
+          setFormHttpHeaders(headers);
+          setFormCommand('');
+        } else {
+          setFormCommand(parsed.command || '');
+          setFormHttpMethod('GET');
+          setFormHttpUrl('');
+          setFormHttpHeaders([]);
+          setFormHttpBody('');
+        }
+
         formModal.open();
       }
     } catch {
@@ -124,6 +169,21 @@ function SkillsPage() {
     setFormParams(formParams.filter((_, i) => i !== index));
   };
 
+  // Header CRUD helpers
+  const addHttpHeader = () => {
+    setFormHttpHeaders([...formHttpHeaders, { key: '', value: '' }]);
+  };
+
+  const updateHttpHeader = (index: number, field: 'key' | 'value', value: string) => {
+    const updated = [...formHttpHeaders];
+    updated[index][field] = value;
+    setFormHttpHeaders(updated);
+  };
+
+  const removeHttpHeader = (index: number) => {
+    setFormHttpHeaders(formHttpHeaders.filter((_, i) => i !== index));
+  };
+
   const handleSave = async () => {
     setFormError('');
 
@@ -132,12 +192,45 @@ function SkillsPage() {
       return;
     }
 
-    const skillJson: SkillJson = {
-      name: formName.trim(),
-      description: formDescription.trim(),
-      parameters: formParams.filter(p => p.name.trim()),
-      command: formCommand.trim(),
-    };
+    if (formMode === 'command' && !formCommand.trim()) {
+      setFormError(t('skills.commandRequired'));
+      return;
+    }
+
+    if (formMode === 'http' && !formHttpUrl.trim()) {
+      setFormError(t('skills.urlRequired'));
+      return;
+    }
+
+    let skillJson: SkillJson;
+
+    if (formMode === 'http') {
+      // Convert headers array to object
+      const headersObj: Record<string, string> = {};
+      formHttpHeaders.filter(h => h.key.trim()).forEach(h => {
+        headersObj[h.key.trim()] = h.value;
+      });
+
+      skillJson = {
+        name: formName.trim(),
+        description: formDescription.trim(),
+        parameters: formParams.filter(p => p.name.trim()),
+        mode: 'http',
+        http: {
+          method: formHttpMethod,
+          url: formHttpUrl.trim(),
+          headers: headersObj,
+          body: formHttpBody,
+        },
+      };
+    } else {
+      skillJson = {
+        name: formName.trim(),
+        description: formDescription.trim(),
+        parameters: formParams.filter(p => p.name.trim()),
+        command: formCommand.trim(),
+      };
+    }
 
     const content = JSON.stringify(skillJson, null, 2);
 
@@ -176,6 +269,10 @@ function SkillsPage() {
         s.command.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : skills;
+
+  const isSaveDisabled = !formName.trim() ||
+    (formMode === 'command' && !formCommand.trim()) ||
+    (formMode === 'http' && !formHttpUrl.trim());
 
   return (
     <DefaultLayout>
@@ -217,7 +314,8 @@ function SkillsPage() {
                     <Table.Header>
                       <Table.Column>{t('skills.name')}</Table.Column>
                       <Table.Column>{t('skills.description')}</Table.Column>
-                      <Table.Column>{t('skills.command')}</Table.Column>
+                      <Table.Column>{t('skills.mode')}</Table.Column>
+                      <Table.Column>{t('skills.commandOrUrl')}</Table.Column>
                       <Table.Column>{t('skills.parameterCount')}</Table.Column>
                       <Table.Column>{t('common.actions')}</Table.Column>
                     </Table.Header>
@@ -233,8 +331,17 @@ function SkillsPage() {
                             </div>
                           </Table.Cell>
                           <Table.Cell>
+                            <Chip
+                              size="sm"
+                              color={skill.mode === 'http' ? 'accent' : 'default'}
+                              variant="soft"
+                            >
+                              {skill.mode === 'http' ? 'HTTP' : 'Command'}
+                            </Chip>
+                          </Table.Cell>
+                          <Table.Cell>
                             <Chip size="sm" variant="soft">
-                              <span className="font-mono text-xs">{skill.command}</span>
+                              <span className="font-mono text-xs">{skill.command.length > 30 ? skill.command.substring(0, 30) + '...' : skill.command}</span>
                             </Chip>
                           </Table.Cell>
                           <Table.Cell>
@@ -288,10 +395,111 @@ function SkillsPage() {
                       <Input placeholder={t('skills.description')} />
                     </TextField>
 
-                    <TextField isRequired value={formCommand} onChange={setFormCommand}>
-                      <Label>{t('skills.command')}</Label>
-                      <Input placeholder="e.g. ffmpeg -i {{input}} {{output}}" className="font-mono" />
-                    </TextField>
+                    {/* Mode Toggle */}
+                    <div>
+                      <Label>{t('skills.mode')}</Label>
+                      <div className="flex gap-2 mt-1">
+                        <Button
+                          size="sm"
+                          variant={formMode === 'command' ? 'primary' : 'secondary'}
+                          onPress={() => setFormMode('command')}
+                        >
+                          {t('skills.modeCommand')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={formMode === 'http' ? 'primary' : 'secondary'}
+                          onPress={() => setFormMode('http')}
+                        >
+                          {t('skills.modeHttp')}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Command Mode Fields */}
+                    {formMode === 'command' && (
+                      <TextField isRequired value={formCommand} onChange={setFormCommand}>
+                        <Label>{t('skills.command')}</Label>
+                        <Input placeholder="e.g. ffmpeg -i {{input}} {{output}}" className="font-mono" />
+                      </TextField>
+                    )}
+
+                    {/* HTTP Mode Fields */}
+                    {formMode === 'http' && (
+                      <div className="space-y-4">
+                        {/* HTTP Method */}
+                        <div>
+                          <Label>{t('skills.httpMethod')}</Label>
+                          <div className="flex gap-1 mt-1">
+                            {HTTP_METHODS.map(m => (
+                              <Button
+                                key={m}
+                                size="sm"
+                                variant={formHttpMethod === m ? 'primary' : 'secondary'}
+                                onPress={() => setFormHttpMethod(m)}
+                              >
+                                {m}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* URL */}
+                        <TextField isRequired value={formHttpUrl} onChange={setFormHttpUrl}>
+                          <Label>{t('skills.httpUrl')}</Label>
+                          <Input placeholder="https://api.example.com/{{param}}" className="font-mono" />
+                        </TextField>
+
+                        {/* Headers */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label>{t('skills.httpHeaders')}</Label>
+                            <Button size="sm" variant="secondary" onPress={addHttpHeader}>
+                              {t('skills.addHeader')}
+                            </Button>
+                          </div>
+                          {formHttpHeaders.length === 0 ? (
+                            <p className="text-sm text-gray-400">{t('skills.noHeaders')}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {formHttpHeaders.map((header, index) => (
+                                <div key={index} className="flex gap-2 items-end">
+                                  <div className="flex-1">
+                                    <TextField value={header.key} onChange={(v) => updateHttpHeader(index, 'key', v)}>
+                                      <Label className="text-xs">{t('skills.headerKey')}</Label>
+                                      <Input placeholder="Content-Type" className="font-mono" />
+                                    </TextField>
+                                  </div>
+                                  <div className="flex-1">
+                                    <TextField value={header.value} onChange={(v) => updateHttpHeader(index, 'value', v)}>
+                                      <Label className="text-xs">{t('skills.headerValue')}</Label>
+                                      <Input placeholder="application/json" className="font-mono" />
+                                    </TextField>
+                                  </div>
+                                  <Button size="sm" variant="danger" onPress={() => removeHttpHeader(index)}>
+                                    ×
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Body (only for POST/PUT/PATCH) */}
+                        {['POST', 'PUT', 'PATCH'].includes(formHttpMethod) && (
+                          <div>
+                            <Label>{t('skills.httpBody')}</Label>
+                            <textarea
+                              className="w-full mt-1 p-2 border rounded-lg font-mono text-sm bg-transparent dark:border-gray-600 min-h-[80px] resize-y"
+                              value={formHttpBody}
+                              onChange={(e) => setFormHttpBody(e.target.value)}
+                              placeholder='{"key": "{{value}}"}'
+                              rows={4}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Parameters */}
                     <div>
@@ -350,7 +558,7 @@ function SkillsPage() {
                   <Button variant="secondary" onPress={formModal.close}>
                     {t('common.cancel')}
                   </Button>
-                  <Button onPress={handleSave} isDisabled={!formName.trim() || !formCommand.trim()}>
+                  <Button onPress={handleSave} isDisabled={isSaveDisabled}>
                     {t('common.save')}
                   </Button>
                 </Modal.Footer>

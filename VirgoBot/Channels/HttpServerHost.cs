@@ -597,18 +597,33 @@ public class HttpServerHost
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
 
+                var mode = root.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
+
+                string command;
+                if (mode == "http" && root.TryGetProperty("http", out var httpEl))
+                {
+                    var method = httpEl.TryGetProperty("method", out var m) ? m.GetString() ?? "GET" : "GET";
+                    var url = httpEl.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";
+                    command = $"{method} {url}";
+                }
+                else
+                {
+                    command = root.TryGetProperty("command", out var cmdEl) ? cmdEl.GetString() ?? "" : "";
+                }
+
                 skills.Add(new
                 {
                     fileName,
                     name = root.GetProperty("name").GetString() ?? "",
                     description = root.GetProperty("description").GetString() ?? "",
-                    command = root.GetProperty("command").GetString() ?? "",
+                    command,
+                    mode,
                     parameterCount = root.TryGetProperty("parameters", out var p) ? p.GetArrayLength() : 0
                 });
             }
             catch
             {
-                skills.Add(new { fileName, name = fileName, description = "解析失败", command = "", parameterCount = 0 });
+                skills.Add(new { fileName, name = fileName, description = "解析失败", command = "", mode = "command", parameterCount = 0 });
             }
         }
 
