@@ -7,8 +7,6 @@ import { api } from '../../services/api';
 interface ConfigData {
   model: string;
   baseUrl: string;
-  apiKey: string;
-  botToken: string;
   memoryFile: string;
   server: {
     listenUrl: string;
@@ -227,18 +225,6 @@ function SettingsPage() {
                   </TextField>
                   <TextField value={editBaseUrl} onChange={setEditBaseUrl}>
                     <Label>{t('settings.baseUrl')}</Label>
-                    <Input />
-                  </TextField>
-
-                  <Separator />
-
-                  {/* Read-only sensitive fields */}
-                  <TextField isDisabled value={config?.apiKey ?? ''}>
-                    <Label>API Key</Label>
-                    <Input />
-                  </TextField>
-                  <TextField isDisabled value={config?.botToken ?? ''}>
-                    <Label>Bot Token</Label>
                     <Input />
                   </TextField>
 

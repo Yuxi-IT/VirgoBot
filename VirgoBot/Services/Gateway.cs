@@ -6,6 +6,7 @@ using VirgoBot.Features.Email;
 using VirgoBot.Functions;
 using VirgoBot.Integrations.ILink;
 using VirgoBot.Utilities;
+using VirgoBot.Services;
 
 namespace VirgoBot.Services;
 
@@ -62,6 +63,23 @@ public class Gateway
         BuildServices();
         await StartChannelsAsync();
         ColorLog.Success("GATEWAY", "所有服务已重启");
+    }
+
+    public async Task SwitchSession(string dbFileName)
+    {
+        ColorLog.Info("SESSION", $"正在切换会话: {dbFileName}");
+        _memoryService.SwitchDatabase(dbFileName);
+        SoulFunctions.ClearCache();
+
+        // Update config
+        Config.CurrentSession = dbFileName;
+        ConfigLoader.Save(Config);
+
+        // Rebuild services to pick up new soul content
+        await StopChannelsAsync();
+        BuildServices();
+        await StartChannelsAsync();
+        ColorLog.Success("SESSION", $"会话已切换: {dbFileName}");
     }
 
     private void BuildServices()

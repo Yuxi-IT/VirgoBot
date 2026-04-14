@@ -5,14 +5,27 @@ namespace VirgoBot.Services;
 
 public class MemoryService : IDisposable
 {
-    private readonly SqliteConnection _conn;
+    private SqliteConnection _conn;
     private int _messageLimit;
     private bool _disposed;
 
-    public MemoryService(string dbPath = "memory.db", int messageLimit = 20)
+    private const string MemorysDirectory = "memorys";
+
+    public string CurrentDbName { get; private set; } = "";
+
+    public MemoryService(string? dbFileName = null, int messageLimit = 20)
     {
         _messageLimit = messageLimit;
-        var fullPath = Path.Combine("config", dbPath);
+
+        Directory.CreateDirectory(MemorysDirectory);
+
+        if (string.IsNullOrWhiteSpace(dbFileName))
+        {
+            dbFileName = $"{Guid.NewGuid()}.db";
+        }
+
+        CurrentDbName = dbFileName;
+        var fullPath = Path.Combine(MemorysDirectory, dbFileName);
         _conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
         _conn.Open();
 
@@ -21,6 +34,131 @@ public class MemoryService : IDisposable
         pragmaCmd.ExecuteNonQuery();
 
         InitDatabase();
+    }
+
+    public void SwitchDatabase(string dbFileName)
+    {
+        if (string.IsNullOrWhiteSpace(dbFileName))
+            throw new ArgumentException("Database file name cannot be empty");
+
+        // Close current connection
+        _conn.Close();
+        _conn.Dispose();
+
+        CurrentDbName = dbFileName;
+        var fullPath = Path.Combine(MemorysDirectory, dbFileName);
+        _conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
+        _conn.Open();
+
+        using var pragmaCmd = _conn.CreateCommand();
+        pragmaCmd.CommandText = "PRAGMA journal_mode=WAL;";
+        pragmaCmd.ExecuteNonQuery();
+
+        InitDatabase();
+    }
+
+    public string CreateSession()
+    {
+        var dbFileName = $"{Guid.NewGuid()}.db";
+        var fullPath = Path.Combine(MemorysDirectory, dbFileName);
+
+        // Create and initialize the new database
+        using var conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
+        conn.Open();
+
+        using var pragmaCmd = conn.CreateCommand();
+        pragmaCmd.CommandText = "PRAGMA journal_mode=WAL;";
+        pragmaCmd.ExecuteNonQuery();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )";
+        cmd.ExecuteNonQuery();
+
+        using var soulCmd = conn.CreateCommand();
+        soulCmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS soul (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )";
+        soulCmd.ExecuteNonQuery();
+
+        conn.Close();
+        return dbFileName;
+    }
+
+    public void DeleteSession(string dbFileName)
+    {
+        if (string.IsNullOrWhiteSpace(dbFileName))
+            throw new ArgumentException("Database file name cannot be empty");
+
+        if (dbFileName == CurrentDbName)
+            throw new InvalidOperationException("Cannot delete the currently active session");
+
+        var fullPath = Path.Combine(MemorysDirectory, dbFileName);
+        if (File.Exists(fullPath))
+        {
+            File.Delete(fullPath);
+            // Also delete WAL and SHM files if they exist
+            var walPath = fullPath + "-wal";
+            var shmPath = fullPath + "-shm";
+            if (File.Exists(walPath)) File.Delete(walPath);
+            if (File.Exists(shmPath)) File.Delete(shmPath);
+        }
+    }
+
+    public List<SessionInfo> GetAllSessions()
+    {
+        Directory.CreateDirectory(MemorysDirectory);
+        var sessions = new List<SessionInfo>();
+
+        foreach (var file in Directory.GetFiles(MemorysDirectory, "*.db"))
+        {
+            var fileName = Path.GetFileName(file);
+            var fileInfo = new FileInfo(file);
+
+            int messageCount = 0;
+            int soulCount = 0;
+
+            try
+            {
+                using var conn = new SqliteConnection($"Data Source={file};Cache=Shared;Mode=ReadOnly");
+                conn.Open();
+
+                using var msgCmd = conn.CreateCommand();
+                msgCmd.CommandText = "SELECT COUNT(*) FROM messages";
+                messageCount = Convert.ToInt32(msgCmd.ExecuteScalar());
+
+                using var soulCmd = conn.CreateCommand();
+                soulCmd.CommandText = "SELECT COUNT(*) FROM soul";
+                soulCount = Convert.ToInt32(soulCmd.ExecuteScalar());
+
+                conn.Close();
+            }
+            catch
+            {
+                // If we can't read the db, just use defaults
+            }
+
+            sessions.Add(new SessionInfo
+            {
+                FileName = fileName,
+                MessageCount = messageCount,
+                SoulCount = soulCount,
+                LastModified = fileInfo.LastWriteTimeUtc,
+                Size = fileInfo.Length,
+                IsCurrent = fileName == CurrentDbName
+            });
+        }
+
+        return sessions.OrderByDescending(s => s.LastModified).ToList();
     }
 
     private void InitDatabase()
@@ -274,6 +412,16 @@ public class MemoryService : IDisposable
             _disposed = true;
         }
     }
+}
+
+public class SessionInfo
+{
+    public string FileName { get; set; } = "";
+    public int MessageCount { get; set; }
+    public int SoulCount { get; set; }
+    public DateTime LastModified { get; set; }
+    public long Size { get; set; }
+    public bool IsCurrent { get; set; }
 }
 
 public class MessageRecord

@@ -166,7 +166,6 @@ function ChatPage() {
                 setPage(1);
               }}
             >
-              <Label>{t('chat.selectUser')}</Label>
               <Select.Trigger>
                 <Select.Value />
               </Select.Trigger>

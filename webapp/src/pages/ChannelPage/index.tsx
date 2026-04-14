@@ -56,20 +56,20 @@ function ChannelPage() {
     try {
       setLoading(true);
       const res = await api.get<ChannelsResponse>('/api/config/channels');
-      if (res.success) {
+      if (res.success && res.data) {
         const d = res.data;
-        setILinkEnabled(d.iLink.enabled);
-        setILinkToken(d.iLink.token);
-        setILinkWsUrl(d.iLink.webSocketUrl);
-        setILinkSendUrl(d.iLink.sendUrl);
-        setILinkWebhookPath(d.iLink.webhookPath);
-        setILinkDefaultUserId(d.iLink.defaultUserId);
-        setBotToken(d.telegram.botToken);
-        setWsClients(d.webSocket.connectedClients);
-        setWsStatus(d.webSocket.status);
+        setILinkEnabled(d.iLink?.enabled ?? false);
+        setILinkToken(d.iLink?.token ?? '');
+        setILinkWsUrl(d.iLink?.webSocketUrl ?? '');
+        setILinkSendUrl(d.iLink?.sendUrl ?? '');
+        setILinkWebhookPath(d.iLink?.webhookPath ?? '');
+        setILinkDefaultUserId(d.iLink?.defaultUserId ?? '');
+        setBotToken(d.telegram?.botToken ?? '');
+        setWsClients(d.webSocket?.connectedClients ?? 0);
+        setWsStatus(d.webSocket?.status ?? '');
       }
-    } catch {
-      // silently fail
+    } catch (e) {
+      console.error('Failed to load channels config:', e);
     } finally {
       setLoading(false);
     }

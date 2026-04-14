@@ -177,9 +177,21 @@ public class HttpServerHost
                     {
                         await HandleGetAgentsRequest(ctx);
                     }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/agents" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleCreateAgentRequest(ctx);
+                    }
                     else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "GET")
                     {
                         await HandleGetAgentRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateAgentRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await HandleDeleteAgentRequest(ctx);
                     }
                     else if (ctx.Request.Url?.AbsolutePath == "/api/config/agent" && ctx.Request.HttpMethod == "PUT")
                     {
@@ -210,6 +222,23 @@ public class HttpServerHost
                     else if (ctx.Request.Url?.AbsolutePath == "/api/config/channels" && ctx.Request.HttpMethod == "PUT")
                     {
                         await HandleUpdateChannelsConfigRequest(ctx);
+                    }
+                    // ===== Session API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/sessions" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetSessionsRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/sessions" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleCreateSessionRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/sessions/switch" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleSwitchSessionRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/sessions/") == true && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await HandleDeleteSessionRequest(ctx);
                     }
                     else
                     {
@@ -791,6 +820,7 @@ public class HttpServerHost
             {
                 name = Path.GetFileNameWithoutExtension(file),
                 fileName,
+                memoryPath = $"agent/{fileName}",
                 preview,
                 size = content.Length
             });
@@ -802,7 +832,7 @@ public class HttpServerHost
 
     private async Task HandleGetAgentRequest(HttpListenerContext ctx)
     {
-        var name = ctx.Request.Url!.AbsolutePath.Replace("/api/agents/", "");
+        var name = Uri.UnescapeDataString(ctx.Request.Url!.AbsolutePath.Replace("/api/agents/", ""));
         var filePath = Path.Combine(AppConstants.ConfigDirectory, "agent", $"{name}.md");
 
         if (!File.Exists(filePath))
@@ -828,6 +858,85 @@ public class HttpServerHost
         config.MemoryFile = body.MemoryFile;
         ConfigLoader.Save(config);
         await SendJsonResponse(ctx, new { success = true, message = "Agent switched" });
+    }
+
+    private async Task HandleCreateAgentRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<AgentCreateUpdateRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Name) || body.Content == null)
+        {
+            await SendErrorResponse(ctx, 400, "Name and content are required");
+            return;
+        }
+
+        // Sanitize name: only allow alphanumeric, Chinese chars, underscore, dash
+        var safeName = body.Name.Trim();
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid agent name");
+            return;
+        }
+
+        var agentDir = Path.Combine(AppConstants.ConfigDirectory, "agent");
+        Directory.CreateDirectory(agentDir);
+        var filePath = Path.Combine(agentDir, $"{safeName}.md");
+
+        if (File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 409, "Agent already exists");
+            return;
+        }
+
+        await File.WriteAllTextAsync(filePath, body.Content);
+        ColorLog.Success("AGENT", $"智能体 '{safeName}' 已创建");
+        await SendJsonResponse(ctx, new { success = true, message = "Agent created" });
+    }
+
+    private async Task HandleUpdateAgentRequest(HttpListenerContext ctx)
+    {
+        var name = Uri.UnescapeDataString(ctx.Request.Url!.AbsolutePath.Replace("/api/agents/", ""));
+        var filePath = Path.Combine(AppConstants.ConfigDirectory, "agent", $"{name}.md");
+
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Agent not found");
+            return;
+        }
+
+        var body = await ReadRequestBody<AgentCreateUpdateRequest>(ctx);
+        if (body == null || body.Content == null)
+        {
+            await SendErrorResponse(ctx, 400, "Content is required");
+            return;
+        }
+
+        await File.WriteAllTextAsync(filePath, body.Content);
+        ColorLog.Success("AGENT", $"智能体 '{name}' 已更新");
+        await SendJsonResponse(ctx, new { success = true, message = "Agent updated" });
+    }
+
+    private async Task HandleDeleteAgentRequest(HttpListenerContext ctx)
+    {
+        var name = Uri.UnescapeDataString(ctx.Request.Url!.AbsolutePath.Replace("/api/agents/", ""));
+        var filePath = Path.Combine(AppConstants.ConfigDirectory, "agent", $"{name}.md");
+
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Agent not found");
+            return;
+        }
+
+        // Don't allow deleting the currently active agent
+        var currentAgent = _gateway.Config.MemoryFile;
+        if (currentAgent == $"agent/{name}.md")
+        {
+            await SendErrorResponse(ctx, 400, "Cannot delete the currently active agent");
+            return;
+        }
+
+        File.Delete(filePath);
+        ColorLog.Success("AGENT", $"智能体 '{name}' 已删除");
+        await SendJsonResponse(ctx, new { success = true, message = "Agent deleted" });
     }
 
     // ===== Soul CRUD API =====
@@ -954,6 +1063,87 @@ public class HttpServerHost
         ConfigLoader.Save(config);
         ColorLog.Success("CHANNEL", "频道配置已更新");
         await SendJsonResponse(ctx, new { success = true, message = "Channel config saved" });
+    }
+
+    // ===== Session API =====
+
+    private async Task HandleGetSessionsRequest(HttpListenerContext ctx)
+    {
+        var sessions = _memoryService.GetAllSessions();
+        var data = sessions.Select(s => new
+        {
+            fileName = s.FileName,
+            messageCount = s.MessageCount,
+            soulCount = s.SoulCount,
+            lastModified = s.LastModified.ToString("o"),
+            size = s.Size,
+            isCurrent = s.IsCurrent
+        });
+
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private async Task HandleCreateSessionRequest(HttpListenerContext ctx)
+    {
+        var newDbName = _memoryService.CreateSession();
+        ColorLog.Success("SESSION", $"新会话已创建: {newDbName}");
+        await SendJsonResponse(ctx, new { success = true, data = new { fileName = newDbName } });
+    }
+
+    private async Task HandleSwitchSessionRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<SessionSwitchRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Session))
+        {
+            await SendErrorResponse(ctx, 400, "Session name is required");
+            return;
+        }
+
+        var dbPath = Path.Combine("memorys", body.Session);
+        if (!File.Exists(dbPath))
+        {
+            await SendErrorResponse(ctx, 404, "Session not found");
+            return;
+        }
+
+        try
+        {
+            await _gateway.SwitchSession(body.Session);
+            await SendJsonResponse(ctx, new { success = true, message = "Session switched", data = new { currentSession = body.Session } });
+        }
+        catch (Exception ex)
+        {
+            await SendErrorResponse(ctx, 500, $"Failed to switch session: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDeleteSessionRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var name = Uri.UnescapeDataString(path.Replace("/api/sessions/", ""));
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            await SendErrorResponse(ctx, 400, "Session name is required");
+            return;
+        }
+
+        if (name == _memoryService.CurrentDbName)
+        {
+            await SendErrorResponse(ctx, 400, "Cannot delete the currently active session");
+            return;
+        }
+
+        try
+        {
+            _memoryService.DeleteSession(name);
+            ColorLog.Success("SESSION", $"会话已删除: {name}");
+            await SendJsonResponse(ctx, new { success = true, message = "Session deleted" });
+        }
+        catch (Exception ex)
+        {
+            await SendErrorResponse(ctx, 500, $"Failed to delete session: {ex.Message}");
+        }
     }
 
     // ===== Original Handlers =====
@@ -1151,4 +1341,15 @@ public record ChannelUpdateRequest
     public string? ILinkWebhookPath { get; init; }
     public string? ILinkDefaultUserId { get; init; }
     public string? BotToken { get; init; }
+}
+
+public record AgentCreateUpdateRequest
+{
+    public string? Name { get; init; }
+    public string? Content { get; init; }
+}
+
+public record SessionSwitchRequest
+{
+    public string? Session { get; init; }
 }

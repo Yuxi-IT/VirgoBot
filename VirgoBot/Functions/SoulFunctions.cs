@@ -9,6 +9,12 @@ public static class SoulFunctions
     private static DateTime _cacheExpiry = DateTime.MinValue;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
+    public static void ClearCache()
+    {
+        _cachedSoulContent = null;
+        _cacheExpiry = DateTime.MinValue;
+    }
+
     public static IEnumerable<FunctionDefinition> Register(MemoryService memoryService)
     {
         yield return new FunctionDefinition("read_soul", "获取最近关于用户的记忆", new
