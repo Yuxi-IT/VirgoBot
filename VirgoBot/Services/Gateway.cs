@@ -10,12 +10,13 @@ using VirgoBot.Services;
 
 namespace VirgoBot.Services;
 
-public class Gateway
+public class Gateway : IDisposable
 {
     // Persistent dependencies (process lifetime)
     private readonly LogService _logService;
     private readonly WebSocketClientManager _wsManager;
     private readonly MemoryService _memoryService;
+    private readonly ShellSessionService _shellSessionService = new();
 
     // Restartable services (managed by Gateway)
     private CancellationTokenSource? _cts;
@@ -106,6 +107,7 @@ public class Gateway
             Config.Email.Address, Config.Email.Password);
 
         FunctionRegistry.SetEmailService(EmailService);
+        FunctionRegistry.SetShellSessionService(_shellSessionService);
         FunctionRegistry.SetStickerService(StickerService);
         FunctionRegistry.SetContactService(ContactService);
         FunctionRegistry.SetILinkBridgeService(ILinkBridge);
@@ -196,6 +198,11 @@ public class Gateway
         }
 
         ColorLog.Info("GATEWAY", "所有频道已停止");
+    }
+
+    public void Dispose()
+    {
+        _shellSessionService.Dispose();
     }
 }
 

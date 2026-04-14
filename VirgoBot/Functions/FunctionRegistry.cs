@@ -39,6 +39,9 @@ public class FunctionRegistry
     public void SetILinkBridgeService(ILinkBridgeService iLinkBridge)
         => RegisterAll(ILinkFunctions.Register(iLinkBridge));
 
+    public void SetShellSessionService(ShellSessionService shellSessionService)
+        => RegisterAll(InteractiveShellFunctions.Register(shellSessionService));
+
     public void SetTelegramBot(TelegramBotClient bot, long chatId)
     {
         if (!_functions.ContainsKey("send_photo"))

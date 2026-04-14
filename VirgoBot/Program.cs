@@ -41,3 +41,4 @@ ColorLog.Success("GATEWAY", $"网关已启动 — API: {gateway.Config.Server.Li
 
 Console.ReadLine();
 await gateway.StopAsync();
+gateway.Dispose();
