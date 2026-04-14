@@ -1,36 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, Chip, Spinner, Table, Pagination, SearchField, Label } from '@heroui/react';
-import { Select, ListBox } from '@heroui/react';
+import { SearchField } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-
-interface UserInfo {
-  userId: string;
-  messageCount: number;
-  lastActive: string;
-}
-
-interface Message {
-  id: number;
-  role: string;
-  content: string;
-  createdAt: string;
-}
-
-interface UsersResponse {
-  success: boolean;
-  data: UserInfo[];
-}
-
-interface MessagesResponse {
-  success: boolean;
-  data: {
-    messages: Message[];
-    total: number;
-    userId: string;
-  };
-}
+import UserSelector from './UserSelector';
+import MessagesTable from './MessagesTable';
+import type { UserInfo, Message, UsersResponse, MessagesResponse } from './types';
 
 const PAGE_SIZE = 20;
 
@@ -76,7 +51,6 @@ function ChatPage() {
     }
   }, []);
 
-  // Store refs for polling access to latest state
   const selectedUserIdRef = useRef(selectedUserId);
   const pageRef = useRef(page);
   selectedUserIdRef.current = selectedUserId;
@@ -101,54 +75,7 @@ function ChatPage() {
     }
   }, [selectedUserId, page, loadMessages]);
 
-  const getRoleChip = (role: string) => {
-    switch (role) {
-      case 'user':
-        return <Chip color="accent" size="sm">{t('chat.user')}</Chip>;
-      case 'assistant':
-        return <Chip color="success" size="sm">{t('chat.assistant')}</Chip>;
-      case 'tool':
-        return <Chip color="warning" size="sm">{t('chat.tool')}</Chip>;
-      case 'system':
-        return <Chip color="default" size="sm">{t('chat.system')}</Chip>;
-      default:
-        return <Chip size="sm">{role}</Chip>;
-    }
-  };
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
-
-  const filteredMessages = searchQuery
-    ? messages.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
-    : messages;
-
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    const pages: number[] = [];
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-
-    return (
-      <Pagination>
-        <Pagination.Content>
-          <Pagination.Item>
-            <Pagination.Previous isDisabled={page <= 1} onPress={() => setPage(p => Math.max(1, p - 1))}>
-              <Pagination.PreviousIcon />
-            </Pagination.Previous>
-          </Pagination.Item>
-          {pages.slice(Math.max(0, page - 3), Math.min(totalPages, page + 2)).map(p => (
-            <Pagination.Item key={p}>
-              <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>{p}</Pagination.Link>
-            </Pagination.Item>
-          ))}
-          <Pagination.Item>
-            <Pagination.Next isDisabled={page >= totalPages} onPress={() => setPage(p => Math.min(totalPages, p + 1))}>
-              <Pagination.NextIcon />
-            </Pagination.Next>
-          </Pagination.Item>
-        </Pagination.Content>
-      </Pagination>
-    );
-  };
 
   return (
     <DefaultLayout>
@@ -156,36 +83,15 @@ function ChatPage() {
         <h1 className="text-2xl font-bold mb-6">{t('chat.title')}</h1>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* User Selector */}
-          <div className="w-full sm:w-64">
-            <Select
-              placeholder={t('chat.selectUser')}
-              onChange={(value) => {
-                const val = String(value);
-                setSelectedUserId(val);
-                setPage(1);
-              }}
-            >
-              <Select.Trigger>
-                <Select.Value />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {usersLoading ? (
-                    <ListBox.Item id="loading" textValue="Loading">
-                      <Label>{t('common.loading')}</Label>
-                    </ListBox.Item>
-                  ) : users.map(user => (
-                    <ListBox.Item key={user.userId} id={user.userId} textValue={user.userId}>
-                      <Label>{user.userId}</Label>
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </div>
+          <UserSelector
+            users={users}
+            loading={usersLoading}
+            onSelect={(userId) => {
+              setSelectedUserId(userId);
+              setPage(1);
+            }}
+          />
 
-          {/* Search */}
           <div className="flex-1">
             <SearchField value={searchQuery} onChange={setSearchQuery}>
               <SearchField.Group>
@@ -197,54 +103,15 @@ function ChatPage() {
           </div>
         </div>
 
-        {/* Messages Table */}
-        <Card>
-          <Card.Content>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Spinner size="lg" />
-              </div>
-            ) : !selectedUserId ? (
-              <p className="text-center py-8 text-gray-500">{t('chat.selectUser')}</p>
-            ) : filteredMessages.length === 0 ? (
-              <p className="text-center py-8 text-gray-500">{t('chat.noMessages')}</p>
-            ) : (
-              <Table>
-                <Table.ScrollContainer>
-                  <Table.Content aria-label="Messages">
-                    <Table.Header>
-                      <Table.Column>ID</Table.Column>
-                      <Table.Column>{t('chat.role')}</Table.Column>
-                      <Table.Column>{t('chat.content')}</Table.Column>
-                      <Table.Column>{t('chat.time')}</Table.Column>
-                    </Table.Header>
-                    <Table.Body>
-                      {filteredMessages.map(msg => (
-                        <Table.Row key={msg.id}>
-                          <Table.Cell>{msg.id}</Table.Cell>
-                          <Table.Cell>{getRoleChip(msg.role)}</Table.Cell>
-                          <Table.Cell>
-                            <div className="max-w-md truncate" title={msg.content}>
-                              {msg.content}
-                            </div>
-                          </Table.Cell>
-                          <Table.Cell>
-                            {new Date(msg.createdAt).toLocaleString()}
-                          </Table.Cell>
-                        </Table.Row>
-                      ))}
-                    </Table.Body>
-                  </Table.Content>
-                </Table.ScrollContainer>
-                <Table.Footer>
-                  <div className="flex justify-center py-2">
-                    {renderPagination()}
-                  </div>
-                </Table.Footer>
-              </Table>
-            )}
-          </Card.Content>
-        </Card>
+        <MessagesTable
+          messages={messages}
+          loading={loading}
+          selectedUserId={selectedUserId}
+          searchQuery={searchQuery}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </div>
     </DefaultLayout>
   );

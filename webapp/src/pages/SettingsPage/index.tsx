@@ -1,50 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Card, Tabs, Button, Spinner, Switch, TextField, Label, Input, TextArea, Separator, Chip, toast } from '@heroui/react';
+import { Tabs, Spinner, toast } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-
-interface ConfigData {
-  model: string;
-  baseUrl: string;
-  memoryFile: string;
-  server: {
-    listenUrl: string;
-    maxTokens: number;
-    messageLimit: number;
-  };
-  email: {
-    imapHost: string;
-    address: string;
-    password: string;
-    enabled: boolean;
-  };
-  iLink: {
-    enabled: boolean;
-  };
-  allowedUsers: number[];
-}
-
-interface ConfigResponse {
-  success: boolean;
-  data: ConfigData;
-}
-
-interface ContentResponse {
-  success: boolean;
-  data: { content: string };
-}
+import GeneralTab from './GeneralTab';
+import EmailTab from './EmailTab';
+import SystemMemoryTab from './SystemMemoryTab';
+import RuleTab from './RuleTab';
+import type { ConfigData, ConfigResponse } from './types';
 
 function SettingsPage() {
   const { t } = useI18n();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [systemMemory, setSystemMemory] = useState('');
-  const [ruleContent, setRuleContent] = useState('');
-  const [memoryLoading, setMemoryLoading] = useState(false);
-  const [ruleLoading, setRuleLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('general');
 
   // Editable field states
   const [editModel, setEditModel] = useState('');
@@ -75,52 +46,6 @@ function SettingsPage() {
       // silently fail
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadSystemMemory = async () => {
-    try {
-      setMemoryLoading(true);
-      const res = await api.get<ContentResponse>('/api/config/system-memory');
-      if (res.success) {
-        setSystemMemory(res.data.content);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setMemoryLoading(false);
-    }
-  };
-
-  const loadRule = async () => {
-    try {
-      setRuleLoading(true);
-      const res = await api.get<ContentResponse>('/api/config/rule');
-      if (res.success) {
-        setRuleContent(res.data.content);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setRuleLoading(false);
-    }
-  };
-
-  const saveSystemMemory = async () => {
-    try {
-      await api.put('/api/config/system-memory', { content: systemMemory });
-      toast.success(t('settings.saveSuccess'));
-    } catch {
-      toast.danger(t('settings.saveFailed'));
-    }
-  };
-
-  const saveRule = async () => {
-    try {
-      await api.put('/api/config/rule', { content: ruleContent });
-      toast.success(t('settings.saveSuccess'));
-    } catch {
-      toast.danger(t('settings.saveFailed'));
     }
   };
 
@@ -156,21 +81,11 @@ function SettingsPage() {
       });
       await api.post('/api/gateway/restart', {});
       toast.success(t('gateway.restartSuccess'));
-      // Reload config to reflect any changes
       await loadConfig();
     } catch {
       toast.danger(t('settings.saveFailed'));
     } finally {
       setRestarting(false);
-    }
-  };
-
-  const handleTabChange = (key: string | number) => {
-    const tabKey = String(key);
-    if (tabKey === 'systemMemory') {
-      loadSystemMemory();
-    } else if (tabKey === 'rule') {
-      loadRule();
     }
   };
 
@@ -189,7 +104,7 @@ function SettingsPage() {
       <div className="container mx-auto p-4">
         <h1 className="text-2xl font-bold mb-6">{t('settings.title')}</h1>
 
-        <Tabs onSelectionChange={handleTabChange}>
+        <Tabs onSelectionChange={(key) => setActiveTab(String(key))}>
           <Tabs.ListContainer>
             <Tabs.List aria-label="Settings tabs">
               <Tabs.Tab id="general">
@@ -211,183 +126,48 @@ function SettingsPage() {
             </Tabs.List>
           </Tabs.ListContainer>
 
-          {/* General Tab */}
           <Tabs.Panel id="general">
-            <Card className="mt-4">
-              <Card.Header>
-                <Card.Title>{t('settings.general')}</Card.Title>
-              </Card.Header>
-              <Card.Content>
-                <div className="space-y-4">
-                  <TextField value={editModel} onChange={setEditModel}>
-                    <Label>{t('settings.model')}</Label>
-                    <Input />
-                  </TextField>
-                  <TextField value={editBaseUrl} onChange={setEditBaseUrl}>
-                    <Label>{t('settings.baseUrl')}</Label>
-                    <Input />
-                  </TextField>
-
-                  <Separator />
-
-                  <h3 className="font-semibold">{t('dashboard.serverConfig')}</h3>
-                  <TextField isDisabled value={config?.server.listenUrl ?? ''}>
-                    <Label>{t('settings.listenUrl')}</Label>
-                    <Input />
-                  </TextField>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <TextField value={editMaxTokens} onChange={setEditMaxTokens}>
-                      <Label>{t('settings.maxTokens')}</Label>
-                      <Input />
-                    </TextField>
-                    <TextField value={editMessageLimit} onChange={setEditMessageLimit}>
-                      <Label>{t('settings.messageLimit')}</Label>
-                      <Input />
-                    </TextField>
-                  </div>
-
-                  <Separator />
-
-                  <h3 className="font-semibold">{t('settings.allowedUsers')}</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {config?.allowedUsers.map(userId => (
-                      <Chip key={userId} size="sm" variant="soft">{userId}</Chip>
-                    ))}
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex gap-3">
-                    <Button
-                      onPress={saveConfig}
-                      isDisabled={saving || restarting}
-                    >
-                      {saving ? <Spinner size="sm" className="mr-2" /> : null}
-                      {t('gateway.saveConfig')}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onPress={saveAndRestart}
-                      isDisabled={saving || restarting}
-                    >
-                      {restarting ? <Spinner size="sm" className="mr-2" /> : null}
-                      {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
-                    </Button>
-                  </div>
-                </div>
-              </Card.Content>
-            </Card>
+            {config && (
+              <GeneralTab
+                config={config}
+                editModel={editModel}
+                editBaseUrl={editBaseUrl}
+                editMaxTokens={editMaxTokens}
+                editMessageLimit={editMessageLimit}
+                onEditModel={setEditModel}
+                onEditBaseUrl={setEditBaseUrl}
+                onEditMaxTokens={setEditMaxTokens}
+                onEditMessageLimit={setEditMessageLimit}
+                saving={saving}
+                restarting={restarting}
+                onSave={saveConfig}
+                onSaveAndRestart={saveAndRestart}
+              />
+            )}
           </Tabs.Panel>
 
-          {/* Email Tab */}
           <Tabs.Panel id="email">
-            <Card className="mt-4">
-              <Card.Header>
-                <Card.Title>{t('settings.email')}</Card.Title>
-              </Card.Header>
-              <Card.Content>
-                <div className="space-y-4">
-                  <TextField value={editImapHost} onChange={setEditImapHost}>
-                    <Label>{t('settings.imapHost')}</Label>
-                    <Input />
-                  </TextField>
-                  <TextField value={editEmailAddress} onChange={setEditEmailAddress}>
-                    <Label>{t('settings.emailAddress')}</Label>
-                    <Input />
-                  </TextField>
-                  <TextField isDisabled value={config?.email.password ?? ''}>
-                    <Label>Email Password</Label>
-                    <Input />
-                  </TextField>
-                  <div className="flex items-center gap-4">
-                    <Switch isSelected={config?.email.enabled ?? false} isDisabled>
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                      <Switch.Content>
-                        <Label>{t('settings.enabled')}</Label>
-                      </Switch.Content>
-                    </Switch>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex gap-3">
-                    <Button
-                      onPress={saveConfig}
-                      isDisabled={saving || restarting}
-                    >
-                      {saving ? <Spinner size="sm" className="mr-2" /> : null}
-                      {t('gateway.saveConfig')}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onPress={saveAndRestart}
-                      isDisabled={saving || restarting}
-                    >
-                      {restarting ? <Spinner size="sm" className="mr-2" /> : null}
-                      {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
-                    </Button>
-                  </div>
-                </div>
-              </Card.Content>
-            </Card>
+            {config && (
+              <EmailTab
+                config={config}
+                editImapHost={editImapHost}
+                editEmailAddress={editEmailAddress}
+                onEditImapHost={setEditImapHost}
+                onEditEmailAddress={setEditEmailAddress}
+                saving={saving}
+                restarting={restarting}
+                onSave={saveConfig}
+                onSaveAndRestart={saveAndRestart}
+              />
+            )}
           </Tabs.Panel>
 
-          {/* System Memory Tab */}
           <Tabs.Panel id="systemMemory">
-            <Card className="mt-4">
-              <Card.Header>
-                <Card.Title>{t('settings.systemMemory')}</Card.Title>
-              </Card.Header>
-              <Card.Content>
-                {memoryLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner size="lg" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <TextArea
-                      value={systemMemory}
-                      onChange={(e) => setSystemMemory(e.target.value)}
-                      rows={15}
-                      className="font-mono w-full"
-                    />
-                    <Button onPress={saveSystemMemory}>
-                      {t('common.save')}
-                    </Button>
-                  </div>
-                )}
-              </Card.Content>
-            </Card>
+            <SystemMemoryTab active={activeTab === 'systemMemory'} />
           </Tabs.Panel>
 
-          {/* Rule Tab */}
           <Tabs.Panel id="rule">
-            <Card className="mt-4">
-              <Card.Header>
-                <Card.Title>{t('settings.rule')}</Card.Title>
-              </Card.Header>
-              <Card.Content>
-                {ruleLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner size="lg" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <TextArea
-                      value={ruleContent}
-                      onChange={(e) => setRuleContent(e.target.value)}
-                      rows={15}
-                      className="font-mono w-full"
-                    />
-                    <Button onPress={saveRule}>
-                      {t('common.save')}
-                    </Button>
-                  </div>
-                )}
-              </Card.Content>
-            </Card>
+            <RuleTab active={activeTab === 'rule'} />
           </Tabs.Panel>
         </Tabs>
       </div>

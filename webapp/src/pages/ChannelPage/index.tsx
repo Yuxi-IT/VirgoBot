@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Spinner, Switch, TextField, Label, Input, Chip, Separator, toast } from '@heroui/react';
+import { Button, Spinner, Separator, toast } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
+import ILinkCard from './ILinkCard';
+import TelegramCard from './TelegramCard';
+import WebSocketCard from './WebSocketCard';
 
 interface ChannelsData {
   iLink: {
@@ -75,18 +78,20 @@ function ChannelPage() {
     }
   };
 
+  const getPayload = () => ({
+    iLinkEnabled,
+    iLinkToken,
+    iLinkWebSocketUrl: iLinkWsUrl,
+    iLinkSendUrl,
+    iLinkWebhookPath,
+    iLinkDefaultUserId,
+    botToken: botToken.includes('****') ? undefined : botToken,
+  });
+
   const saveChannels = async () => {
     setSaving(true);
     try {
-      await api.put('/api/config/channels', {
-        iLinkEnabled: iLinkEnabled,
-        iLinkToken: iLinkToken,
-        iLinkWebSocketUrl: iLinkWsUrl,
-        iLinkSendUrl: iLinkSendUrl,
-        iLinkWebhookPath: iLinkWebhookPath,
-        iLinkDefaultUserId: iLinkDefaultUserId,
-        botToken: botToken.includes('****') ? undefined : botToken,
-      });
+      await api.put('/api/config/channels', getPayload());
       toast.success(t('channel.saveSuccess'));
     } catch {
       toast.danger(t('channel.saveFailed'));
@@ -98,15 +103,7 @@ function ChannelPage() {
   const saveAndRestart = async () => {
     setRestarting(true);
     try {
-      await api.put('/api/config/channels', {
-        iLinkEnabled: iLinkEnabled,
-        iLinkToken: iLinkToken,
-        iLinkWebSocketUrl: iLinkWsUrl,
-        iLinkSendUrl: iLinkSendUrl,
-        iLinkWebhookPath: iLinkWebhookPath,
-        iLinkDefaultUserId: iLinkDefaultUserId,
-        botToken: botToken.includes('****') ? undefined : botToken,
-      });
+      await api.put('/api/config/channels', getPayload());
       await api.post('/api/gateway/restart', {});
       toast.success(t('gateway.restartSuccess'));
       await loadChannels();
@@ -133,100 +130,39 @@ function ChannelPage() {
         <h1 className="text-2xl font-bold mb-6">{t('channel.title')}</h1>
 
         <div className="space-y-4">
-          {/* ILink Card */}
-          <Card>
-            <Card.Header>
-              <div className="flex items-center justify-between w-full">
-                <Card.Title>{t('channel.ilink')}</Card.Title>
-                <Switch
-                  isSelected={iLinkEnabled}
-                  onChange={() => setILinkEnabled(!iLinkEnabled)}
-                >
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                  <Switch.Content>
-                    <Label>{t('channel.enabled')}</Label>
-                  </Switch.Content>
-                </Switch>
-              </div>
-            </Card.Header>
-            <Card.Content>
-              <div className="space-y-4">
-                <TextField value={iLinkToken} onChange={setILinkToken}>
-                  <Label>{t('channel.token')}</Label>
-                  <Input />
-                </TextField>
-                <TextField value={iLinkWsUrl} onChange={setILinkWsUrl}>
-                  <Label>{t('channel.wsUrl')}</Label>
-                  <Input />
-                </TextField>
-                <TextField value={iLinkSendUrl} onChange={setILinkSendUrl}>
-                  <Label>{t('channel.sendUrl')}</Label>
-                  <Input />
-                </TextField>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <TextField value={iLinkWebhookPath} onChange={setILinkWebhookPath}>
-                    <Label>{t('channel.webhookPath')}</Label>
-                    <Input />
-                  </TextField>
-                  <TextField value={iLinkDefaultUserId} onChange={setILinkDefaultUserId}>
-                    <Label>{t('channel.defaultUserId')}</Label>
-                    <Input />
-                  </TextField>
-                </div>
-              </div>
-            </Card.Content>
-          </Card>
+          <ILinkCard
+            enabled={iLinkEnabled}
+            token={iLinkToken}
+            wsUrl={iLinkWsUrl}
+            sendUrl={iLinkSendUrl}
+            webhookPath={iLinkWebhookPath}
+            defaultUserId={iLinkDefaultUserId}
+            onEnabledChange={setILinkEnabled}
+            onTokenChange={setILinkToken}
+            onWsUrlChange={setILinkWsUrl}
+            onSendUrlChange={setILinkSendUrl}
+            onWebhookPathChange={setILinkWebhookPath}
+            onDefaultUserIdChange={setILinkDefaultUserId}
+          />
 
-          {/* Telegram Card */}
-          <Card>
-            <Card.Header>
-              <Card.Title>{t('channel.telegram')}</Card.Title>
-            </Card.Header>
-            <Card.Content>
-              <TextField value={botToken} onChange={setBotToken}>
-                <Label>{t('channel.botToken')}</Label>
-                <Input />
-              </TextField>
-            </Card.Content>
-          </Card>
+          <TelegramCard
+            botToken={botToken}
+            onBotTokenChange={setBotToken}
+          />
 
-          {/* WebSocket Card */}
-          <Card>
-            <Card.Header>
-              <Card.Title>{t('channel.websocket')}</Card.Title>
-            </Card.Header>
-            <Card.Content>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">{t('channel.status')}:</span>
-                  <Chip size="sm" color="success" variant="soft">{wsStatus}</Chip>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">{t('channel.connectedClients')}:</span>
-                  <Chip size="sm" variant="soft">{wsClients}</Chip>
-                </div>
-              </div>
-            </Card.Content>
-          </Card>
+          <WebSocketCard
+            status={wsStatus}
+            clients={wsClients}
+          />
 
           <Separator />
 
-          {/* Action buttons */}
           <div className="flex gap-3">
-            <Button
-              onPress={saveChannels}
-              isDisabled={saving || restarting}
-            >
+            <Button onPress={saveChannels} isDisabled={saving || restarting}>
               {saving ? <Spinner size="sm" className="mr-2" /> : null}
               {t('channel.saveChannels')}
             </Button>
-            <Button
-              variant="danger"
-              onPress={saveAndRestart}
-              isDisabled={saving || restarting}
-            >
+            <Button variant="danger" onPress={saveAndRestart} isDisabled={saving || restarting}>
               {restarting ? <Spinner size="sm" className="mr-2" /> : null}
               {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
             </Button>

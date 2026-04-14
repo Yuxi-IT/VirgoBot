@@ -1,77 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Chip, Spinner, Table, Modal, TextField, Label, Input, SearchField, toast } from '@heroui/react';
+import { Button, Modal, toast } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-
-interface HttpHeader { key: string; value: string; }
-interface SkillHttpConfig { method: string; url: string; headers: Record<string, string>; body: string; }
-
-interface SkillInfo {
-  fileName: string;
-  name: string;
-  description: string;
-  command: string;
-  mode: string;
-  parameterCount: number;
-}
-
-interface SkillsResponse {
-  success: boolean;
-  data: SkillInfo[];
-}
-
-interface SkillDetailResponse {
-  success: boolean;
-  data: {
-    fileName: string;
-    content: string;
-  };
-}
-
-interface SkillParam {
-  name: string;
-  type: string;
-  description: string;
-  required: boolean;
-}
-
-interface SkillJson {
-  name: string;
-  description: string;
-  parameters: SkillParam[];
-  command?: string;
-  mode?: string;
-  http?: SkillHttpConfig;
-}
-
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+import SkillsTable from './SkillsTable';
+import SkillFormModal from './SkillFormModal';
+import type { SkillInfo, SkillsResponse } from './types';
 
 function SkillsPage() {
   const { t } = useI18n();
   const [skills, setSkills] = useState<SkillInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingSkill, setEditingSkill] = useState<string | null>(null); // skill name being edited
+  const [editingSkill, setEditingSkill] = useState<SkillInfo | null>(null);
   const [deletingSkill, setDeletingSkill] = useState<SkillInfo | null>(null);
 
   const formModal = useOverlayState();
   const deleteModal = useOverlayState();
-
-  // Form state
-  const [formName, setFormName] = useState('');
-  const [formDescription, setFormDescription] = useState('');
-  const [formCommand, setFormCommand] = useState('');
-  const [formParams, setFormParams] = useState<SkillParam[]>([]);
-  const [formError, setFormError] = useState('');
-
-  // HTTP mode state
-  const [formMode, setFormMode] = useState<'command' | 'http'>('command');
-  const [formHttpMethod, setFormHttpMethod] = useState('GET');
-  const [formHttpUrl, setFormHttpUrl] = useState('');
-  const [formHttpHeaders, setFormHttpHeaders] = useState<HttpHeader[]>([]);
-  const [formHttpBody, setFormHttpBody] = useState('');
 
   useEffect(() => {
     loadSkills();
@@ -91,162 +37,19 @@ function SkillsPage() {
     }
   };
 
-  const resetForm = () => {
-    setFormName('');
-    setFormDescription('');
-    setFormCommand('');
-    setFormParams([]);
-    setFormError('');
-    setFormMode('command');
-    setFormHttpMethod('GET');
-    setFormHttpUrl('');
-    setFormHttpHeaders([]);
-    setFormHttpBody('');
-  };
-
   const openAddModal = () => {
     setEditingSkill(null);
-    resetForm();
     formModal.open();
   };
 
-  const openEditModal = async (skill: SkillInfo) => {
-    try {
-      const skillName = skill.fileName.replace('.json', '');
-      const res = await api.get<SkillDetailResponse>(`/api/skills/${skillName}`);
-      if (res.success) {
-        const parsed: SkillJson = JSON.parse(res.data.content);
-        setEditingSkill(skillName);
-        setFormName(parsed.name);
-        setFormDescription(parsed.description || '');
-        setFormParams(parsed.parameters || []);
-        setFormError('');
-
-        const mode = parsed.mode === 'http' ? 'http' : 'command';
-        setFormMode(mode);
-
-        if (mode === 'http' && parsed.http) {
-          setFormHttpMethod(parsed.http.method || 'GET');
-          setFormHttpUrl(parsed.http.url || '');
-          setFormHttpBody(parsed.http.body || '');
-          // Convert headers object to array
-          const headers: HttpHeader[] = parsed.http.headers
-            ? Object.entries(parsed.http.headers).map(([key, value]) => ({ key, value }))
-            : [];
-          setFormHttpHeaders(headers);
-          setFormCommand('');
-        } else {
-          setFormCommand(parsed.command || '');
-          setFormHttpMethod('GET');
-          setFormHttpUrl('');
-          setFormHttpHeaders([]);
-          setFormHttpBody('');
-        }
-
-        formModal.open();
-      }
-    } catch {
-      toast.danger(t('common.error'));
-    }
+  const openEditModal = (skill: SkillInfo) => {
+    setEditingSkill(skill);
+    formModal.open();
   };
 
   const openDeleteModal = (skill: SkillInfo) => {
     setDeletingSkill(skill);
     deleteModal.open();
-  };
-
-  const addParam = () => {
-    setFormParams([...formParams, { name: '', type: 'string', description: '', required: false }]);
-  };
-
-  const updateParam = (index: number, field: keyof SkillParam, value: string | boolean) => {
-    const updated = [...formParams];
-    (updated[index] as any)[field] = value;
-    setFormParams(updated);
-  };
-
-  const removeParam = (index: number) => {
-    setFormParams(formParams.filter((_, i) => i !== index));
-  };
-
-  // Header CRUD helpers
-  const addHttpHeader = () => {
-    setFormHttpHeaders([...formHttpHeaders, { key: '', value: '' }]);
-  };
-
-  const updateHttpHeader = (index: number, field: 'key' | 'value', value: string) => {
-    const updated = [...formHttpHeaders];
-    updated[index][field] = value;
-    setFormHttpHeaders(updated);
-  };
-
-  const removeHttpHeader = (index: number) => {
-    setFormHttpHeaders(formHttpHeaders.filter((_, i) => i !== index));
-  };
-
-  const handleSave = async () => {
-    setFormError('');
-
-    if (!formName.trim()) {
-      setFormError(t('skills.nameRequired'));
-      return;
-    }
-
-    if (formMode === 'command' && !formCommand.trim()) {
-      setFormError(t('skills.commandRequired'));
-      return;
-    }
-
-    if (formMode === 'http' && !formHttpUrl.trim()) {
-      setFormError(t('skills.urlRequired'));
-      return;
-    }
-
-    let skillJson: SkillJson;
-
-    if (formMode === 'http') {
-      // Convert headers array to object
-      const headersObj: Record<string, string> = {};
-      formHttpHeaders.filter(h => h.key.trim()).forEach(h => {
-        headersObj[h.key.trim()] = h.value;
-      });
-
-      skillJson = {
-        name: formName.trim(),
-        description: formDescription.trim(),
-        parameters: formParams.filter(p => p.name.trim()),
-        mode: 'http',
-        http: {
-          method: formHttpMethod,
-          url: formHttpUrl.trim(),
-          headers: headersObj,
-          body: formHttpBody,
-        },
-      };
-    } else {
-      skillJson = {
-        name: formName.trim(),
-        description: formDescription.trim(),
-        parameters: formParams.filter(p => p.name.trim()),
-        command: formCommand.trim(),
-      };
-    }
-
-    const content = JSON.stringify(skillJson, null, 2);
-
-    try {
-      if (editingSkill) {
-        await api.put(`/api/skills/${editingSkill}`, { name: formName.trim(), content });
-        toast.success(t('skills.updateSuccess'));
-      } else {
-        await api.post('/api/skills', { name: formName.trim(), content });
-        toast.success(t('skills.addSuccess'));
-      }
-      formModal.close();
-      await loadSkills();
-    } catch {
-      toast.danger(t('common.error'));
-    }
   };
 
   const handleDelete = async () => {
@@ -262,18 +65,6 @@ function SkillsPage() {
     }
   };
 
-  const filteredSkills = searchQuery
-    ? skills.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.command.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : skills;
-
-  const isSaveDisabled = !formName.trim() ||
-    (formMode === 'command' && !formCommand.trim()) ||
-    (formMode === 'http' && !formHttpUrl.trim());
-
   return (
     <DefaultLayout>
       <div className="container mx-auto p-4">
@@ -287,285 +78,22 @@ function SkillsPage() {
           </Button>
         </div>
 
-        {/* Search */}
-        <div className="mb-4">
-          <SearchField value={searchQuery} onChange={setSearchQuery}>
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input placeholder={t('common.search')} />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-        </div>
+        <SkillsTable
+          skills={skills}
+          loading={loading}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onEdit={openEditModal}
+          onDelete={openDeleteModal}
+        />
 
-        {/* Skills Table */}
-        <Card>
-          <Card.Content>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Spinner size="lg" />
-              </div>
-            ) : filteredSkills.length === 0 ? (
-              <p className="text-center py-8 text-gray-500">{t('common.noData')}</p>
-            ) : (
-              <Table>
-                <Table.ScrollContainer>
-                  <Table.Content aria-label="Skills">
-                    <Table.Header>
-                      <Table.Column>{t('skills.name')}</Table.Column>
-                      <Table.Column>{t('skills.description')}</Table.Column>
-                      <Table.Column>{t('skills.mode')}</Table.Column>
-                      <Table.Column>{t('skills.commandOrUrl')}</Table.Column>
-                      <Table.Column>{t('skills.parameterCount')}</Table.Column>
-                      <Table.Column>{t('common.actions')}</Table.Column>
-                    </Table.Header>
-                    <Table.Body>
-                      {filteredSkills.map(skill => (
-                        <Table.Row key={skill.fileName}>
-                          <Table.Cell>
-                            <span className="font-medium font-mono">{skill.name}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <div className="max-w-xs truncate" title={skill.description}>
-                              {skill.description}
-                            </div>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Chip
-                              size="sm"
-                              color={skill.mode === 'http' ? 'accent' : 'default'}
-                              variant="soft"
-                            >
-                              {skill.mode === 'http' ? 'HTTP' : 'Command'}
-                            </Chip>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Chip size="sm" variant="soft">
-                              <span className="font-mono text-xs">{skill.command.length > 30 ? skill.command.substring(0, 30) + '...' : skill.command}</span>
-                            </Chip>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <Chip size="sm" color="accent">{skill.parameterCount}</Chip>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="secondary" onPress={() => openEditModal(skill)}>
-                                {t('common.edit')}
-                              </Button>
-                              <Button size="sm" variant="danger" onPress={() => openDeleteModal(skill)}>
-                                {t('common.delete')}
-                              </Button>
-                            </div>
-                          </Table.Cell>
-                        </Table.Row>
-                      ))}
-                    </Table.Body>
-                  </Table.Content>
-                </Table.ScrollContainer>
-              </Table>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Add/Edit Modal */}
-        <Modal>
-          <Modal.Backdrop isOpen={formModal.isOpen} onOpenChange={formModal.toggle}>
-            <Modal.Container size="lg">
-              <Modal.Dialog>
-                <Modal.Header>
-                  <Modal.Heading>
-                    {editingSkill ? t('skills.editSkill') : t('skills.addSkill')}
-                  </Modal.Heading>
-                </Modal.Header>
-                <Modal.Body>
-                  <div className="space-y-4">
-                    {formError && (
-                      <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                        {formError}
-                      </div>
-                    )}
-
-                    <TextField isRequired value={formName} onChange={setFormName}>
-                      <Label>{t('skills.name')}</Label>
-                      <Input placeholder="e.g. ffmpeg_convert" className="font-mono" />
-                    </TextField>
-
-                    <TextField value={formDescription} onChange={setFormDescription}>
-                      <Label>{t('skills.description')}</Label>
-                      <Input placeholder={t('skills.description')} />
-                    </TextField>
-
-                    {/* Mode Toggle */}
-                    <div>
-                      <Label>{t('skills.mode')}</Label>
-                      <div className="flex gap-2 mt-1">
-                        <Button
-                          size="sm"
-                          variant={formMode === 'command' ? 'primary' : 'secondary'}
-                          onPress={() => setFormMode('command')}
-                        >
-                          {t('skills.modeCommand')}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={formMode === 'http' ? 'primary' : 'secondary'}
-                          onPress={() => setFormMode('http')}
-                        >
-                          {t('skills.modeHttp')}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Command Mode Fields */}
-                    {formMode === 'command' && (
-                      <TextField isRequired value={formCommand} onChange={setFormCommand}>
-                        <Label>{t('skills.command')}</Label>
-                        <Input placeholder="e.g. ffmpeg -i {{input}} {{output}}" className="font-mono" />
-                      </TextField>
-                    )}
-
-                    {/* HTTP Mode Fields */}
-                    {formMode === 'http' && (
-                      <div className="space-y-4">
-                        {/* HTTP Method */}
-                        <div>
-                          <Label>{t('skills.httpMethod')}</Label>
-                          <div className="flex gap-1 mt-1">
-                            {HTTP_METHODS.map(m => (
-                              <Button
-                                key={m}
-                                size="sm"
-                                variant={formHttpMethod === m ? 'primary' : 'secondary'}
-                                onPress={() => setFormHttpMethod(m)}
-                              >
-                                {m}
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* URL */}
-                        <TextField isRequired value={formHttpUrl} onChange={setFormHttpUrl}>
-                          <Label>{t('skills.httpUrl')}</Label>
-                          <Input placeholder="https://api.example.com/{{param}}" className="font-mono" />
-                        </TextField>
-
-                        {/* Headers */}
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <Label>{t('skills.httpHeaders')}</Label>
-                            <Button size="sm" variant="secondary" onPress={addHttpHeader}>
-                              {t('skills.addHeader')}
-                            </Button>
-                          </div>
-                          {formHttpHeaders.length === 0 ? (
-                            <p className="text-sm text-gray-400">{t('skills.noHeaders')}</p>
-                          ) : (
-                            <div className="space-y-2">
-                              {formHttpHeaders.map((header, index) => (
-                                <div key={index} className="flex gap-2 items-end">
-                                  <div className="flex-1">
-                                    <TextField value={header.key} onChange={(v) => updateHttpHeader(index, 'key', v)}>
-                                      <Label className="text-xs">{t('skills.headerKey')}</Label>
-                                      <Input placeholder="Content-Type" className="font-mono" />
-                                    </TextField>
-                                  </div>
-                                  <div className="flex-1">
-                                    <TextField value={header.value} onChange={(v) => updateHttpHeader(index, 'value', v)}>
-                                      <Label className="text-xs">{t('skills.headerValue')}</Label>
-                                      <Input placeholder="application/json" className="font-mono" />
-                                    </TextField>
-                                  </div>
-                                  <Button size="sm" variant="danger" onPress={() => removeHttpHeader(index)}>
-                                    ×
-                                  </Button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Body (only for POST/PUT/PATCH) */}
-                        {['POST', 'PUT', 'PATCH'].includes(formHttpMethod) && (
-                          <div>
-                            <Label>{t('skills.httpBody')}</Label>
-                            <textarea
-                              className="w-full mt-1 p-2 border rounded-lg font-mono text-sm bg-transparent dark:border-gray-600 min-h-[80px] resize-y"
-                              value={formHttpBody}
-                              onChange={(e) => setFormHttpBody(e.target.value)}
-                              placeholder='{"key": "{{value}}"}'
-                              rows={4}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Parameters */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label>{t('skills.parameters')}</Label>
-                        <Button size="sm" variant="secondary" onPress={addParam}>
-                          {t('skills.addParam')}
-                        </Button>
-                      </div>
-                      {formParams.length === 0 ? (
-                        <p className="text-sm text-gray-400">{t('common.noData')}</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {formParams.map((param, index) => (
-                            <div key={index} className="flex gap-2 items-end p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                              <div className="flex-1">
-                                <TextField value={param.name} onChange={(v) => updateParam(index, 'name', v)}>
-                                  <Label className="text-xs">{t('skills.paramName')}</Label>
-                                  <Input placeholder="name" className="font-mono" />
-                                </TextField>
-                              </div>
-                              <div className="w-24">
-                                <TextField value={param.type} onChange={(v) => updateParam(index, 'type', v)}>
-                                  <Label className="text-xs">{t('skills.paramType')}</Label>
-                                  <Input placeholder="string" className="font-mono" />
-                                </TextField>
-                              </div>
-                              <div className="flex-1">
-                                <TextField value={param.description} onChange={(v) => updateParam(index, 'description', v)}>
-                                  <Label className="text-xs">{t('skills.paramDesc')}</Label>
-                                  <Input placeholder={t('skills.paramDesc')} />
-                                </TextField>
-                              </div>
-                              <div className="flex items-center gap-2 pb-1">
-                                <label className="flex items-center gap-1 text-xs cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={param.required}
-                                    onChange={(e) => updateParam(index, 'required', e.target.checked)}
-                                    className="rounded"
-                                  />
-                                  {t('skills.paramRequired')}
-                                </label>
-                                <Button size="sm" variant="danger" onPress={() => removeParam(index)}>
-                                  ×
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Modal.Body>
-                <Modal.Footer>
-                  <Button variant="secondary" onPress={formModal.close}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button onPress={handleSave} isDisabled={isSaveDisabled}>
-                    {t('common.save')}
-                  </Button>
-                </Modal.Footer>
-              </Modal.Dialog>
-            </Modal.Container>
-          </Modal.Backdrop>
-        </Modal>
+        <SkillFormModal
+          isOpen={formModal.isOpen}
+          onOpenChange={formModal.toggle}
+          onClose={formModal.close}
+          editingSkill={editingSkill}
+          onSaved={loadSkills}
+        />
 
         {/* Delete Confirmation Modal */}
         <Modal>

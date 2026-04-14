@@ -1,22 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Spinner, Table, Modal, TextField, Label, Input, TextArea, SearchField, Chip, toast } from '@heroui/react';
+import { Button, Modal, toast } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-
-interface Contact {
-  id: number;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  notes: string | null;
-}
-
-interface ContactsResponse {
-  success: boolean;
-  data: Contact[];
-}
+import ContactsTable from './ContactsTable';
+import ContactFormModal from './ContactFormModal';
+import type { Contact, ContactsResponse } from './types';
 
 function ContactsPage() {
   const { t } = useI18n();
@@ -28,12 +18,6 @@ function ContactsPage() {
 
   const formModal = useOverlayState();
   const deleteModal = useOverlayState();
-
-  // Form state
-  const [formName, setFormName] = useState('');
-  const [formEmail, setFormEmail] = useState('');
-  const [formPhone, setFormPhone] = useState('');
-  const [formNotes, setFormNotes] = useState('');
 
   useEffect(() => {
     loadContacts();
@@ -55,19 +39,11 @@ function ContactsPage() {
 
   const openAddModal = () => {
     setEditingContact(null);
-    setFormName('');
-    setFormEmail('');
-    setFormPhone('');
-    setFormNotes('');
     formModal.open();
   };
 
   const openEditModal = (contact: Contact) => {
     setEditingContact(contact);
-    setFormName(contact.name);
-    setFormEmail(contact.email ?? '');
-    setFormPhone(contact.phone ?? '');
-    setFormNotes(contact.notes ?? '');
     formModal.open();
   };
 
@@ -76,23 +52,15 @@ function ContactsPage() {
     deleteModal.open();
   };
 
-  const handleSave = async () => {
+  const handleSave = async (data: { name: string; email: string | null; phone: string | null; notes: string | null }) => {
     try {
-      const body = {
-        name: formName,
-        email: formEmail || null,
-        phone: formPhone || null,
-        notes: formNotes || null,
-      };
-
       if (editingContact) {
-        await api.put(`/api/contacts/${editingContact.id}`, body);
+        await api.put(`/api/contacts/${editingContact.id}`, data);
         toast.success(t('contacts.updateSuccess'));
       } else {
-        await api.post('/api/contacts', body);
+        await api.post('/api/contacts', data);
         toast.success(t('contacts.addSuccess'));
       }
-
       formModal.close();
       await loadContacts();
     } catch {
@@ -112,14 +80,6 @@ function ContactsPage() {
     }
   };
 
-  const filteredContacts = searchQuery
-    ? contacts.filter(c =>
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (c.email?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (c.phone?.includes(searchQuery))
-      )
-    : contacts;
-
   return (
     <DefaultLayout>
       <div className="container mx-auto p-4">
@@ -130,119 +90,22 @@ function ContactsPage() {
           </Button>
         </div>
 
-        {/* Search */}
-        <div className="mb-4">
-          <SearchField value={searchQuery} onChange={setSearchQuery}>
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input placeholder={t('common.search')} />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-        </div>
+        <ContactsTable
+          contacts={contacts}
+          loading={loading}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onEdit={openEditModal}
+          onDelete={openDeleteModal}
+        />
 
-        {/* Contacts Table */}
-        <Card>
-          <Card.Content>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Spinner size="lg" />
-              </div>
-            ) : filteredContacts.length === 0 ? (
-              <p className="text-center py-8 text-gray-500">{t('common.noData')}</p>
-            ) : (
-              <Table>
-                <Table.ScrollContainer>
-                  <Table.Content aria-label="Contacts">
-                    <Table.Header>
-                      <Table.Column>{t('contacts.name')}</Table.Column>
-                      <Table.Column>{t('contacts.email')}</Table.Column>
-                      <Table.Column>{t('contacts.phone')}</Table.Column>
-                      <Table.Column>{t('contacts.notes')}</Table.Column>
-                      <Table.Column>{t('common.actions')}</Table.Column>
-                    </Table.Header>
-                    <Table.Body>
-                      {filteredContacts.map(contact => (
-                        <Table.Row key={contact.id}>
-                          <Table.Cell>
-                            <span className="font-medium">{contact.name}</span>
-                          </Table.Cell>
-                          <Table.Cell>
-                            {contact.email ? (
-                              <Chip size="sm" variant="soft">{contact.email}</Chip>
-                            ) : '-'}
-                          </Table.Cell>
-                          <Table.Cell>{contact.phone ?? '-'}</Table.Cell>
-                          <Table.Cell>
-                            <div className="max-w-xs truncate">{contact.notes ?? '-'}</div>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="secondary" onPress={() => openEditModal(contact)}>
-                                {t('common.edit')}
-                              </Button>
-                              <Button size="sm" variant="danger" onPress={() => openDeleteModal(contact)}>
-                                {t('common.delete')}
-                              </Button>
-                            </div>
-                          </Table.Cell>
-                        </Table.Row>
-                      ))}
-                    </Table.Body>
-                  </Table.Content>
-                </Table.ScrollContainer>
-              </Table>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Add/Edit Modal */}
-        <Modal>
-          <Modal.Backdrop isOpen={formModal.isOpen} onOpenChange={formModal.toggle}>
-            <Modal.Container>
-              <Modal.Dialog>
-                <Modal.Header>
-                  <Modal.Heading>
-                    {editingContact ? t('contacts.editContact') : t('contacts.addContact')}
-                  </Modal.Heading>
-                </Modal.Header>
-                <Modal.Body>
-                  <div className="space-y-4">
-                    <TextField isRequired value={formName} onChange={setFormName}>
-                      <Label>{t('contacts.name')}</Label>
-                      <Input placeholder={t('contacts.name')} />
-                    </TextField>
-                    <TextField value={formEmail} onChange={setFormEmail}>
-                      <Label>{t('contacts.email')}</Label>
-                      <Input type="email" placeholder={t('contacts.email')} />
-                    </TextField>
-                    <TextField value={formPhone} onChange={setFormPhone}>
-                      <Label>{t('contacts.phone')}</Label>
-                      <Input placeholder={t('contacts.phone')} />
-                    </TextField>
-                    <div>
-                      <Label>{t('contacts.notes')}</Label>
-                      <TextArea
-                        value={formNotes}
-                        onChange={(e) => setFormNotes(e.target.value)}
-                        placeholder={t('contacts.notes')}
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                </Modal.Body>
-                <Modal.Footer>
-                  <Button variant="secondary" onPress={formModal.close}>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button onPress={handleSave} isDisabled={!formName.trim()}>
-                    {t('common.save')}
-                  </Button>
-                </Modal.Footer>
-              </Modal.Dialog>
-            </Modal.Container>
-          </Modal.Backdrop>
-        </Modal>
+        <ContactFormModal
+          isOpen={formModal.isOpen}
+          onOpenChange={formModal.toggle}
+          onClose={formModal.close}
+          editingContact={editingContact}
+          onSave={handleSave}
+        />
 
         {/* Delete Confirmation Modal */}
         <Modal>
