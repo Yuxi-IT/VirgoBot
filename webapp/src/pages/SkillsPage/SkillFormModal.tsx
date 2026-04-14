@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Button, Modal, TextField, Label, Input, toast } from '@heroui/react';
+import { Button, Modal, TextField, Label, Input, toast, Checkbox, TextArea } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-import type { SkillParam, SkillJson, HttpHeader, SkillInfo, SkillDetailResponse } from './types';
+import type { SkillParam, SkillJson, SkillInfo, SkillDetailResponse } from './types';
+import { TrashBin } from '@gravity-ui/icons';
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
 
@@ -25,7 +26,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
   const [formMode, setFormMode] = useState<'command' | 'http'>('command');
   const [formHttpMethod, setFormHttpMethod] = useState('GET');
   const [formHttpUrl, setFormHttpUrl] = useState('');
-  const [formHttpHeaders, setFormHttpHeaders] = useState<HttpHeader[]>([]);
+  const [formHttpHeadersText, setFormHttpHeadersText] = useState('');
   const [formHttpBody, setFormHttpBody] = useState('');
 
   useEffect(() => {
@@ -45,7 +46,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
     setFormMode('command');
     setFormHttpMethod('GET');
     setFormHttpUrl('');
-    setFormHttpHeaders([]);
+    setFormHttpHeadersText('');
     setFormHttpBody('');
   };
 
@@ -68,16 +69,16 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
           setFormHttpMethod(parsed.http.method || 'GET');
           setFormHttpUrl(parsed.http.url || '');
           setFormHttpBody(parsed.http.body || '');
-          const headers: HttpHeader[] = parsed.http.headers
-            ? Object.entries(parsed.http.headers).map(([key, value]) => ({ key, value }))
-            : [];
-          setFormHttpHeaders(headers);
+          const headersText = parsed.http.headers
+            ? Object.entries(parsed.http.headers).map(([key, value]) => `${key}: ${value}`).join('\n')
+            : '';
+          setFormHttpHeadersText(headersText);
           setFormCommand('');
         } else {
           setFormCommand(parsed.command || '');
           setFormHttpMethod('GET');
           setFormHttpUrl('');
-          setFormHttpHeaders([]);
+          setFormHttpHeadersText('');
           setFormHttpBody('');
         }
       }
@@ -100,18 +101,19 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
     setFormParams(formParams.filter((_, i) => i !== index));
   };
 
-  const addHttpHeader = () => {
-    setFormHttpHeaders([...formHttpHeaders, { key: '', value: '' }]);
-  };
-
-  const updateHttpHeader = (index: number, field: 'key' | 'value', value: string) => {
-    const updated = [...formHttpHeaders];
-    updated[index][field] = value;
-    setFormHttpHeaders(updated);
-  };
-
-  const removeHttpHeader = (index: number) => {
-    setFormHttpHeaders(formHttpHeaders.filter((_, i) => i !== index));
+  const parseHeadersText = (text: string): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    text.split('\n').forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const colonIndex = trimmed.indexOf(':');
+      if (colonIndex > 0) {
+        const key = trimmed.substring(0, colonIndex).trim();
+        const value = trimmed.substring(colonIndex + 1).trim();
+        if (key) headers[key] = value;
+      }
+    });
+    return headers;
   };
 
   const handleSave = async () => {
@@ -135,10 +137,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
     let skillJson: SkillJson;
 
     if (formMode === 'http') {
-      const headersObj: Record<string, string> = {};
-      formHttpHeaders.filter(h => h.key.trim()).forEach(h => {
-        headersObj[h.key.trim()] = h.value;
-      });
+      const headersObj = parseHeadersText(formHttpHeadersText);
 
       skillJson = {
         name: formName.trim(),
@@ -186,7 +185,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
   return (
     <Modal>
       <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
-        <Modal.Container size="lg">
+        <Modal.Container size="lg" className="w-5xl">
           <Modal.Dialog>
             <Modal.Header>
               <Modal.Heading>
@@ -194,7 +193,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
               </Modal.Heading>
             </Modal.Header>
             <Modal.Body>
-              <div className="space-y-4">
+              <div className="space-y-4 p-2">
                 {formError && (
                   <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 p-2 rounded">
                     {formError}
@@ -265,44 +264,21 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                     </TextField>
 
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <Label>{t('skills.httpHeaders')}</Label>
-                        <Button size="sm" variant="secondary" onPress={addHttpHeader}>
-                          {t('skills.addHeader')}
-                        </Button>
-                      </div>
-                      {formHttpHeaders.length === 0 ? (
-                        <p className="text-sm text-gray-400">{t('skills.noHeaders')}</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {formHttpHeaders.map((header, index) => (
-                            <div key={index} className="flex gap-2 items-end">
-                              <div className="flex-1">
-                                <TextField value={header.key} onChange={(v) => updateHttpHeader(index, 'key', v)}>
-                                  <Label className="text-xs">{t('skills.headerKey')}</Label>
-                                  <Input placeholder="Content-Type" className="font-mono" />
-                                </TextField>
-                              </div>
-                              <div className="flex-1">
-                                <TextField value={header.value} onChange={(v) => updateHttpHeader(index, 'value', v)}>
-                                  <Label className="text-xs">{t('skills.headerValue')}</Label>
-                                  <Input placeholder="application/json" className="font-mono" />
-                                </TextField>
-                              </div>
-                              <Button size="sm" variant="danger" onPress={() => removeHttpHeader(index)}>
-                                ×
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <Label>{t('skills.httpHeaders')}</Label>
+                      <TextArea
+                        className="w-[99%] m-1 p-2 border border-gray-300 dark:border-gray-600 font-mono text-sm bg-transparent min-h-[80px] resize-y"
+                        value={formHttpHeadersText}
+                        onChange={(e) => setFormHttpHeadersText(e.target.value)}
+                        placeholder={"Content-Type: application/json\nAuthorization: Bearer {{token}}"}
+                        rows={3}
+                      />
                     </div>
 
                     {['POST', 'PUT', 'PATCH'].includes(formHttpMethod) && (
                       <div>
                         <Label>{t('skills.httpBody')}</Label>
-                        <textarea
-                          className="w-full mt-1 p-2 border rounded-lg font-mono text-sm bg-transparent dark:border-gray-600 min-h-[80px] resize-y"
+                        <TextArea
+                          className="w-[99%] m-1 p-2 border border-gray-300 dark:border-gray-600 font-mono text-sm bg-transparent min-h-[80px] resize-y"
                           value={formHttpBody}
                           onChange={(e) => setFormHttpBody(e.target.value)}
                           placeholder='{"key": "{{value}}"}'
@@ -327,16 +303,10 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                     <div className="space-y-3">
                       {formParams.map((param, index) => (
                         <div key={index} className="flex gap-2 items-end p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                          <div className="flex-1">
+                          <div className="flex-1 w-24">
                             <TextField value={param.name} onChange={(v) => updateParam(index, 'name', v)}>
                               <Label className="text-xs">{t('skills.paramName')}</Label>
                               <Input placeholder="name" className="font-mono" />
-                            </TextField>
-                          </div>
-                          <div className="w-24">
-                            <TextField value={param.type} onChange={(v) => updateParam(index, 'type', v)}>
-                              <Label className="text-xs">{t('skills.paramType')}</Label>
-                              <Input placeholder="string" className="font-mono" />
                             </TextField>
                           </div>
                           <div className="flex-1">
@@ -347,16 +317,18 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                           </div>
                           <div className="flex items-center gap-2 pb-1">
                             <label className="flex items-center gap-1 text-xs cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={param.required}
-                                onChange={(e) => updateParam(index, 'required', e.target.checked)}
-                                className="rounded"
-                              />
-                              {t('skills.paramRequired')}
+                              <Checkbox isSelected={param.required} onChange={(checked) => updateParam(index, 'required', checked)}>
+                                <Checkbox.Control>
+                                  <Checkbox.Indicator />
+                                </Checkbox.Control>
+                                <Checkbox.Content>
+                                  <Label htmlFor="basic-terms">{t('skills.paramRequired')}</Label>
+                                </Checkbox.Content>
+                              </Checkbox>
+                              
                             </label>
-                            <Button size="sm" variant="danger" onPress={() => removeParam(index)}>
-                              ×
+                            <Button size="sm" isIconOnly variant="danger" onPress={() => removeParam(index)}>
+                              <TrashBin/>
                             </Button>
                           </div>
                         </div>

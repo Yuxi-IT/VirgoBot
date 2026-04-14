@@ -105,7 +105,7 @@ function DashboardPage() {
         {/* Restart Confirmation Modal */}
         <Modal>
           <Modal.Backdrop isOpen={restartModal.isOpen} onOpenChange={restartModal.toggle}>
-            <Modal.Container>
+            <Modal.Container size="lg">
               <Modal.Dialog role="alertdialog">
                 <Modal.Header>
                   <Modal.Heading>{t('gateway.restart')}</Modal.Heading>

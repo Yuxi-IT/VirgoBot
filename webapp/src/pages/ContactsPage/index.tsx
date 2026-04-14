@@ -110,7 +110,7 @@ function ContactsPage() {
         {/* Delete Confirmation Modal */}
         <Modal>
           <Modal.Backdrop isOpen={deleteModal.isOpen} onOpenChange={deleteModal.toggle}>
-            <Modal.Container>
+            <Modal.Container size="lg">
               <Modal.Dialog role="alertdialog">
                 <Modal.Header>
                   <Modal.Heading>{t('contacts.deleteContact')}</Modal.Heading>

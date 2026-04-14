@@ -92,7 +92,7 @@ function LogsPage() {
         {/* Clear Confirmation Modal */}
         <Modal>
           <Modal.Backdrop isOpen={clearModal.isOpen} onOpenChange={clearModal.toggle}>
-            <Modal.Container>
+            <Modal.Container size="lg">
               <Modal.Dialog role="alertdialog">
                 <Modal.Header>
                   <Modal.Heading>{t('logs.clearLogs')}</Modal.Heading>

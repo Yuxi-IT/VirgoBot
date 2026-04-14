@@ -8,9 +8,9 @@ import { Toast } from '@heroui/react'
 import App from './App.tsx'
 import './styles/globals.css'
 import { navItems } from './config/site.ts'
-import VConsole from 'vconsole';
+//import VConsole from 'vconsole';
 
-new VConsole();
+//new VConsole();
 
 window.rootList = navItems.filter(item => item.label && item.label !== null).map(item => item.url);
 

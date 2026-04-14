@@ -50,7 +50,7 @@ export function ImagePreviewProvider({ children }: { children: ReactNode }) {
     <ImagePreviewContext.Provider value={{ showImage }}>
       {children}
       <Modal.Backdrop variant="blur" isOpen={state.isOpen} onOpenChange={state.setOpen}>
-        <Modal.Container placement="center">
+        <Modal.Container size="lg" placement="center">
           <Modal.Dialog className="max-w-[90vw] max-h-[90vh]">
             <Modal.Body className="p-0 relative">
               {mediaSrc && mediaType === 'image' && <img src={mediaSrc} alt="" className="w-full h-full object-contain rounded-lg" />}

@@ -46,7 +46,7 @@ function ContactFormModal({ isOpen, onOpenChange, onClose, editingContact, onSav
   return (
     <Modal>
       <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
-        <Modal.Container>
+        <Modal.Container size="lg">
           <Modal.Dialog>
             <Modal.Header>
               <Modal.Heading>
