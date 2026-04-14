@@ -8,5 +8,6 @@ public static class AppConstants
     public const int DefaultMessageLimit = 20;
     public const string ConfigDirectory = "config";
     public const string WorkspaceDirectory = "workspace";
+    public const string SkillsDirectory = "skills";
     public const string ConfigFileName = "config.json";
 }

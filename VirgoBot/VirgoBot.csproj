@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <None Update="config\RULE.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

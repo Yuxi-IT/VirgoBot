@@ -21,6 +21,7 @@ public class FunctionRegistry
         RegisterAll(FileFunctions.Register());
         RegisterAll(DouyinFunctions.Register());
         RegisterAll(SoulFunctions.Register(config));
+        RegisterAll(SkillLoader.LoadAll());
     }
 
     public void SetEmailService(EmailService emailService)

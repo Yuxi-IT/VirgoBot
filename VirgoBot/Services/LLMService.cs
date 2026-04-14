@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using VirgoBot.Functions;
@@ -109,27 +110,39 @@ public class LLMService
         {
             _memory.SaveMessage(userId, "assistant", BuildAssistantToolCallMemory(assistantText, toolCalls));
 
-            foreach (var toolCall in toolCalls.EnumerateArray())
+            var toolCallItems = toolCalls.EnumerateArray().Select(tc =>
             {
-                var functionCall = toolCall.GetProperty("function");
-                var toolName = functionCall.GetProperty("name").GetString() ?? string.Empty;
-                var toolCallId = toolCall.GetProperty("id").GetString() ?? Guid.NewGuid().ToString("N");
-                var argumentsJson = functionCall.TryGetProperty("arguments", out var argsEl)
-                    ? argsEl.GetString() ?? "{}"
-                    : "{}";
+                var functionCall = tc.GetProperty("function");
+                return new
+                {
+                    Name = functionCall.GetProperty("name").GetString() ?? string.Empty,
+                    Id = tc.GetProperty("id").GetString() ?? Guid.NewGuid().ToString("N"),
+                    ArgumentsJson = functionCall.TryGetProperty("arguments", out var argsEl)
+                        ? argsEl.GetString() ?? "{}"
+                        : "{}"
+                };
+            }).ToList();
 
+            var totalCount = toolCallItems.Count;
+            ColorLog.Info("TOOL", $"开始并行执行 {totalCount} 个工具调用...");
+            var totalSw = Stopwatch.StartNew();
+
+            var tasks = toolCallItems.Select(async item =>
+            {
+                var sw = Stopwatch.StartNew();
                 string toolResult;
                 try
                 {
-                    using var argsDoc = JsonDocument.Parse(string.IsNullOrWhiteSpace(argumentsJson) ? "{}" : argumentsJson);
-                    toolResult = await _functions.ExecuteAsync(toolName, argsDoc.RootElement);
+                    using var argsDoc = JsonDocument.Parse(
+                        string.IsNullOrWhiteSpace(item.ArgumentsJson) ? "{}" : item.ArgumentsJson);
+                    toolResult = await _functions.ExecuteAsync(item.Name, argsDoc.RootElement);
 
-                    if (toolName == "send_sticker" && toolResult != "no_match" && onSticker is not null)
+                    if (item.Name == "send_sticker" && toolResult != "no_match" && onSticker is not null)
                     {
                         await onSticker(toolResult);
                     }
 
-                    if (toolName == "switch_douyin_chat" && toolResult.StartsWith("switch_chat:") && onSwitchChat is not null)
+                    if (item.Name == "switch_douyin_chat" && toolResult.StartsWith("switch_chat:") && onSwitchChat is not null)
                     {
                         await onSwitchChat(toolResult.Replace("switch_chat:", "").Trim());
                     }
@@ -138,13 +151,26 @@ public class LLMService
                 {
                     toolResult = $"工具执行失败: {ex.Message}";
                 }
+                sw.Stop();
 
+                ColorLog.Success("TOOL", $"[{item.Name}] {sw.ElapsedMilliseconds}ms → {Truncate(toolResult, 200)}");
+
+                return new { item.Name, item.Id, Result = toolResult };
+            }).ToList();
+
+            var results = await Task.WhenAll(tasks);
+            totalSw.Stop();
+
+            foreach (var r in results)
+            {
                 _memory.SaveMessage(userId, "tool", new
                 {
-                    tool_call_id = toolCallId,
-                    content = toolResult
+                    tool_call_id = r.Id,
+                    content = r.Result
                 });
             }
+
+            ColorLog.Info("TOOL", $"全部 {totalCount} 个工具执行完成, 总耗时 {totalSw.ElapsedMilliseconds}ms");
 
             return await AskAsync(userId, null, onProgress, onSticker, onSwitchChat);
         }
@@ -438,5 +464,12 @@ public class LLMService
         }
 
         return content.ToArray();
+    }
+
+    private static string Truncate(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text)) return "(empty)";
+        var singleLine = text.ReplaceLineEndings(" ");
+        return singleLine.Length <= maxLength ? singleLine : singleLine[..maxLength] + "...";
     }
 }
