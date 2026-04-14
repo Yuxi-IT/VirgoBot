@@ -95,4 +95,12 @@ public static class ConfigLoader
         ColorLog.Info("MEMORY", $"记忆已加载, [{systemMemory.Length}]Tokens");
         return systemMemory;
     }
+
+    public static void Save(Config config)
+    {
+        var configPath = Path.Combine(AppConstants.ConfigDirectory, AppConstants.ConfigFileName);
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(configPath, json);
+        ColorLog.Success("CONFIG", "配置已保存");
+    }
 }

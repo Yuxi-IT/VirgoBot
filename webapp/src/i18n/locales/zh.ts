@@ -101,6 +101,15 @@ export default {
     saveSuccess: '设置保存成功',
     saveFailed: '保存设置失败',
   },
+  gateway: {
+    restart: '重启服务',
+    restartConfirm: '确定要重启所有服务吗？',
+    restartSuccess: '服务重启成功',
+    restarting: '正在重启...',
+    saveConfig: '保存配置',
+    saveAndRestart: '保存并重启',
+    configSaved: '配置已保存',
+  },
   logs: {
     title: '日志',
     level: '级别',

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, Chip, Spinner, Alert } from '@heroui/react';
+import { Card, Chip, Spinner, Alert, Button, Modal } from '@heroui/react';
+import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
@@ -34,6 +35,8 @@ function DashboardPage() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [restarting, setRestarting] = useState(false);
+  const restartModal = useOverlayState();
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadStatus = useCallback(async (silent = false) => {
@@ -64,6 +67,19 @@ function DashboardPage() {
     };
   }, []);
 
+  const handleRestart = async () => {
+    restartModal.close();
+    setRestarting(true);
+    try {
+      await api.post<{ success: boolean }>('/api/gateway/restart', {});
+      await loadStatus(true);
+    } catch {
+      // will be reflected in status
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   const getChannelChip = (channelStatus: string) => {
     switch (channelStatus) {
       case 'running':
@@ -72,6 +88,8 @@ function DashboardPage() {
         return <Chip color="warning" size="sm">{t('dashboard.monitoring')}</Chip>;
       case 'disabled':
         return <Chip color="danger" size="sm">{t('dashboard.disabled')}</Chip>;
+      case 'stopped':
+        return <Chip color="default" size="sm">{t('dashboard.stopped')}</Chip>;
       default:
         return <Chip color="default" size="sm">{channelStatus}</Chip>;
     }
@@ -105,7 +123,44 @@ function DashboardPage() {
   return (
     <DefaultLayout>
       <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">{t('dashboard.title')}</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
+          <Button
+            variant="danger"
+            onPress={restartModal.open}
+            isDisabled={restarting}
+          >
+            {restarting ? (
+              <><Spinner size="sm" className="mr-2" />{t('gateway.restarting')}</>
+            ) : (
+              t('gateway.restart')
+            )}
+          </Button>
+        </div>
+
+        {/* Restart Confirmation Modal */}
+        <Modal>
+          <Modal.Backdrop isOpen={restartModal.isOpen} onOpenChange={restartModal.toggle}>
+            <Modal.Container>
+              <Modal.Dialog role="alertdialog">
+                <Modal.Header>
+                  <Modal.Heading>{t('gateway.restart')}</Modal.Heading>
+                </Modal.Header>
+                <Modal.Body>
+                  <p>{t('gateway.restartConfirm')}</p>
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button variant="secondary" onPress={restartModal.close}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button variant="danger" onPress={handleRestart}>
+                    {t('common.confirm')}
+                  </Button>
+                </Modal.Footer>
+              </Modal.Dialog>
+            </Modal.Container>
+          </Modal.Backdrop>
+        </Modal>
 
         {/* System Status */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

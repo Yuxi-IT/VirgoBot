@@ -23,10 +23,10 @@ public class EmailManager
         _llmService = llmService;
     }
 
-    public async Task StartMonitoring()
+    public async Task StartMonitoring(CancellationToken ct = default)
     {
         ColorLog.Info("EMAIL", "邮件监控已启动");
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
@@ -38,13 +38,16 @@ public class EmailManager
                     await NotifyNewEmail(email);
                 }
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
                 ColorLog.Error("EMAIL", $"监控错误: {ex.Message}");
             }
 
-            await Task.Delay(TimeSpan.FromMinutes(1));
+            try { await Task.Delay(TimeSpan.FromMinutes(1), ct); }
+            catch (OperationCanceledException) { break; }
         }
+        ColorLog.Info("EMAIL", "邮件监控已停止");
     }
 
     private async Task NotifyNewEmail(EmailMessage email)

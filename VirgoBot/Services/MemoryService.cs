@@ -6,7 +6,7 @@ namespace VirgoBot.Services;
 public class MemoryService : IDisposable
 {
     private readonly SqliteConnection _conn;
-    private readonly int _messageLimit;
+    private int _messageLimit;
     private bool _disposed;
 
     public MemoryService(string dbPath = "memory.db", int messageLimit = 20)
@@ -35,6 +35,11 @@ public class MemoryService : IDisposable
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )";
         cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateMessageLimit(int newLimit)
+    {
+        _messageLimit = newLimit;
     }
 
     public void SaveMessage(long userId, string role, object content)

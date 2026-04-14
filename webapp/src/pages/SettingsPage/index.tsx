@@ -43,6 +43,16 @@ function SettingsPage() {
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [soulLoading, setSoulLoading] = useState(false);
   const [ruleLoading, setRuleLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+
+  // Editable field states
+  const [editModel, setEditModel] = useState('');
+  const [editBaseUrl, setEditBaseUrl] = useState('');
+  const [editMaxTokens, setEditMaxTokens] = useState('');
+  const [editMessageLimit, setEditMessageLimit] = useState('');
+  const [editImapHost, setEditImapHost] = useState('');
+  const [editEmailAddress, setEditEmailAddress] = useState('');
 
   useEffect(() => {
     loadConfig();
@@ -54,6 +64,12 @@ function SettingsPage() {
       const res = await api.get<ConfigResponse>('/api/config');
       if (res.success) {
         setConfig(res.data);
+        setEditModel(res.data.model);
+        setEditBaseUrl(res.data.baseUrl);
+        setEditMaxTokens(String(res.data.server.maxTokens));
+        setEditMessageLimit(String(res.data.server.messageLimit));
+        setEditImapHost(res.data.email.imapHost);
+        setEditEmailAddress(res.data.email.address);
       }
     } catch {
       // silently fail
@@ -131,6 +147,47 @@ function SettingsPage() {
     }
   };
 
+  const saveConfig = async () => {
+    setSaving(true);
+    try {
+      await api.put('/api/config', {
+        model: editModel,
+        baseUrl: editBaseUrl,
+        maxTokens: parseInt(editMaxTokens) || undefined,
+        messageLimit: parseInt(editMessageLimit) || undefined,
+        imapHost: editImapHost,
+        emailAddress: editEmailAddress,
+      });
+      toast.success(t('gateway.configSaved'));
+    } catch {
+      toast.danger(t('settings.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveAndRestart = async () => {
+    setRestarting(true);
+    try {
+      await api.put('/api/config', {
+        model: editModel,
+        baseUrl: editBaseUrl,
+        maxTokens: parseInt(editMaxTokens) || undefined,
+        messageLimit: parseInt(editMessageLimit) || undefined,
+        imapHost: editImapHost,
+        emailAddress: editEmailAddress,
+      });
+      await api.post('/api/gateway/restart', {});
+      toast.success(t('gateway.restartSuccess'));
+      // Reload config to reflect any changes
+      await loadConfig();
+    } catch {
+      toast.danger(t('settings.saveFailed'));
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   const handleTabChange = (key: string | number) => {
     const tabKey = String(key);
     if (tabKey === 'systemMemory') {
@@ -191,11 +248,11 @@ function SettingsPage() {
               </Card.Header>
               <Card.Content>
                 <div className="space-y-4">
-                  <TextField isDisabled value={config?.model ?? ''}>
+                  <TextField value={editModel} onChange={setEditModel}>
                     <Label>{t('settings.model')}</Label>
                     <Input />
                   </TextField>
-                  <TextField isDisabled value={config?.baseUrl ?? ''}>
+                  <TextField value={editBaseUrl} onChange={setEditBaseUrl}>
                     <Label>{t('settings.baseUrl')}</Label>
                     <Input />
                   </TextField>
@@ -208,11 +265,11 @@ function SettingsPage() {
                     <Input />
                   </TextField>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <TextField isDisabled value={String(config?.server.maxTokens ?? '')}>
+                    <TextField value={editMaxTokens} onChange={setEditMaxTokens}>
                       <Label>{t('settings.maxTokens')}</Label>
                       <Input />
                     </TextField>
-                    <TextField isDisabled value={String(config?.server.messageLimit ?? '')}>
+                    <TextField value={editMessageLimit} onChange={setEditMessageLimit}>
                       <Label>{t('settings.messageLimit')}</Label>
                       <Input />
                     </TextField>
@@ -239,6 +296,26 @@ function SettingsPage() {
                       </Switch.Content>
                     </Switch>
                   </div>
+
+                  <Separator />
+
+                  <div className="flex gap-3">
+                    <Button
+                      onPress={saveConfig}
+                      isDisabled={saving || restarting}
+                    >
+                      {saving ? <Spinner size="sm" className="mr-2" /> : null}
+                      {t('gateway.saveConfig')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onPress={saveAndRestart}
+                      isDisabled={saving || restarting}
+                    >
+                      {restarting ? <Spinner size="sm" className="mr-2" /> : null}
+                      {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
+                    </Button>
+                  </div>
                 </div>
               </Card.Content>
             </Card>
@@ -252,11 +329,11 @@ function SettingsPage() {
               </Card.Header>
               <Card.Content>
                 <div className="space-y-4">
-                  <TextField isDisabled value={config?.email.imapHost ?? ''}>
+                  <TextField value={editImapHost} onChange={setEditImapHost}>
                     <Label>{t('settings.imapHost')}</Label>
                     <Input />
                   </TextField>
-                  <TextField isDisabled value={config?.email.address ?? ''}>
+                  <TextField value={editEmailAddress} onChange={setEditEmailAddress}>
                     <Label>{t('settings.emailAddress')}</Label>
                     <Input />
                   </TextField>
@@ -269,6 +346,26 @@ function SettingsPage() {
                         <Label>{t('settings.enabled')}</Label>
                       </Switch.Content>
                     </Switch>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex gap-3">
+                    <Button
+                      onPress={saveConfig}
+                      isDisabled={saving || restarting}
+                    >
+                      {saving ? <Spinner size="sm" className="mr-2" /> : null}
+                      {t('gateway.saveConfig')}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      onPress={saveAndRestart}
+                      isDisabled={saving || restarting}
+                    >
+                      {restarting ? <Spinner size="sm" className="mr-2" /> : null}
+                      {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
+                    </Button>
                   </div>
                 </div>
               </Card.Content>

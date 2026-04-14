@@ -101,6 +101,15 @@ export default {
     saveSuccess: 'Settings saved successfully',
     saveFailed: 'Failed to save settings',
   },
+  gateway: {
+    restart: 'Restart Services',
+    restartConfirm: 'Are you sure you want to restart all services?',
+    restartSuccess: 'Services restarted successfully',
+    restarting: 'Restarting...',
+    saveConfig: 'Save Config',
+    saveAndRestart: 'Save & Restart',
+    configSaved: 'Config saved',
+  },
   logs: {
     title: 'Logs',
     level: 'Level',

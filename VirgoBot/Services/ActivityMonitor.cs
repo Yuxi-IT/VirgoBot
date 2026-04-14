@@ -30,13 +30,14 @@ public class ActivityMonitor
         _proactiveTimer = null;
     }
 
-    public void Start()
+    public void Start(CancellationToken ct = default)
     {
         _ = Task.Run(async () =>
         {
-            while (true)
+            while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(TimeSpan.FromMinutes(1));
+                try { await Task.Delay(TimeSpan.FromMinutes(1), ct); }
+                catch (OperationCanceledException) { break; }
 
                 var idle = DateTime.Now - _lastActivity;
                 if (idle.TotalMinutes >= 30 && _proactiveTimer == null)
@@ -71,6 +72,7 @@ public class ActivityMonitor
                     }, null, TimeSpan.FromMinutes(delay), Timeout.InfiniteTimeSpan);
                 }
             }
-        });
+            ColorLog.Info("ACTIVITY", "活动监控已停止");
+        }, ct);
     }
 }

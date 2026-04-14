@@ -13,44 +13,29 @@ namespace VirgoBot.Channels;
 
 public class HttpServerHost
 {
-    private readonly Config _config;
-    private readonly LLMService _llmService;
+    private readonly Gateway _gateway;
     private readonly WebSocketClientManager _wsManager;
-    private readonly ActivityMonitor _activityMonitor;
-    private readonly ILinkBridgeService _iLinkBridge;
-    private readonly Func<ILinkIncomingMessage, Task> _handleILinkMessage;
     private readonly MemoryService _memoryService;
-    private readonly ContactService _contactService;
     private readonly LogService _logService;
 
     private static readonly DateTime StartTime = DateTime.UtcNow;
 
     public HttpServerHost(
-        Config config,
-        LLMService llmService,
+        Gateway gateway,
         WebSocketClientManager wsManager,
-        ActivityMonitor activityMonitor,
-        ILinkBridgeService iLinkBridge,
-        Func<ILinkIncomingMessage, Task> handleILinkMessage,
         MemoryService memoryService,
-        ContactService contactService,
         LogService logService)
     {
-        _config = config;
-        _llmService = llmService;
+        _gateway = gateway;
         _wsManager = wsManager;
-        _activityMonitor = activityMonitor;
-        _iLinkBridge = iLinkBridge;
-        _handleILinkMessage = handleILinkMessage;
         _memoryService = memoryService;
-        _contactService = contactService;
         _logService = logService;
     }
 
     public async Task StartAsync()
     {
         var listener = new HttpListener();
-        listener.Prefixes.Add(_config.Server.ListenUrl);
+        listener.Prefixes.Add(_gateway.Config.Server.ListenUrl);
         listener.Start();
 
         while (true)
@@ -78,8 +63,8 @@ public class HttpServerHost
                     {
                         await HandleChatRequest(ctx);
                     }
-                    else if (_config.ILink.Enabled &&
-                             ctx.Request.Url?.AbsolutePath == _config.ILink.WebhookPath &&
+                    else if (_gateway.Config.ILink.Enabled &&
+                             ctx.Request.Url?.AbsolutePath == _gateway.Config.ILink.WebhookPath &&
                              ctx.Request.HttpMethod == "POST")
                     {
                         await HandleILinkWebhook(ctx);
@@ -120,6 +105,10 @@ public class HttpServerHost
                     else if (ctx.Request.Url?.AbsolutePath == "/api/config" && ctx.Request.HttpMethod == "GET")
                     {
                         await HandleGetConfigRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateConfigRequest(ctx);
                     }
                     else if (ctx.Request.Url?.AbsolutePath == "/api/config/system-memory" && ctx.Request.HttpMethod == "GET")
                     {
@@ -174,6 +163,15 @@ public class HttpServerHost
                     {
                         await HandleDeleteSkillRequest(ctx);
                     }
+                    // ===== Gateway API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/gateway/restart" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleGatewayRestartRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/gateway/status" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGatewayStatusRequest(ctx);
+                    }
                     else
                     {
                         ctx.Response.StatusCode = 404;
@@ -218,6 +216,82 @@ public class HttpServerHost
         return ctx.Request.QueryString[key] ?? defaultValue;
     }
 
+    // ===== Gateway API =====
+
+    private async Task HandleGatewayRestartRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            await _gateway.RestartAsync();
+            await SendJsonResponse(ctx, new
+            {
+                success = true,
+                message = "Gateway restarted",
+                data = new
+                {
+                    isRunning = _gateway.IsRunning,
+                    channels = _gateway.ChannelStatuses.ToDictionary(
+                        kv => kv.Key,
+                        kv => new { kv.Value.Name, kv.Value.Enabled, kv.Value.Status })
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            await SendErrorResponse(ctx, 500, $"Restart failed: {ex.Message}");
+        }
+    }
+
+    private async Task HandleGatewayStatusRequest(HttpListenerContext ctx)
+    {
+        var data = new
+        {
+            isRunning = _gateway.IsRunning,
+            channels = _gateway.ChannelStatuses.ToDictionary(
+                kv => kv.Key,
+                kv => new { kv.Value.Name, kv.Value.Enabled, kv.Value.Status }),
+            config = new
+            {
+                model = _gateway.Config.Model,
+                baseUrl = _gateway.Config.BaseUrl,
+                maxTokens = _gateway.Config.Server.MaxTokens,
+                messageLimit = _gateway.Config.Server.MessageLimit
+            }
+        };
+
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private async Task HandleUpdateConfigRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            var body = await ReadRequestBody<ConfigUpdateRequest>(ctx);
+            if (body == null)
+            {
+                await SendErrorResponse(ctx, 400, "Invalid request body");
+                return;
+            }
+
+            var config = _gateway.Config;
+
+            // Merge partial updates
+            if (!string.IsNullOrWhiteSpace(body.Model)) config.Model = body.Model;
+            if (!string.IsNullOrWhiteSpace(body.BaseUrl)) config.BaseUrl = body.BaseUrl;
+            if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;
+            if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
+            if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Email.ImapHost = body.ImapHost;
+            if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Email.Address = body.EmailAddress;
+
+            ConfigLoader.Save(config);
+            await SendJsonResponse(ctx, new { success = true, message = "Config saved" });
+        }
+        catch (Exception ex)
+        {
+            await SendErrorResponse(ctx, 500, $"Failed to save config: {ex.Message}");
+        }
+    }
+
     // ===== Status API =====
 
     private async Task HandleStatusRequest(HttpListenerContext ctx)
@@ -235,23 +309,23 @@ public class HttpServerHost
             data = new
             {
                 botName = "VirgoBot",
-                model = _config.Model,
+                model = _gateway.Config.Model,
                 uptime = uptimeStr,
                 startTime = StartTime.ToString("o"),
                 connectedClients = clients.Count,
                 channels = new Dictionary<string, object>
                 {
-                    ["telegram"] = new { enabled = true, status = "running" },
+                    ["telegram"] = new { enabled = true, status = _gateway.IsRunning ? "running" : "stopped" },
                     ["http"] = new { enabled = true, status = "running" },
                     ["webSocket"] = new { enabled = true, status = "running", clients = clients.Count },
-                    ["email"] = new { enabled = true, status = "monitoring" },
-                    ["iLink"] = new { enabled = _config.ILink.Enabled, status = _config.ILink.Enabled ? "running" : "disabled" }
+                    ["email"] = new { enabled = true, status = _gateway.IsRunning ? "monitoring" : "stopped" },
+                    ["iLink"] = new { enabled = _gateway.Config.ILink.Enabled, status = _gateway.Config.ILink.Enabled && _gateway.IsRunning ? "running" : _gateway.Config.ILink.Enabled ? "stopped" : "disabled" }
                 },
                 server = new
                 {
-                    listenUrl = _config.Server.ListenUrl,
-                    maxTokens = _config.Server.MaxTokens,
-                    messageLimit = _config.Server.MessageLimit
+                    listenUrl = _gateway.Config.Server.ListenUrl,
+                    maxTokens = _gateway.Config.Server.MaxTokens,
+                    messageLimit = _gateway.Config.Server.MessageLimit
                 }
             }
         };
@@ -313,7 +387,7 @@ public class HttpServerHost
 
     private async Task HandleGetContactsRequest(HttpListenerContext ctx)
     {
-        var contacts = _contactService.GetAllContacts();
+        var contacts = _gateway.ContactService.GetAllContacts();
         await SendJsonResponse(ctx, new { success = true, data = contacts });
     }
 
@@ -326,7 +400,7 @@ public class HttpServerHost
             return;
         }
 
-        _contactService.AddContact(body.Name, body.Email, body.Phone, body.Notes);
+        _gateway.ContactService.AddContact(body.Name, body.Email, body.Phone, body.Notes);
         await SendJsonResponse(ctx, new { success = true, message = "Contact added" });
     }
 
@@ -348,7 +422,7 @@ public class HttpServerHost
             return;
         }
 
-        _contactService.UpdateContact(id, body.Name, body.Email, body.Phone, body.Notes);
+        _gateway.ContactService.UpdateContact(id, body.Name, body.Email, body.Phone, body.Notes);
         await SendJsonResponse(ctx, new { success = true, message = "Contact updated" });
     }
 
@@ -363,7 +437,7 @@ public class HttpServerHost
             return;
         }
 
-        _contactService.DeleteContact(id);
+        _gateway.ContactService.DeleteContact(id);
         await SendJsonResponse(ctx, new { success = true, message = "Contact deleted" });
     }
 
@@ -371,27 +445,28 @@ public class HttpServerHost
 
     private async Task HandleGetConfigRequest(HttpListenerContext ctx)
     {
+        var config = _gateway.Config;
         var data = new
         {
-            model = _config.Model,
-            baseUrl = _config.BaseUrl,
+            model = config.Model,
+            baseUrl = config.BaseUrl,
             server = new
             {
-                listenUrl = _config.Server.ListenUrl,
-                maxTokens = _config.Server.MaxTokens,
-                messageLimit = _config.Server.MessageLimit
+                listenUrl = config.Server.ListenUrl,
+                maxTokens = config.Server.MaxTokens,
+                messageLimit = config.Server.MessageLimit
             },
             email = new
             {
-                imapHost = _config.Email.ImapHost,
-                address = _config.Email.Address,
-                enabled = !string.IsNullOrEmpty(_config.Email.Address) && _config.Email.Address != "your@email.com"
+                imapHost = config.Email.ImapHost,
+                address = config.Email.Address,
+                enabled = !string.IsNullOrEmpty(config.Email.Address) && config.Email.Address != "your@email.com"
             },
             iLink = new
             {
-                enabled = _config.ILink.Enabled
+                enabled = config.ILink.Enabled
             },
-            allowedUsers = _config.AllowedUsers
+            allowedUsers = config.AllowedUsers
         };
 
         await SendJsonResponse(ctx, new { success = true, data });
@@ -399,7 +474,7 @@ public class HttpServerHost
 
     private async Task HandleGetSystemMemoryRequest(HttpListenerContext ctx)
     {
-        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, _config.MemoryFile);
+        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, _gateway.Config.MemoryFile);
         var content = File.Exists(memoryPath) ? await File.ReadAllTextAsync(memoryPath) : "";
         await SendJsonResponse(ctx, new { success = true, data = new { content } });
     }
@@ -413,7 +488,7 @@ public class HttpServerHost
             return;
         }
 
-        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, _config.MemoryFile);
+        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, _gateway.Config.MemoryFile);
         await File.WriteAllTextAsync(memoryPath, body.Content ?? "");
         ColorLog.Success("CONFIG", "系统记忆已更新");
         await SendJsonResponse(ctx, new { success = true, message = "System memory updated" });
@@ -421,7 +496,7 @@ public class HttpServerHost
 
     private async Task HandleGetSoulRequest(HttpListenerContext ctx)
     {
-        var soulPath = Path.Combine(AppConstants.ConfigDirectory, _config.SoulFile);
+        var soulPath = Path.Combine(AppConstants.ConfigDirectory, _gateway.Config.SoulFile);
         var content = File.Exists(soulPath) ? await File.ReadAllTextAsync(soulPath) : "";
         await SendJsonResponse(ctx, new { success = true, data = new { content } });
     }
@@ -435,7 +510,7 @@ public class HttpServerHost
             return;
         }
 
-        var soulPath = Path.Combine(AppConstants.ConfigDirectory, _config.SoulFile);
+        var soulPath = Path.Combine(AppConstants.ConfigDirectory, _gateway.Config.SoulFile);
         await File.WriteAllTextAsync(soulPath, body.Content ?? "");
         ColorLog.Success("CONFIG", "Soul 文件已更新");
         await SendJsonResponse(ctx, new { success = true, message = "Soul updated" });
@@ -443,7 +518,7 @@ public class HttpServerHost
 
     private async Task HandleGetRuleRequest(HttpListenerContext ctx)
     {
-        var rulePath = Path.Combine(AppConstants.ConfigDirectory, _config.RuleFile);
+        var rulePath = Path.Combine(AppConstants.ConfigDirectory, _gateway.Config.RuleFile);
         var content = File.Exists(rulePath) ? await File.ReadAllTextAsync(rulePath) : "";
         await SendJsonResponse(ctx, new { success = true, data = new { content } });
     }
@@ -457,7 +532,7 @@ public class HttpServerHost
             return;
         }
 
-        var rulePath = Path.Combine(AppConstants.ConfigDirectory, _config.RuleFile);
+        var rulePath = Path.Combine(AppConstants.ConfigDirectory, _gateway.Config.RuleFile);
         await File.WriteAllTextAsync(rulePath, body.Content ?? "");
         ColorLog.Success("CONFIG", "Rule 文件已更新");
         await SendJsonResponse(ctx, new { success = true, message = "Rule updated" });
@@ -670,7 +745,7 @@ public class HttpServerHost
 
                         var prompt = $"系统提示：用户 {username} 发来了新消息，请使用 switch_douyin_chat 函数回复";
                         ColorLog.Info("→AI", prompt);
-                        var reply = await _llmService.AskAsync(GetStableHashCode(effectiveUsername), prompt, null, null, async (targetUser) =>
+                        var reply = await _gateway.LlmService.AskAsync(GetStableHashCode(effectiveUsername), prompt, null, null, async (targetUser) =>
                         {
                             var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username = targetUser }));
                             await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -685,8 +760,8 @@ public class HttpServerHost
                         var effectiveUserId = userId ?? "unknown";
                         ColorLog.Info("→AI", $"[@{userId}] {message}");
 
-                        _activityMonitor.UpdateActivity();
-                        var reply = await _llmService.AskAsync(GetStableHashCode(effectiveUserId), message ?? "");
+                        _gateway.ActivityMonitor?.UpdateActivity();
+                        var reply = await _gateway.LlmService.AskAsync(GetStableHashCode(effectiveUserId), message ?? "");
                         ColorLog.Success("AI→", reply);
 
                         var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
@@ -705,8 +780,8 @@ public class HttpServerHost
                     var chatReq = JsonSerializer.Deserialize<ChatRequest>(msg);
                     ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
 
-                    _activityMonitor.UpdateActivity();
-                    var reply = await _llmService.AskAsync(_config.AllowedUsers[0], chatReq?.message ?? "");
+                    _gateway.ActivityMonitor?.UpdateActivity();
+                    var reply = await _gateway.LlmService.AskAsync(_gateway.Config.AllowedUsers[0], chatReq?.message ?? "");
 
                     var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
                     await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -721,7 +796,7 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
         var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
-        var reply = await _llmService.AskAsync(_config.AllowedUsers[0], req?.message ?? "");
+        var reply = await _gateway.LlmService.AskAsync(_gateway.Config.AllowedUsers[0], req?.message ?? "");
         var response = Encoding.UTF8.GetBytes(reply);
 
         ColorLog.Info("MSG-HTTP", $"[@{req?.userId ?? ""}] '{req?.message ?? ""}'");
@@ -736,9 +811,12 @@ public class HttpServerHost
         using var reader = new StreamReader(ctx.Request.InputStream);
         var body = await reader.ReadToEndAsync();
 
-        if (_iLinkBridge.TryParseIncoming(body, out var incoming) && incoming is not null)
+        if (_gateway.ILinkBridge != null &&
+            _gateway.ILinkBridge.TryParseIncoming(body, out var incoming) &&
+            incoming is not null &&
+            _gateway.TelegramHandler != null)
         {
-            await _handleILinkMessage(incoming);
+            await _gateway.TelegramHandler.HandleILinkIncomingMessageAsync(incoming);
         }
 
         ctx.Response.StatusCode = 200;
@@ -798,4 +876,14 @@ public record SkillRequest
 {
     public string? Name { get; init; }
     public string? Content { get; init; }
+}
+
+public record ConfigUpdateRequest
+{
+    public string? Model { get; init; }
+    public string? BaseUrl { get; init; }
+    public int? MaxTokens { get; init; }
+    public int? MessageLimit { get; init; }
+    public string? ImapHost { get; init; }
+    public string? EmailAddress { get; init; }
 }
