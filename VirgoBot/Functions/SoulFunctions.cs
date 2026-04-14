@@ -1,5 +1,5 @@
 using System.Text.Json;
-using VirgoBot.Configuration;
+using VirgoBot.Services;
 
 namespace VirgoBot.Functions;
 
@@ -9,24 +9,22 @@ public static class SoulFunctions
     private static DateTime _cacheExpiry = DateTime.MinValue;
     private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(5);
 
-    public static IEnumerable<FunctionDefinition> Register(Config config)
+    public static IEnumerable<FunctionDefinition> Register(MemoryService memoryService)
     {
         yield return new FunctionDefinition("read_soul", "获取最近关于用户的记忆", new
         {
             type = "object"
         }, async input =>
         {
-            var soulPath = Path.Combine(AppConstants.ConfigDirectory, config.SoulFile);
-            if (!File.Exists(soulPath)) return "记忆文件不存在";
-
             if (_cachedSoulContent != null && DateTime.UtcNow < _cacheExpiry)
             {
                 return _cachedSoulContent;
             }
 
-            _cachedSoulContent = File.ReadAllText(soulPath);
+            _cachedSoulContent = memoryService.GetAllSoulContent();
             _cacheExpiry = DateTime.UtcNow + CacheTtl;
-            return _cachedSoulContent;
+
+            return string.IsNullOrEmpty(_cachedSoulContent) ? "暂无记忆" : _cachedSoulContent;
         });
 
         yield return new FunctionDefinition("append_soul", "追加可更改的记忆[例如用户最近的事情(必须标注日期)]", new
@@ -40,8 +38,7 @@ public static class SoulFunctions
         }, async input =>
         {
             var content = input.GetProperty("content").GetString() ?? "";
-            var soulPath = Path.Combine(AppConstants.ConfigDirectory, config.SoulFile);
-            File.AppendAllText(soulPath, Environment.NewLine + content);
+            memoryService.AddSoulEntry(content);
 
             // Invalidate cache after write
             _cachedSoulContent = null;

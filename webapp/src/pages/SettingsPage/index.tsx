@@ -7,6 +7,9 @@ import { api } from '../../services/api';
 interface ConfigData {
   model: string;
   baseUrl: string;
+  apiKey: string;
+  botToken: string;
+  memoryFile: string;
   server: {
     listenUrl: string;
     maxTokens: number;
@@ -15,6 +18,7 @@ interface ConfigData {
   email: {
     imapHost: string;
     address: string;
+    password: string;
     enabled: boolean;
   };
   iLink: {
@@ -38,10 +42,8 @@ function SettingsPage() {
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [loading, setLoading] = useState(true);
   const [systemMemory, setSystemMemory] = useState('');
-  const [soulContent, setSoulContent] = useState('');
   const [ruleContent, setRuleContent] = useState('');
   const [memoryLoading, setMemoryLoading] = useState(false);
-  const [soulLoading, setSoulLoading] = useState(false);
   const [ruleLoading, setRuleLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
@@ -92,20 +94,6 @@ function SettingsPage() {
     }
   };
 
-  const loadSoul = async () => {
-    try {
-      setSoulLoading(true);
-      const res = await api.get<ContentResponse>('/api/config/soul');
-      if (res.success) {
-        setSoulContent(res.data.content);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setSoulLoading(false);
-    }
-  };
-
   const loadRule = async () => {
     try {
       setRuleLoading(true);
@@ -123,15 +111,6 @@ function SettingsPage() {
   const saveSystemMemory = async () => {
     try {
       await api.put('/api/config/system-memory', { content: systemMemory });
-      toast.success(t('settings.saveSuccess'));
-    } catch {
-      toast.danger(t('settings.saveFailed'));
-    }
-  };
-
-  const saveSoul = async () => {
-    try {
-      await api.put('/api/config/soul', { content: soulContent });
       toast.success(t('settings.saveSuccess'));
     } catch {
       toast.danger(t('settings.saveFailed'));
@@ -192,8 +171,6 @@ function SettingsPage() {
     const tabKey = String(key);
     if (tabKey === 'systemMemory') {
       loadSystemMemory();
-    } else if (tabKey === 'soul') {
-      loadSoul();
     } else if (tabKey === 'rule') {
       loadRule();
     }
@@ -229,10 +206,6 @@ function SettingsPage() {
                 {t('settings.systemMemory')}
                 <Tabs.Indicator />
               </Tabs.Tab>
-              <Tabs.Tab id="soul">
-                {t('settings.soul')}
-                <Tabs.Indicator />
-              </Tabs.Tab>
               <Tabs.Tab id="rule">
                 {t('settings.rule')}
                 <Tabs.Indicator />
@@ -254,6 +227,18 @@ function SettingsPage() {
                   </TextField>
                   <TextField value={editBaseUrl} onChange={setEditBaseUrl}>
                     <Label>{t('settings.baseUrl')}</Label>
+                    <Input />
+                  </TextField>
+
+                  <Separator />
+
+                  {/* Read-only sensitive fields */}
+                  <TextField isDisabled value={config?.apiKey ?? ''}>
+                    <Label>API Key</Label>
+                    <Input />
+                  </TextField>
+                  <TextField isDisabled value={config?.botToken ?? ''}>
+                    <Label>Bot Token</Label>
                     <Input />
                   </TextField>
 
@@ -282,19 +267,6 @@ function SettingsPage() {
                     {config?.allowedUsers.map(userId => (
                       <Chip key={userId} size="sm" variant="soft">{userId}</Chip>
                     ))}
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center gap-4">
-                    <Switch isSelected={config?.iLink.enabled ?? false} isDisabled>
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                      <Switch.Content>
-                        <Label>iLink {t('settings.enabled')}</Label>
-                      </Switch.Content>
-                    </Switch>
                   </div>
 
                   <Separator />
@@ -335,6 +307,10 @@ function SettingsPage() {
                   </TextField>
                   <TextField value={editEmailAddress} onChange={setEditEmailAddress}>
                     <Label>{t('settings.emailAddress')}</Label>
+                    <Input />
+                  </TextField>
+                  <TextField isDisabled value={config?.email.password ?? ''}>
+                    <Label>Email Password</Label>
                     <Input />
                   </TextField>
                   <div className="flex items-center gap-4">
@@ -392,34 +368,6 @@ function SettingsPage() {
                       className="font-mono w-full"
                     />
                     <Button onPress={saveSystemMemory}>
-                      {t('common.save')}
-                    </Button>
-                  </div>
-                )}
-              </Card.Content>
-            </Card>
-          </Tabs.Panel>
-
-          {/* Soul Tab */}
-          <Tabs.Panel id="soul">
-            <Card className="mt-4">
-              <Card.Header>
-                <Card.Title>{t('settings.soul')}</Card.Title>
-              </Card.Header>
-              <Card.Content>
-                {soulLoading ? (
-                  <div className="flex justify-center py-8">
-                    <Spinner size="lg" />
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <TextArea
-                      value={soulContent}
-                      onChange={(e) => setSoulContent(e.target.value)}
-                      rows={15}
-                      className="font-mono w-full"
-                    />
-                    <Button onPress={saveSoul}>
                       {t('common.save')}
                     </Button>
                   </div>

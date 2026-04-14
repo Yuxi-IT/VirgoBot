@@ -1,5 +1,5 @@
 let ws;
-let username = "0x536D61";
+let username = "SmaZone";
 let monitoredChats = new Set();
 let messageQueue = [];
 

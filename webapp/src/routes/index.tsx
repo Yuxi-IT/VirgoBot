@@ -10,6 +10,9 @@ const Contacts = lazy(() => import('../pages/ContactsPage'));
 const Settings = lazy(() => import('../pages/SettingsPage'));
 const Skills = lazy(() => import('../pages/SkillsPage'));
 const Logs = lazy(() => import('../pages/LogsPage'));
+const Agent = lazy(() => import('../pages/AgentPage'));
+const Memory = lazy(() => import('../pages/MemoryPage'));
+const Channel = lazy(() => import('../pages/ChannelPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
 function Loading() {
@@ -34,6 +37,9 @@ function AppRoutes() {
         <Route path="/settings" element={<PageTransition><Suspense fallback={<Loading />}><Settings /></Suspense></PageTransition>} />
         <Route path="/skills" element={<PageTransition><Suspense fallback={<Loading />}><Skills /></Suspense></PageTransition>} />
         <Route path="/logs" element={<PageTransition><Suspense fallback={<Loading />}><Logs /></Suspense></PageTransition>} />
+        <Route path="/agent" element={<PageTransition><Suspense fallback={<Loading />}><Agent /></Suspense></PageTransition>} />
+        <Route path="/memory" element={<PageTransition><Suspense fallback={<Loading />}><Memory /></Suspense></PageTransition>} />
+        <Route path="/channel" element={<PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>

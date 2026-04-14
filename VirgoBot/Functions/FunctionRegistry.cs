@@ -13,14 +13,14 @@ public class FunctionRegistry
     private readonly List<object> _toolSchemas = new();
     private readonly Config _config;
 
-    public FunctionRegistry(Config config)
+    public FunctionRegistry(Config config, MemoryService memoryService)
     {
         _config = config;
         RegisterAll(SystemFunctions.Register());
         RegisterAll(ShellFunctions.Register());
         RegisterAll(FileFunctions.Register());
         RegisterAll(DouyinFunctions.Register());
-        RegisterAll(SoulFunctions.Register(config));
+        RegisterAll(SoulFunctions.Register(memoryService));
         RegisterAll(SkillLoader.LoadAll());
     }
 

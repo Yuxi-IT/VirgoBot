@@ -3,6 +3,7 @@ import { BottomNav } from './layout/BottomNav';
 import Navbar from './layout/Navbar';
 import AppRoutes from './routes';
 import { siteConfig } from './config/site';
+import { Bars } from '@gravity-ui/icons';
 
 export function setTitle(title: string){
   document.title = siteConfig.name + (title ? ` - ${title}` : '');
@@ -10,6 +11,7 @@ export function setTitle(title: string){
 
 const Navigation = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -25,7 +27,27 @@ const Navigation = () => {
 
   return (
     <>
-      {!isSmallScreen && <Navbar />}
+      {/* Always render Navbar, pass mobile props */}
+      <Navbar isSmallScreen={isSmallScreen} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Mobile hamburger button */}
+      {isSmallScreen && (
+        <button
+          className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <Bars className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Mobile overlay */}
+      {isSmallScreen && sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-30"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {isSmallScreen && <BottomNav />}
       <div className={`${isSmallScreen ? '' : 'ml-54'}`}>
         <AppRoutes/>

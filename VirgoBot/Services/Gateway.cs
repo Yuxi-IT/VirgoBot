@@ -67,7 +67,7 @@ public class Gateway
     private void BuildServices()
     {
         Config = ConfigLoader.Load();
-        var systemMemory = ConfigLoader.LoadSystemMemory(Config);
+        var systemMemory = ConfigLoader.LoadSystemMemory(Config, _memoryService);
 
         // Update memory service limit from config
         _memoryService.UpdateMessageLimit(Config.Server.MessageLimit);
@@ -76,7 +76,7 @@ public class Gateway
         http.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", Config.ApiKey);
 
-        FunctionRegistry = new FunctionRegistry(Config);
+        FunctionRegistry = new FunctionRegistry(Config, _memoryService);
         StickerService = new StickerService("stickers");
         ContactService = new ContactService();
         LlmService = new LLMService(http, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);

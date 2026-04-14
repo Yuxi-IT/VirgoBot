@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VirgoBot.Services;
 using VirgoBot.Utilities;
 
 namespace VirgoBot.Configuration;
@@ -55,7 +56,7 @@ public static class ConfigLoader
         return config;
     }
 
-    public static string LoadSystemMemory(Config config)
+    public static string LoadSystemMemory(Config config, MemoryService memoryService)
     {
         var memoryPath = Path.Combine(AppConstants.ConfigDirectory, config.MemoryFile);
         var soulPath = Path.Combine(AppConstants.ConfigDirectory, config.SoulFile);
@@ -73,17 +74,28 @@ public static class ConfigLoader
             ColorLog.Info("RULE", $"已创建默认规则文件: {rulePath}");
         }
 
+        // Migrate soul.md to database on first run
+        if (memoryService.GetSoulCount() == 0 && File.Exists(soulPath))
+        {
+            var soulFileContent = File.ReadAllText(soulPath);
+            if (!string.IsNullOrWhiteSpace(soulFileContent))
+            {
+                memoryService.AddSoulEntry(soulFileContent);
+                ColorLog.Success("MEMORY", "Soul 文件已迁移到数据库");
+            }
+        }
+
         var systemMemory = File.ReadAllText(memoryPath);
 
-        if (File.Exists(soulPath))
+        // Read soul from database instead of file
+        var soulContent = memoryService.GetAllSoulContent();
+        if (!string.IsNullOrWhiteSpace(soulContent))
         {
-            var soulMemory = File.ReadAllText(soulPath);
-            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\nyour SoulMemory: \n{soulMemory}";
+            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\nyour SoulMemory: \n{soulContent}";
         }
         else
         {
             systemMemory = systemMemory.Replace("{{EMAIL}}", config.Email.Address);
-            ColorLog.Warning("MEMORY", $"Soul 文件不存在: {soulPath}");
         }
 
         var ruleContent = File.ReadAllText(rulePath);

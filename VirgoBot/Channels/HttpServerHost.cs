@@ -172,6 +172,45 @@ public class HttpServerHost
                     {
                         await HandleGatewayStatusRequest(ctx);
                     }
+                    // ===== Agent API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/agents" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetAgentsRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetAgentRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/agent" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleSwitchAgentRequest(ctx);
+                    }
+                    // ===== Soul CRUD API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/soul" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetSoulEntriesRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/soul" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleAddSoulEntryRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/soul/") == true && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateSoulEntryRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/soul/") == true && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await HandleDeleteSoulEntryRequest(ctx);
+                    }
+                    // ===== Channel Config API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/channels" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetChannelsConfigRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/channels" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateChannelsConfigRequest(ctx);
+                    }
                     else
                     {
                         ctx.Response.StatusCode = 404;
@@ -282,6 +321,7 @@ public class HttpServerHost
             if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
             if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Email.ImapHost = body.ImapHost;
             if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Email.Address = body.EmailAddress;
+            if (!string.IsNullOrWhiteSpace(body.MemoryFile)) config.MemoryFile = body.MemoryFile;
 
             ConfigLoader.Save(config);
             await SendJsonResponse(ctx, new { success = true, message = "Config saved" });
@@ -450,6 +490,9 @@ public class HttpServerHost
         {
             model = config.Model,
             baseUrl = config.BaseUrl,
+            apiKey = MaskSecret(config.ApiKey),
+            botToken = MaskSecret(config.BotToken),
+            memoryFile = config.MemoryFile,
             server = new
             {
                 listenUrl = config.Server.ListenUrl,
@@ -460,6 +503,7 @@ public class HttpServerHost
             {
                 imapHost = config.Email.ImapHost,
                 address = config.Email.Address,
+                password = MaskSecret(config.Email.Password),
                 enabled = !string.IsNullOrEmpty(config.Email.Address) && config.Email.Address != "your@email.com"
             },
             iLink = new
@@ -470,6 +514,13 @@ public class HttpServerHost
         };
 
         await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private static string MaskSecret(string secret)
+    {
+        if (string.IsNullOrEmpty(secret) || secret.Length <= 8)
+            return "****";
+        return secret[..4] + "****" + secret[^4..];
     }
 
     private async Task HandleGetSystemMemoryRequest(HttpListenerContext ctx)
@@ -723,6 +774,188 @@ public class HttpServerHost
         await SendJsonResponse(ctx, new { success = true, message = "Skill deleted" });
     }
 
+    // ===== Agent API =====
+
+    private async Task HandleGetAgentsRequest(HttpListenerContext ctx)
+    {
+        var agentDir = Path.Combine(AppConstants.ConfigDirectory, "agent");
+        Directory.CreateDirectory(agentDir);
+
+        var agents = new List<object>();
+        foreach (var file in Directory.GetFiles(agentDir, "*.md"))
+        {
+            var fileName = Path.GetFileName(file);
+            var content = await File.ReadAllTextAsync(file);
+            var preview = content.Length > 200 ? content[..200] + "..." : content;
+            agents.Add(new
+            {
+                name = Path.GetFileNameWithoutExtension(file),
+                fileName,
+                preview,
+                size = content.Length
+            });
+        }
+
+        var currentAgent = _gateway.Config.MemoryFile;
+        await SendJsonResponse(ctx, new { success = true, data = new { agents, currentAgent } });
+    }
+
+    private async Task HandleGetAgentRequest(HttpListenerContext ctx)
+    {
+        var name = ctx.Request.Url!.AbsolutePath.Replace("/api/agents/", "");
+        var filePath = Path.Combine(AppConstants.ConfigDirectory, "agent", $"{name}.md");
+
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Agent not found");
+            return;
+        }
+
+        var content = await File.ReadAllTextAsync(filePath);
+        await SendJsonResponse(ctx, new { success = true, data = new { name, content } });
+    }
+
+    private async Task HandleSwitchAgentRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<AgentSwitchRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.MemoryFile))
+        {
+            await SendErrorResponse(ctx, 400, "MemoryFile is required");
+            return;
+        }
+
+        var config = _gateway.Config;
+        config.MemoryFile = body.MemoryFile;
+        ConfigLoader.Save(config);
+        await SendJsonResponse(ctx, new { success = true, message = "Agent switched" });
+    }
+
+    // ===== Soul CRUD API =====
+
+    private async Task HandleGetSoulEntriesRequest(HttpListenerContext ctx)
+    {
+        var entries = _memoryService.GetAllSoulEntries();
+        var data = entries.Select(e => new
+        {
+            id = e.Id,
+            content = e.Content,
+            createdAt = e.CreatedAt.ToString("o")
+        });
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private async Task HandleAddSoulEntryRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<ContentRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Content))
+        {
+            await SendErrorResponse(ctx, 400, "Content is required");
+            return;
+        }
+
+        _memoryService.AddSoulEntry(body.Content);
+        ColorLog.Success("SOUL", "Soul 记录已添加");
+        await SendJsonResponse(ctx, new { success = true, message = "Soul entry added" });
+    }
+
+    private async Task HandleUpdateSoulEntryRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/soul/", "");
+
+        if (!int.TryParse(idStr, out var id))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid soul entry ID");
+            return;
+        }
+
+        var body = await ReadRequestBody<ContentRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Content))
+        {
+            await SendErrorResponse(ctx, 400, "Content is required");
+            return;
+        }
+
+        _memoryService.UpdateSoulEntry(id, body.Content);
+        ColorLog.Success("SOUL", $"Soul 记录已更新: {id}");
+        await SendJsonResponse(ctx, new { success = true, message = "Soul entry updated" });
+    }
+
+    private async Task HandleDeleteSoulEntryRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/soul/", "");
+
+        if (!int.TryParse(idStr, out var id))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid soul entry ID");
+            return;
+        }
+
+        _memoryService.DeleteSoulEntry(id);
+        ColorLog.Success("SOUL", $"Soul 记录已删除: {id}");
+        await SendJsonResponse(ctx, new { success = true, message = "Soul entry deleted" });
+    }
+
+    // ===== Channel Config API =====
+
+    private async Task HandleGetChannelsConfigRequest(HttpListenerContext ctx)
+    {
+        var config = _gateway.Config;
+        var clients = _wsManager.GetSnapshot();
+
+        var data = new
+        {
+            iLink = new
+            {
+                enabled = config.ILink.Enabled,
+                token = config.ILink.Token,
+                webSocketUrl = config.ILink.WebSocketUrl,
+                sendUrl = config.ILink.SendUrl,
+                webhookPath = config.ILink.WebhookPath,
+                defaultUserId = config.ILink.DefaultUserId
+            },
+            telegram = new
+            {
+                botToken = MaskSecret(config.BotToken)
+            },
+            webSocket = new
+            {
+                connectedClients = clients.Count,
+                status = "running"
+            }
+        };
+
+        await SendJsonResponse(ctx, new { success = true, data });
+    }
+
+    private async Task HandleUpdateChannelsConfigRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<ChannelUpdateRequest>(ctx);
+        if (body == null)
+        {
+            await SendErrorResponse(ctx, 400, "Invalid request body");
+            return;
+        }
+
+        var config = _gateway.Config;
+
+        // ILink updates
+        if (body.ILinkEnabled.HasValue) config.ILink.Enabled = body.ILinkEnabled.Value;
+        if (!string.IsNullOrWhiteSpace(body.ILinkToken)) config.ILink.Token = body.ILinkToken;
+        if (!string.IsNullOrWhiteSpace(body.ILinkWebSocketUrl)) config.ILink.WebSocketUrl = body.ILinkWebSocketUrl;
+        if (!string.IsNullOrWhiteSpace(body.ILinkSendUrl)) config.ILink.SendUrl = body.ILinkSendUrl;
+        if (!string.IsNullOrWhiteSpace(body.ILinkWebhookPath)) config.ILink.WebhookPath = body.ILinkWebhookPath;
+        if (!string.IsNullOrWhiteSpace(body.ILinkDefaultUserId)) config.ILink.DefaultUserId = body.ILinkDefaultUserId;
+
+        // Telegram updates
+        if (!string.IsNullOrWhiteSpace(body.BotToken)) config.BotToken = body.BotToken;
+
+        ConfigLoader.Save(config);
+        ColorLog.Success("CHANNEL", "频道配置已更新");
+        await SendJsonResponse(ctx, new { success = true, message = "Channel config saved" });
+    }
+
     // ===== Original Handlers =====
 
     private async Task HandleWebSocketConnection(HttpListenerContext ctx)
@@ -901,4 +1134,21 @@ public record ConfigUpdateRequest
     public int? MessageLimit { get; init; }
     public string? ImapHost { get; init; }
     public string? EmailAddress { get; init; }
+    public string? MemoryFile { get; init; }
+}
+
+public record AgentSwitchRequest
+{
+    public string? MemoryFile { get; init; }
+}
+
+public record ChannelUpdateRequest
+{
+    public bool? ILinkEnabled { get; init; }
+    public string? ILinkToken { get; init; }
+    public string? ILinkWebSocketUrl { get; init; }
+    public string? ILinkSendUrl { get; init; }
+    public string? ILinkWebhookPath { get; init; }
+    public string? ILinkDefaultUserId { get; init; }
+    public string? BotToken { get; init; }
 }

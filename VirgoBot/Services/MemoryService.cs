@@ -35,6 +35,15 @@ public class MemoryService : IDisposable
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )";
         cmd.ExecuteNonQuery();
+
+        using var soulCmd = _conn.CreateCommand();
+        soulCmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS soul (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )";
+        soulCmd.ExecuteNonQuery();
     }
 
     public void UpdateMessageLimit(int newLimit)
@@ -198,6 +207,65 @@ public class MemoryService : IDisposable
         return (messages, total);
     }
 
+    // ===== Soul CRUD =====
+
+    public List<SoulRecord> GetAllSoulEntries()
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, content, created_at FROM soul ORDER BY id ASC";
+
+        var entries = new List<SoulRecord>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            entries.Add(new SoulRecord
+            {
+                Id = reader.GetInt32(0),
+                Content = reader.GetString(1),
+                CreatedAt = reader.IsDBNull(2) ? DateTime.UtcNow : DateTime.Parse(reader.GetString(2))
+            });
+        }
+        return entries;
+    }
+
+    public void AddSoulEntry(string content)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO soul (content) VALUES (@content)";
+        cmd.Parameters.AddWithValue("@content", content);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void DeleteSoulEntry(int id)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM soul WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateSoulEntry(int id, string content)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "UPDATE soul SET content = @content WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@content", content);
+        cmd.ExecuteNonQuery();
+    }
+
+    public string GetAllSoulContent()
+    {
+        var entries = GetAllSoulEntries();
+        return string.Join("\n", entries.Select(e => e.Content));
+    }
+
+    public int GetSoulCount()
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM soul";
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
     public void Dispose()
     {
         if (!_disposed)
@@ -212,6 +280,13 @@ public class MessageRecord
 {
     public int Id { get; set; }
     public string Role { get; set; } = "";
+    public string Content { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
+
+public class SoulRecord
+{
+    public int Id { get; set; }
     public string Content { get; set; } = "";
     public DateTime CreatedAt { get; set; }
 }

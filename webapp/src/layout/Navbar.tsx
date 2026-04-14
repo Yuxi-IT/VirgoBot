@@ -6,25 +6,35 @@ import { navItems, siteConfig } from '../config/site';
 import { useI18n } from '../i18n';
 import { Globe } from '@gravity-ui/icons';
 
-function Sidebar() {
+interface SidebarProps {
+  isSmallScreen?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+function Sidebar({ isSmallScreen = false, isOpen = false, onClose }: SidebarProps) {
   const { setLocale, t } = useI18n();
-  const [isOpen, setIsOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(window.location.pathname);
+
+  // On desktop: always visible (sm:translate-x-0)
+  // On mobile: controlled by isOpen prop
+  const translateClass = isSmallScreen
+    ? (isOpen ? 'translate-x-0' : '-translate-x-full')
+    : 'translate-x-0';
 
   return (
     <>
       <aside className={`
         fixed top-0 left-0 h-full w-50 bg-white/90 dark:bg-black/90 backdrop-blur-sm shadow-xl
         transform transition-transform duration-300 ease-in-out z-40
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        sm:translate-x-0
+        ${translateClass}
       `}>
         <div className="flex flex-col h-full p-6">
-          <Link to="/" className="text-3xl font-bold libre mb-8">
+          <Link to="/" className="text-3xl font-bold libre mb-8" onClick={() => onClose?.()}>
             {siteConfig.name}
           </Link>
 
-          <nav className="flex-1 space-y-4">
+          <nav className="flex-1 space-y-4 overflow-y-auto">
             {navItems.map((item) => (
               <Link
                 key={item.url}
@@ -34,7 +44,7 @@ function Sidebar() {
                 }
                 onClick={() => {
                   setCurrentUrl(item.url);
-                  setIsOpen(false)
+                  onClose?.();
                 }}
               >
                 <div className="flex items-center space-x-3">
@@ -48,10 +58,10 @@ function Sidebar() {
           <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-800">
 
             <Dropdown>
-              <Button 
-                aria-label="Language" 
-                variant="secondary" 
-                size="lg" 
+              <Button
+                aria-label="Language"
+                variant="secondary"
+                size="lg"
                 className="w-full justify-start"
               >
                 <Globe className="mr-2" />
