@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, Chip, Spinner, Table, Pagination, SearchField, Label } from '@heroui/react';
 import { Select, ListBox } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
@@ -44,14 +44,11 @@ function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async (silent = false) => {
     try {
-      setUsersLoading(true);
+      if (!silent) setUsersLoading(true);
       const res = await api.get<UsersResponse>('/api/messages/users');
       if (res.success) {
         setUsers(res.data);
@@ -59,13 +56,13 @@ function ChatPage() {
     } catch {
       // silently fail
     } finally {
-      setUsersLoading(false);
+      if (!silent) setUsersLoading(false);
     }
-  };
+  }, []);
 
-  const loadMessages = useCallback(async (userId: string, pageNum: number) => {
+  const loadMessages = useCallback(async (userId: string, pageNum: number, silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const offset = (pageNum - 1) * PAGE_SIZE;
       const res = await api.get<MessagesResponse>(`/api/messages?userId=${userId}&limit=${PAGE_SIZE}&offset=${offset}`);
       if (res.success) {
@@ -75,9 +72,28 @@ function ChatPage() {
     } catch {
       // silently fail
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
+
+  // Store refs for polling access to latest state
+  const selectedUserIdRef = useRef(selectedUserId);
+  const pageRef = useRef(page);
+  selectedUserIdRef.current = selectedUserId;
+  pageRef.current = page;
+
+  useEffect(() => {
+    loadUsers();
+    intervalRef.current = setInterval(() => {
+      loadUsers(true);
+      if (selectedUserIdRef.current) {
+        loadMessages(selectedUserIdRef.current, pageRef.current, true);
+      }
+    }, 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [loadUsers, loadMessages]);
 
   useEffect(() => {
     if (selectedUserId) {

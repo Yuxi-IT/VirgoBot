@@ -153,6 +153,27 @@ public class HttpServerHost
                     {
                         await HandleClearLogsRequest(ctx);
                     }
+                    // ===== Skills API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetSkillsRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleCreateSkillRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleGetSkillRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await HandleUpdateSkillRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await HandleDeleteSkillRequest(ctx);
+                    }
                     else
                     {
                         ctx.Response.StatusCode = 404;
@@ -482,6 +503,136 @@ public class HttpServerHost
         await SendJsonResponse(ctx, new { success = true, message = "Logs cleared" });
     }
 
+    // ===== Skills API =====
+
+    private async Task HandleGetSkillsRequest(HttpListenerContext ctx)
+    {
+        var dir = AppConstants.SkillsDirectory;
+        Directory.CreateDirectory(dir);
+
+        var skills = new List<object>();
+        foreach (var file in Directory.GetFiles(dir, "*.json"))
+        {
+            var fileName = Path.GetFileName(file);
+            if (fileName.StartsWith("_")) continue;
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(file);
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
+
+                skills.Add(new
+                {
+                    fileName,
+                    name = root.GetProperty("name").GetString() ?? "",
+                    description = root.GetProperty("description").GetString() ?? "",
+                    command = root.GetProperty("command").GetString() ?? "",
+                    parameterCount = root.TryGetProperty("parameters", out var p) ? p.GetArrayLength() : 0
+                });
+            }
+            catch
+            {
+                skills.Add(new { fileName, name = fileName, description = "解析失败", command = "", parameterCount = 0 });
+            }
+        }
+
+        await SendJsonResponse(ctx, new { success = true, data = skills });
+    }
+
+    private async Task HandleGetSkillRequest(HttpListenerContext ctx)
+    {
+        var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
+        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
+
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Skill not found");
+            return;
+        }
+
+        var content = await File.ReadAllTextAsync(filePath);
+        await SendJsonResponse(ctx, new { success = true, data = new { fileName = $"{name}.json", content } });
+    }
+
+    private async Task HandleCreateSkillRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<SkillRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Name))
+        {
+            await SendErrorResponse(ctx, 400, "Name is required");
+            return;
+        }
+
+        var dir = AppConstants.SkillsDirectory;
+        Directory.CreateDirectory(dir);
+
+        var fileName = $"{body.Name}.json";
+        var filePath = Path.Combine(dir, fileName);
+
+        if (File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 409, "Skill already exists");
+            return;
+        }
+
+        await File.WriteAllTextAsync(filePath, body.Content ?? "{}");
+        ColorLog.Success("SKILL", $"Skill 已创建: {fileName}");
+        await SendJsonResponse(ctx, new { success = true, message = "Skill created" });
+    }
+
+    private async Task HandleUpdateSkillRequest(HttpListenerContext ctx)
+    {
+        var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
+        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
+
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Skill not found");
+            return;
+        }
+
+        var body = await ReadRequestBody<SkillRequest>(ctx);
+        if (body == null || string.IsNullOrWhiteSpace(body.Content))
+        {
+            await SendErrorResponse(ctx, 400, "Content is required");
+            return;
+        }
+
+        // 如果名称变了，需要重命名文件
+        if (!string.IsNullOrWhiteSpace(body.Name) && body.Name != name)
+        {
+            var newFilePath = Path.Combine(AppConstants.SkillsDirectory, $"{body.Name}.json");
+            if (File.Exists(newFilePath))
+            {
+                await SendErrorResponse(ctx, 409, "Target skill name already exists");
+                return;
+            }
+            File.Delete(filePath);
+            filePath = newFilePath;
+        }
+
+        await File.WriteAllTextAsync(filePath, body.Content);
+        ColorLog.Success("SKILL", $"Skill 已更新: {Path.GetFileName(filePath)}");
+        await SendJsonResponse(ctx, new { success = true, message = "Skill updated" });
+    }
+
+    private async Task HandleDeleteSkillRequest(HttpListenerContext ctx)
+    {
+        var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
+        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
+
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Skill not found");
+            return;
+        }
+
+        File.Delete(filePath);
+        ColorLog.Success("SKILL", $"Skill 已删除: {name}.json");
+        await SendJsonResponse(ctx, new { success = true, message = "Skill deleted" });
+    }
+
     // ===== Original Handlers =====
 
     private async Task HandleWebSocketConnection(HttpListenerContext ctx)
@@ -640,5 +791,11 @@ public record ContactRequest
 
 public record ContentRequest
 {
+    public string? Content { get; init; }
+}
+
+public record SkillRequest
+{
+    public string? Name { get; init; }
     public string? Content { get; init; }
 }

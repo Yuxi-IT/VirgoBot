@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, Chip, Spinner, Alert } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
@@ -34,25 +34,35 @@ function DashboardPage() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    loadStatus();
-  }, []);
-
-  const loadStatus = async () => {
+  const loadStatus = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       const res = await api.get<ApiResponse>('/api/status');
       if (res.success) {
         setStatus(res.data);
+        if (error) setError(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, [error]);
+
+  useEffect(() => {
+    loadStatus();
+    intervalRef.current = setInterval(() => loadStatus(true), 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
 
   const getChannelChip = (channelStatus: string) => {
     switch (channelStatus) {

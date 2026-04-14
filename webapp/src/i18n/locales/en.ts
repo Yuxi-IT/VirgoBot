@@ -5,6 +5,7 @@ export default {
     contacts: 'Contacts',
     settings: 'Settings',
     logs: 'Logs',
+    skills: 'Skills',
     notFound: '404'
   },
   common: {
@@ -114,5 +115,30 @@ export default {
     warn: 'Warning',
     error: 'Error',
     success: 'Success',
+  },
+  skills: {
+    title: 'Skills',
+    name: 'Name',
+    description: 'Description',
+    command: 'Command',
+    parameters: 'Parameters',
+    parameterCount: 'Params',
+    addSkill: 'Add Skill',
+    editSkill: 'Edit Skill',
+    deleteSkill: 'Delete Skill',
+    deleteConfirm: 'Are you sure you want to delete this skill? It will be removed after restart.',
+    addSuccess: 'Skill created successfully',
+    updateSuccess: 'Skill updated successfully',
+    deleteSuccess: 'Skill deleted successfully',
+    jsonContent: 'JSON Content',
+    paramName: 'Param Name',
+    paramType: 'Type',
+    paramDesc: 'Description',
+    paramRequired: 'Required',
+    addParam: 'Add Parameter',
+    restartHint: 'Changes take effect after restart',
+    invalidJson: 'Invalid JSON format',
+    nameRequired: 'Skill name is required',
+    duplicateName: 'Skill name already exists',
   }
 };

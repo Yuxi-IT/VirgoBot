@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, Button, Chip, Spinner, Table, Pagination, SearchField, Toolbar, Label, Modal, toast } from '@heroui/react';
 import { Select, ListBox } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
@@ -33,10 +33,11 @@ function LogsPage() {
   const [levelFilter, setLevelFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const clearModal = useOverlayState();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const loadLogs = useCallback(async () => {
+  const loadLogs = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const offset = (page - 1) * PAGE_SIZE;
       let url = `/api/logs?limit=${PAGE_SIZE}&offset=${offset}`;
       if (levelFilter) {
@@ -50,12 +51,19 @@ function LogsPage() {
     } catch {
       // silently fail
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, levelFilter]);
 
   useEffect(() => {
     loadLogs();
+  }, [loadLogs]);
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => loadLogs(true), 1000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [loadLogs]);
 
   const handleClearLogs = async () => {
@@ -177,7 +185,7 @@ function LogsPage() {
 
             {/* Actions */}
             <div className="flex gap-2">
-              <Button variant="secondary" onPress={loadLogs}>
+              <Button variant="secondary" onPress={() => loadLogs()}>
                 {t('common.refresh')}
               </Button>
               <Button variant="danger" onPress={clearModal.open}>

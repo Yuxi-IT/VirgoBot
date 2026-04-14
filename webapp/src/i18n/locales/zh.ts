@@ -5,6 +5,7 @@ export default {
     contacts: '联系人',
     settings: '设置',
     logs: '日志',
+    skills: 'Skills',
     notFound: '404'
   },
   common: {
@@ -114,5 +115,30 @@ export default {
     warn: '警告',
     error: '错误',
     success: '成功',
+  },
+  skills: {
+    title: 'Skills',
+    name: '名称',
+    description: '描述',
+    command: '命令',
+    parameters: '参数',
+    parameterCount: '参数数',
+    addSkill: '添加 Skill',
+    editSkill: '编辑 Skill',
+    deleteSkill: '删除 Skill',
+    deleteConfirm: '确定要删除此 Skill 吗？删除后需重启生效。',
+    addSuccess: 'Skill 创建成功',
+    updateSuccess: 'Skill 更新成功',
+    deleteSuccess: 'Skill 删除成功',
+    jsonContent: 'JSON 内容',
+    paramName: '参数名',
+    paramType: '类型',
+    paramDesc: '描述',
+    paramRequired: '必填',
+    addParam: '添加参数',
+    restartHint: '修改后需重启服务生效',
+    invalidJson: 'JSON 格式无效',
+    nameRequired: 'Skill 名称不能为空',
+    duplicateName: 'Skill 名称已存在',
   }
 };

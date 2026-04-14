@@ -8,6 +8,7 @@ const Dashboard = lazy(() => import('../pages/DashboardPage'));
 const Chat = lazy(() => import('../pages/ChatPage'));
 const Contacts = lazy(() => import('../pages/ContactsPage'));
 const Settings = lazy(() => import('../pages/SettingsPage'));
+const Skills = lazy(() => import('../pages/SkillsPage'));
 const Logs = lazy(() => import('../pages/LogsPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
@@ -31,6 +32,7 @@ function AppRoutes() {
         <Route path="/chat" element={<PageTransition><Suspense fallback={<Loading />}><Chat /></Suspense></PageTransition>} />
         <Route path="/contacts" element={<PageTransition><Suspense fallback={<Loading />}><Contacts /></Suspense></PageTransition>} />
         <Route path="/settings" element={<PageTransition><Suspense fallback={<Loading />}><Settings /></Suspense></PageTransition>} />
+        <Route path="/skills" element={<PageTransition><Suspense fallback={<Loading />}><Skills /></Suspense></PageTransition>} />
         <Route path="/logs" element={<PageTransition><Suspense fallback={<Loading />}><Logs /></Suspense></PageTransition>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
