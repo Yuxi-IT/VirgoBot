@@ -2,5 +2,6 @@
 .vs
 bin
 obj
+iLink4NET
 
 system_memory.txt
