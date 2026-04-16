@@ -8,10 +8,12 @@ interface GeneralTabProps {
   editBaseUrl: string;
   editMaxTokens: string;
   editMessageLimit: string;
+  editMessageSplitDelimiters: string;
   onEditModel: (v: string) => void;
   onEditBaseUrl: (v: string) => void;
   onEditMaxTokens: (v: string) => void;
   onEditMessageLimit: (v: string) => void;
+  onEditMessageSplitDelimiters: (v: string) => void;
   saving: boolean;
   restarting: boolean;
   onSave: () => void;
@@ -19,8 +21,8 @@ interface GeneralTabProps {
 }
 
 function GeneralTab({
-  config, editModel, editBaseUrl, editMaxTokens, editMessageLimit,
-  onEditModel, onEditBaseUrl, onEditMaxTokens, onEditMessageLimit,
+  config, editModel, editBaseUrl, editMaxTokens, editMessageLimit, editMessageSplitDelimiters,
+  onEditModel, onEditBaseUrl, onEditMaxTokens, onEditMessageLimit, onEditMessageSplitDelimiters,
   saving, restarting, onSave, onSaveAndRestart,
 }: GeneralTabProps) {
   const { t } = useI18n();
@@ -58,14 +60,21 @@ function GeneralTab({
               <Input />
             </TextField>
           </div>
+          <TextField value={editMessageSplitDelimiters} onChange={onEditMessageSplitDelimiters}>
+            <Label>Message Split Delimiters</Label>
+            <Input placeholder="。|！|？|?|\n\n|\n" />
+            <p className="text-xs text-gray-500 mt-1">
+              Use | to separate multiple delimiters. Messages will be split by these delimiters before sending.
+            </p>
+          </TextField>
 
           <Separator />
 
           <h3 className="font-semibold">{t('settings.allowedUsers')}</h3>
           <div className="flex flex-wrap gap-2">
-            {config.allowedUsers.map(userId => (
+            {config.channel?.telegram?.allowedUsers?.map(userId => (
               <Chip key={userId} size="sm" variant="soft">{userId}</Chip>
-            ))}
+            )) || <span className="text-sm text-gray-500">No allowed users configured</span>}
           </div>
 
           <Separator />

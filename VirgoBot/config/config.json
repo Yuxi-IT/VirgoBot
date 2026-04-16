@@ -32,7 +32,12 @@
       "SmtpHost": "smtp.example.com",
       "SmtpPort": 587,
       "Address": "your@email.com",
-      "Password": "your_password"
+      "Password": "your_password",
+      "Notification": {
+        "NotifyToTelegram": false,
+        "NotifyToILink": false,
+        "NotifyToWebSocket": false
+      }
     }
   },
   "BotToken": "",

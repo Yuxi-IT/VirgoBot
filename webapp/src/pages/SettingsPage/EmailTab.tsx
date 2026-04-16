@@ -36,12 +36,12 @@ function EmailTab({
             <Label>{t('settings.emailAddress')}</Label>
             <Input />
           </TextField>
-          <TextField isDisabled value={config.email.password}>
+          <TextField isDisabled value={config.channel.email.password}>
             <Label>Email Password</Label>
             <Input />
           </TextField>
           <div className="flex items-center gap-4">
-            <Switch isSelected={config.email.enabled} isDisabled>
+            <Switch isSelected={config.channel.email.enabled} isDisabled>
               <Switch.Control>
                 <Switch.Thumb />
               </Switch.Control>

@@ -7,32 +7,30 @@ namespace VirgoBot.Utilities;
 public class MessageHelper
 {
     private readonly TelegramBotClient _bot;
+    private readonly string _messageSplitDelimiters;
 
-    public MessageHelper(TelegramBotClient bot)
+    public MessageHelper(TelegramBotClient bot, string messageSplitDelimiters)
     {
         _bot = bot;
+        _messageSplitDelimiters = messageSplitDelimiters;
     }
 
     public async Task SendLongMessage(long chatId, string text)
     {
-        var paragraphs = text.Split(["\n\n", "\r\n\r\n", "？", "?", "。"], StringSplitOptions.RemoveEmptyEntries);
+        var paragraphs = MessageSplitter.SplitMessage(text, _messageSplitDelimiters);
 
         foreach (var paragraph in paragraphs)
         {
-            var trimmed = paragraph.Trim();
-            if (!string.IsNullOrEmpty(trimmed))
+            Console.WriteLine($"[BOT] {paragraph}");
+            try
             {
-                Console.WriteLine($"[BOT] {trimmed}");
-                try
-                {
-                    await _bot.SendMessage(chatId, trimmed, parseMode: ParseMode.Markdown);
-                }
-                catch
-                {
-                    await _bot.SendMessage(chatId, trimmed);
-                }
-                await Task.Delay(300);
+                await _bot.SendMessage(chatId, paragraph, parseMode: ParseMode.Markdown);
             }
+            catch
+            {
+                await _bot.SendMessage(chatId, paragraph);
+            }
+            await Task.Delay(300);
         }
     }
 

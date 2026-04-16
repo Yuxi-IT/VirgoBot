@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
-using System.Net.WebSockets;
-using System.Text;
-using System.Text.Json;
+using ILink4NET.Client;
+using ILink4NET.Models;
 using VirgoBot.Configuration;
 using VirgoBot.Utilities;
 
@@ -11,11 +10,13 @@ public sealed class ILinkBridgeService
 {
     private readonly ILinkChannelConfig _config;
     private readonly HttpClient _httpClient;
-    private ClientWebSocket? _socket;
+    private readonly string _messageSplitDelimiters;
+    private ILinkBotClient? _botClient;
 
-    public ILinkBridgeService(ILinkChannelConfig config)
+    public ILinkBridgeService(ILinkChannelConfig config, string messageSplitDelimiters)
     {
         _config = config;
+        _messageSplitDelimiters = messageSplitDelimiters;
         _httpClient = new HttpClient();
 
         if (!string.IsNullOrWhiteSpace(_config.Token))
@@ -27,201 +28,74 @@ public sealed class ILinkBridgeService
 
     public bool IsEnabled => _config.Enabled;
 
-    public Task StartAsync(Func<ILinkIncomingMessage, Task> onMessage, CancellationToken cancellationToken)
+    public async Task StartAsync(Func<IncomingMessage, Task> onMessage, CancellationToken cancellationToken)
     {
-        var webSocketUrl = NormalizeWebSocketUrl(_config.WebSocketUrl);
-
-        if (!_config.Enabled || string.IsNullOrWhiteSpace(webSocketUrl))
-        {
-            return Task.CompletedTask;
-        }
-
-        _ = Task.Run(() => RunWebSocketLoopAsync(webSocketUrl, onMessage, cancellationToken), cancellationToken);
-        return Task.CompletedTask;
-    }
-
-    public async Task<string> SendImageAsync(string imagePath, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(imagePath))
-        {
-            return "图片路径不能为空";
-        }
-
-        if (string.IsNullOrWhiteSpace(_config.SendUrl))
-        {
-            throw new InvalidOperationException("iLink send url is not configured.");
-        }
-
-        try
-        {
-            using var form = new MultipartFormDataContent();
-
-            if (imagePath.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                imagePath.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                var imageBytes = await _httpClient.GetByteArrayAsync(imagePath, cancellationToken);
-                var fileName = Path.GetFileName(new Uri(imagePath).AbsolutePath);
-                if (string.IsNullOrWhiteSpace(fileName)) fileName = "image.png";
-                var byteContent = new ByteArrayContent(imageBytes);
-                byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GuessMimeType(fileName));
-                form.Add(byteContent, "file", fileName);
-            }
-            else
-            {
-                if (!File.Exists(imagePath))
-                {
-                    return "文件不存在: " + imagePath;
-                }
-
-                var fileBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
-                var fileName = Path.GetFileName(imagePath);
-                var byteContent = new ByteArrayContent(fileBytes);
-                byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GuessMimeType(fileName));
-                form.Add(byteContent, "file", fileName);
-            }
-
-            using var response = await _httpClient.PostAsync(_config.SendUrl, form, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            return "图片已发送到iLink";
-        }
-        catch (Exception ex)
-        {
-            return $"发送图片失败: {ex.Message}";
-        }
-    }
-
-    public async Task SendMessageAsync(string content, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(content))
+        if (!_config.Enabled)
         {
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_config.SendUrl))
+        ColorLog.Info("ILINK", "正在初始化 iLink 客户端...");
+
+        _botClient = ILinkBotClient.CreateDefault(_httpClient);
+
+        // 如果有 Token，直接使用 Token 登录
+        if (!string.IsNullOrWhiteSpace(_config.Token))
         {
-            throw new InvalidOperationException("iLink send url is not configured.");
+            ColorLog.Info("ILINK", "使用 Token 登录...");
+            var credentials = ParseTokenToCredentials(_config.Token);
+            if (credentials != null)
+            {
+                _botClient.SetCredentials(credentials);
+                ColorLog.Success("ILINK", "Token 登录成功");
+            }
+            else
+            {
+                ColorLog.Error("ILINK", "Token 格式无效");
+                return;
+            }
+        }
+        else
+        {
+            ColorLog.Error("ILINK", "未配置 Token");
+            return;
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _config.SendUrl);
-        request.Content = new StringContent(
-            JsonSerializer.Serialize(new { content }),
-            Encoding.UTF8,
-            "application/json");
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        // 启动消息轮询
+        _ = Task.Run(() => RunPollingLoopAsync(onMessage, cancellationToken), cancellationToken);
     }
 
-    public async Task SendLongMessageAsync(string text, CancellationToken cancellationToken = default)
+    private async Task RunPollingLoopAsync(Func<IncomingMessage, Task> onMessage, CancellationToken cancellationToken)
     {
-        var paragraphs = text.Split(["\n\n", "\r\n\r\n", "？", "?", "。"], StringSplitOptions.RemoveEmptyEntries);
+        var cursor = string.Empty;
 
-        foreach (var paragraph in paragraphs)
-        {
-            var trimmed = paragraph.Trim();
-            if (string.IsNullOrEmpty(trimmed))
-            {
-                continue;
-            }
-
-            ColorLog.Success("ILINK", trimmed);
-            await SendMessageAsync(trimmed, cancellationToken);
-            await Task.Delay(300, cancellationToken);
-        }
-    }
-
-    public bool TryParseIncoming(string json, out ILinkIncomingMessage? message)
-    {
-        message = null;
-
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (root.ValueKind != JsonValueKind.Object)
-            {
-                return false;
-            }
-
-            var type = GetString(root, "type");
-            if (string.Equals(type, "send", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(type, "pong", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var eventType = GetNestedString(root, "event", "type");
-            if (string.Equals(type, "event", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(eventType, "message.text", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            var content = GetString(root, "content")
-                ?? GetString(root, "message")
-                ?? GetString(root, "text")
-                ?? GetNestedString(root, "event", "data", "content")
-                ?? GetNestedString(root, "event", "data", "text");
-
-            if (string.IsNullOrWhiteSpace(content))
-            {
-                return false;
-            }
-
-            var userId = GetString(root, "userId")
-                ?? GetString(root, "from")
-                ?? GetString(root, "sender")
-                ?? GetNestedString(root, "user", "id")
-                ?? GetNestedString(root, "sender", "id")
-                ?? GetNestedString(root, "event", "data", "sender", "id")
-                ?? _config.DefaultUserId;
-
-            var username = GetString(root, "username")
-                ?? GetString(root, "nickname")
-                ?? GetNestedString(root, "user", "name")
-                ?? GetNestedString(root, "event", "data", "sender", "id")
-                ?? userId;
-
-            message = new ILinkIncomingMessage(userId, username, content, json);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private async Task RunWebSocketLoopAsync(string webSocketUrl, Func<ILinkIncomingMessage, Task> onMessage, CancellationToken cancellationToken)
-    {
         while (!cancellationToken.IsCancellationRequested)
         {
-            ClientWebSocket? socket = null;
-
             try
             {
-                socket = new ClientWebSocket();
-                _socket = socket;
-                await socket.ConnectAsync(new Uri(webSocketUrl), cancellationToken);
-                ColorLog.Success("ILINK", "WebSocket connected");
-
-                while (socket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+                if (_botClient == null)
                 {
-                    var json = await ReceiveTextAsync(socket, cancellationToken);
-                    if (string.IsNullOrWhiteSpace(json))
+                    break;
+                }
+
+                var batch = await _botClient.GetUpdatesAsync(cursor, cancellationToken);
+                cursor = batch.NextCursor;
+
+                foreach (var message in batch.Messages)
+                {
+                    if (string.IsNullOrWhiteSpace(message.Text))
                     {
                         continue;
                     }
 
-                    if (TryParseIncoming(json, out var message) && message is not null)
-                    {
-                        await onMessage(message);
-                    }
+                    ColorLog.Info("ILINK", $"收到消息: UserId={message.UserId}, Text={message.Text}");
+                    await onMessage(message);
+                }
+
+                // 短暂延迟避免过于频繁的轮询
+                if (batch.Messages.Count == 0)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
                 }
             }
             catch (OperationCanceledException)
@@ -230,163 +104,76 @@ public sealed class ILinkBridgeService
             }
             catch (Exception ex)
             {
-                ColorLog.Error("ILINK", $"WebSocket error: {ex.Message}");
-            }
-            finally
-            {
-                socket?.Dispose();
-
-                if (ReferenceEquals(_socket, socket))
-                {
-                    _socket = null;
-                }
-            }
-
-            if (!cancellationToken.IsCancellationRequested)
-            {
+                ColorLog.Error("ILINK", $"轮询错误: {ex.Message}");
                 await Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
             }
         }
+
+        ColorLog.Info("ILINK", "消息轮询已停止");
     }
 
-    private static async Task<string> ReceiveTextAsync(ClientWebSocket socket, CancellationToken cancellationToken)
+    public async Task ReplyTextAsync(IncomingMessage originalMessage, string text, CancellationToken cancellationToken = default)
     {
-        var buffer = new ArraySegment<byte>(new byte[4096]);
-        using var ms = new MemoryStream();
-
-        while (true)
+        if (_botClient == null)
         {
-            var result = await socket.ReceiveAsync(buffer, cancellationToken);
-
-            if (result.MessageType == WebSocketMessageType.Close)
-            {
-                return string.Empty;
-            }
-
-            ms.Write(buffer.Array!, buffer.Offset, result.Count);
-
-            if (result.EndOfMessage)
-            {
-                break;
-            }
+            throw new InvalidOperationException("iLink 客户端未初始化");
         }
 
-        return Encoding.UTF8.GetString(ms.ToArray());
+        await _botClient.ReplyTextAsync(originalMessage, text, cancellationToken);
+        ColorLog.Success("ILINK", $"已回复: {text}");
     }
 
-    private static string NormalizeWebSocketUrl(string? url)
+    public async Task ReplyLongTextAsync(IncomingMessage originalMessage, string text, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(url))
+        if (_botClient == null)
         {
-            return string.Empty;
+            throw new InvalidOperationException("iLink 客户端未初始化");
         }
 
-        var normalized = url.Trim();
+        var paragraphs = MessageSplitter.SplitMessage(text, _messageSplitDelimiters);
 
-        if (normalized.StartsWith("wss://http://", StringComparison.OrdinalIgnoreCase))
+        foreach (var paragraph in paragraphs)
         {
-            normalized = "ws://" + normalized["wss://http://".Length..];
+            await _botClient.ReplyTextAsync(originalMessage, paragraph, cancellationToken);
+            ColorLog.Success("ILINK", paragraph);
+            await Task.Delay(300, cancellationToken);
         }
-        else if (normalized.StartsWith("ws://https://", StringComparison.OrdinalIgnoreCase))
-        {
-            normalized = "wss://" + normalized["ws://https://".Length..];
-        }
-        else if (normalized.StartsWith("ws://http://", StringComparison.OrdinalIgnoreCase))
-        {
-            normalized = "ws://" + normalized["ws://http://".Length..];
-        }
-        else if (normalized.StartsWith("wss://https://", StringComparison.OrdinalIgnoreCase))
-        {
-            normalized = "wss://" + normalized["wss://https://".Length..];
-        }
-
-        return normalized;
     }
 
-    private static string? GetString(JsonElement element, string propertyName)
+    private SessionCredentials? ParseTokenToCredentials(string token)
     {
-        if (!element.TryGetProperty(propertyName, out var value))
+        // Token 格式: "botId@im.bot:sessionToken"
+        // 例如: "4eaa53b3fc83@im.bot:060000d9886a065e232f93134a76ed112eb6bc"
+
+        var parts = token.Split(':');
+        if (parts.Length != 2)
         {
             return null;
         }
 
-        return value.ValueKind switch
-        {
-            JsonValueKind.String => value.GetString(),
-            JsonValueKind.Number => value.ToString(),
-            JsonValueKind.True => "true",
-            JsonValueKind.False => "false",
-            _ => null
-        };
-    }
+        var botId = parts[0]; // 例如: "4eaa53b3fc83@im.bot"
+        var sessionToken = parts[1]; // 例如: "060000d9886a065e232f93134a76ed112eb6bc"
 
-    private static string? GetNestedString(JsonElement element, string propertyName, string nestedPropertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var nested) || nested.ValueKind != JsonValueKind.Object)
+        // 从 botId 中提取实际的 ID
+        var botIdParts = botId.Split('@');
+        if (botIdParts.Length < 1)
         {
             return null;
         }
 
-        return GetString(nested, nestedPropertyName);
-    }
+        var iLinkBotId = botIdParts[0]; // 例如: "4eaa53b3fc83"
+        var iLinkUserId = botId; // 使用完整的 botId 作为 userId
 
-    private static string? GetNestedString(
-        JsonElement element,
-        string propertyName,
-        string nestedPropertyName,
-        string targetPropertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var nested) || nested.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
+        // 从配置中获取 API 基础 URL
+        var apiBaseUriString = !string.IsNullOrWhiteSpace(_config.SendUrl)
+            ? new Uri(_config.SendUrl).GetLeftPart(UriPartial.Authority)
+            : "https://ilinkai.weixin.qq.com";
 
-        if (!nested.TryGetProperty(nestedPropertyName, out var target) || target.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
+        var apiBaseUri = new Uri(apiBaseUriString);
 
-        return GetString(target, targetPropertyName);
-    }
+        // BotToken 格式: "botId:sessionToken"
+        var botToken = token;
 
-    private static string? GetNestedString(
-        JsonElement element,
-        string propertyName,
-        string nestedPropertyName,
-        string targetPropertyName,
-        string finalPropertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var nested) || nested.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
-
-        if (!nested.TryGetProperty(nestedPropertyName, out var target) || target.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
-
-        if (!target.TryGetProperty(targetPropertyName, out var final) || final.ValueKind != JsonValueKind.Object)
-        {
-            return null;
-        }
-
-        return GetString(final, finalPropertyName);
-    }
-
-    private static string GuessMimeType(string fileName)
-    {
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".bmp" => "image/bmp",
-            _ => "application/octet-stream"
-        };
+        return new SessionCredentials(botToken, iLinkBotId, iLinkUserId, apiBaseUri);
     }
 }
-
-public sealed record ILinkIncomingMessage(string UserId, string Username, string Content, string RawJson);

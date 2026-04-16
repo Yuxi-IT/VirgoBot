@@ -2,7 +2,7 @@ namespace VirgoBot.Configuration;
 
 public static class AppConstants
 {
-    public const string DefaultListenUrl = "http://localhost:5000/";
+    public const string DefaultListenUrl = "http://0.0.0.0:5000/";
     public const int WebSocketBufferSize = 4096;
     public const int DefaultMaxTokens = 8192;
     public const int DefaultMessageLimit = 20;

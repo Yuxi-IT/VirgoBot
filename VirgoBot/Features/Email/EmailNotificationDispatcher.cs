@@ -4,6 +4,7 @@ using System.Text.Json;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
+using VirgoBot.Configuration;
 using VirgoBot.Integrations.ILink;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
@@ -12,17 +13,20 @@ namespace VirgoBot.Features.Email;
 
 public class EmailNotificationDispatcher
 {
-    private readonly TelegramBotClient _bot;
+    private readonly EmailNotificationConfig _notificationConfig;
+    private readonly TelegramBotClient? _bot;
     private readonly long _userId;
     private readonly WebSocketClientManager _wsManager;
     private readonly ILinkBridgeService? _iLinkBridge;
 
     public EmailNotificationDispatcher(
-        TelegramBotClient bot,
-        long userId,
+        EmailNotificationConfig notificationConfig,
         WebSocketClientManager wsManager,
+        TelegramBotClient? bot = null,
+        long userId = 0,
         ILinkBridgeService? iLinkBridge = null)
     {
+        _notificationConfig = notificationConfig;
         _bot = bot;
         _userId = userId;
         _wsManager = wsManager;
@@ -31,13 +35,26 @@ public class EmailNotificationDispatcher
 
     public async Task DispatchNewEmailAsync(EmailMessage email, string aiResponse, CancellationToken cancellationToken = default)
     {
-        await SendTelegramNotificationAsync(email, aiResponse, cancellationToken);
-        await SendWebSocketNotificationAsync(email, aiResponse, cancellationToken);
-        await SendILinkNotificationAsync(email, aiResponse, cancellationToken);
+        if (_notificationConfig.NotifyToTelegram && _bot != null)
+        {
+            await SendTelegramNotificationAsync(email, aiResponse, cancellationToken);
+        }
+
+        if (_notificationConfig.NotifyToWebSocket)
+        {
+            await SendWebSocketNotificationAsync(email, aiResponse, cancellationToken);
+        }
+
+        if (_notificationConfig.NotifyToILink && _iLinkBridge != null)
+        {
+            await SendILinkNotificationAsync(email, aiResponse, cancellationToken);
+        }
     }
 
     private async Task SendTelegramNotificationAsync(EmailMessage email, string aiResponse, CancellationToken cancellationToken)
     {
+        if (_bot == null) return;
+
         var keyboard = new InlineKeyboardMarkup(
         [
             [InlineKeyboardButton.WithCallbackData("忽略邮件", $"ignore_{email.Uid}")]
@@ -76,8 +93,9 @@ public class EmailNotificationDispatcher
         try
         {
             var message = BuildILinkMessage(email, aiResponse);
-            await _iLinkBridge.SendLongMessageAsync(message, cancellationToken);
-            ColorLog.Success("ILINK", $"邮件通知已推送到 iLink: {email.Subject}");
+            // 注意：iLink 需要原始 IncomingMessage 才能回复，邮件通知暂不支持
+            ColorLog.Warning("ILINK", "邮件通知到 iLink 暂不支持（需要原始消息上下文）");
+            await Task.CompletedTask;
         }
         catch (Exception ex)
         {

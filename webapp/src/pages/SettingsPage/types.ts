@@ -6,17 +6,37 @@ export interface ConfigData {
     listenUrl: string;
     maxTokens: number;
     messageLimit: number;
+    messageSplitDelimiters: string;
   };
-  email: {
-    imapHost: string;
-    address: string;
-    password: string;
-    enabled: boolean;
+  channel: {
+    telegram: {
+      enabled: boolean;
+      botToken: string;
+      allowedUsers: number[];
+    };
+    email: {
+      enabled: boolean;
+      imapHost: string;
+      imapPort: number;
+      smtpHost: string;
+      smtpPort: number;
+      address: string;
+      password: string;
+      notification: {
+        notifyToTelegram: boolean;
+        notifyToILink: boolean;
+        notifyToWebSocket: boolean;
+      };
+    };
+    iLink: {
+      enabled: boolean;
+      token: string;
+      webSocketUrl: string;
+      sendUrl: string;
+      webhookPath: string;
+      defaultUserId: string;
+    };
   };
-  iLink: {
-    enabled: boolean;
-  };
-  allowedUsers: number[];
 }
 
 export interface ConfigResponse {

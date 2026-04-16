@@ -31,6 +31,7 @@ public class ServerConfig
     public string ListenUrl { get; set; } = AppConstants.DefaultListenUrl;
     public int MaxTokens { get; set; } = AppConstants.DefaultMaxTokens;
     public int MessageLimit { get; set; } = AppConstants.DefaultMessageLimit;
+    public string MessageSplitDelimiters { get; set; } = "。|！|？|?|\n\n|\n";
 }
 
 public class ChannelConfig
@@ -56,6 +57,14 @@ public class EmailChannelConfig
     public int SmtpPort { get; set; } = 587;
     public string Address { get; set; } = "";
     public string Password { get; set; } = "";
+    public EmailNotificationConfig Notification { get; set; } = new();
+}
+
+public class EmailNotificationConfig
+{
+    public bool NotifyToTelegram { get; set; } = false;
+    public bool NotifyToILink { get; set; } = false;
+    public bool NotifyToWebSocket { get; set; } = false;
 }
 
 public class ILinkChannelConfig

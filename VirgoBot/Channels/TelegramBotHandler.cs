@@ -122,27 +122,6 @@ public class TelegramBotHandler
         }
     }
 
-    public async Task HandleILinkIncomingMessageAsync(ILinkIncomingMessage incoming)
-    {
-        var content = incoming.Content?.Trim();
-        if (string.IsNullOrWhiteSpace(content))
-        {
-            return;
-        }
-
-        ColorLog.Info("ILINK-IN", $"[@{incoming.Username}] {content}");
-
-        _activityMonitor.UpdateActivity();
-        var reply = await _llmService.AskAsync(GetStableHashCode(incoming.UserId), content);
-
-        if (string.IsNullOrWhiteSpace(reply))
-        {
-            return;
-        }
-
-        await _iLinkBridge.SendLongMessageAsync(reply, _cancellationToken);
-    }
-
     /// <summary>
     /// Deterministic string hash that stays stable across process restarts.
     /// (Unlike string.GetHashCode() which is randomized per-process in .NET Core+)

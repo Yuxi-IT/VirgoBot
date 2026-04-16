@@ -22,6 +22,7 @@ function SettingsPage() {
   const [editBaseUrl, setEditBaseUrl] = useState('');
   const [editMaxTokens, setEditMaxTokens] = useState('');
   const [editMessageLimit, setEditMessageLimit] = useState('');
+  const [editMessageSplitDelimiters, setEditMessageSplitDelimiters] = useState('');
   const [editImapHost, setEditImapHost] = useState('');
   const [editEmailAddress, setEditEmailAddress] = useState('');
 
@@ -39,8 +40,9 @@ function SettingsPage() {
         setEditBaseUrl(res.data.baseUrl);
         setEditMaxTokens(String(res.data.server.maxTokens));
         setEditMessageLimit(String(res.data.server.messageLimit));
-        setEditImapHost(res.data.email.imapHost);
-        setEditEmailAddress(res.data.email.address);
+        setEditMessageSplitDelimiters(res.data.server.messageSplitDelimiters);
+        setEditImapHost(res.data.channel.email.imapHost);
+        setEditEmailAddress(res.data.channel.email.address);
       }
     } catch {
       // silently fail
@@ -57,6 +59,7 @@ function SettingsPage() {
         baseUrl: editBaseUrl,
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
+        messageSplitDelimiters: editMessageSplitDelimiters,
         imapHost: editImapHost,
         emailAddress: editEmailAddress,
       });
@@ -76,6 +79,7 @@ function SettingsPage() {
         baseUrl: editBaseUrl,
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
+        messageSplitDelimiters: editMessageSplitDelimiters,
         imapHost: editImapHost,
         emailAddress: editEmailAddress,
       });
@@ -134,10 +138,12 @@ function SettingsPage() {
                 editBaseUrl={editBaseUrl}
                 editMaxTokens={editMaxTokens}
                 editMessageLimit={editMessageLimit}
+                editMessageSplitDelimiters={editMessageSplitDelimiters}
                 onEditModel={setEditModel}
                 onEditBaseUrl={setEditBaseUrl}
                 onEditMaxTokens={setEditMaxTokens}
                 onEditMessageLimit={setEditMessageLimit}
+                onEditMessageSplitDelimiters={setEditMessageSplitDelimiters}
                 saving={saving}
                 restarting={restarting}
                 onSave={saveConfig}

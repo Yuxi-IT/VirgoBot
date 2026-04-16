@@ -332,7 +332,7 @@ public class HttpServerHost
 
             if (req == null || string.IsNullOrEmpty(req.BotToken) || string.IsNullOrEmpty(req.ApiBaseUri))
             {
-                ColorLog.Warn("ILINK-LOGIN", "保存凭证失败: 缺少必要参数");
+                ColorLog.Error("ILINK-LOGIN", "保存凭证失败: 缺少必要参数");
                 await SendJsonResponse(ctx, new { success = false, error = "缺少必要参数" }, 400);
                 return;
             }
@@ -432,8 +432,9 @@ public class HttpServerHost
             if (!string.IsNullOrWhiteSpace(body.BaseUrl)) config.BaseUrl = body.BaseUrl;
             if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;
             if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
-            if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Email.ImapHost = body.ImapHost;
-            if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Email.Address = body.EmailAddress;
+            if (!string.IsNullOrWhiteSpace(body.MessageSplitDelimiters)) config.Server.MessageSplitDelimiters = body.MessageSplitDelimiters;
+            if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Channel.Email.ImapHost = body.ImapHost;
+            if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Channel.Email.Address = body.EmailAddress;
             if (!string.IsNullOrWhiteSpace(body.MemoryFile)) config.MemoryFile = body.MemoryFile;
 
             ConfigLoader.Save(config);
@@ -604,26 +605,48 @@ public class HttpServerHost
             model = config.Model,
             baseUrl = config.BaseUrl,
             apiKey = MaskSecret(config.ApiKey),
-            botToken = MaskSecret(config.BotToken),
             memoryFile = config.MemoryFile,
             server = new
             {
                 listenUrl = config.Server.ListenUrl,
                 maxTokens = config.Server.MaxTokens,
-                messageLimit = config.Server.MessageLimit
+                messageLimit = config.Server.MessageLimit,
+                messageSplitDelimiters = config.Server.MessageSplitDelimiters
             },
-            email = new
+            channel = new
             {
-                imapHost = config.Email.ImapHost,
-                address = config.Email.Address,
-                password = MaskSecret(config.Email.Password),
-                enabled = !string.IsNullOrEmpty(config.Email.Address) && config.Email.Address != "your@email.com"
-            },
-            iLink = new
-            {
-                enabled = config.ILink.Enabled
-            },
-            allowedUsers = config.AllowedUsers
+                telegram = new
+                {
+                    enabled = config.Channel.Telegram.Enabled,
+                    botToken = MaskSecret(config.Channel.Telegram.BotToken),
+                    allowedUsers = config.Channel.Telegram.AllowedUsers
+                },
+                email = new
+                {
+                    enabled = config.Channel.Email.Enabled,
+                    imapHost = config.Channel.Email.ImapHost,
+                    imapPort = config.Channel.Email.ImapPort,
+                    smtpHost = config.Channel.Email.SmtpHost,
+                    smtpPort = config.Channel.Email.SmtpPort,
+                    address = config.Channel.Email.Address,
+                    password = MaskSecret(config.Channel.Email.Password),
+                    notification = new
+                    {
+                        notifyToTelegram = config.Channel.Email.Notification.NotifyToTelegram,
+                        notifyToILink = config.Channel.Email.Notification.NotifyToILink,
+                        notifyToWebSocket = config.Channel.Email.Notification.NotifyToWebSocket
+                    }
+                },
+                iLink = new
+                {
+                    enabled = config.Channel.ILink.Enabled,
+                    token = MaskSecret(config.Channel.ILink.Token),
+                    webSocketUrl = config.Channel.ILink.WebSocketUrl,
+                    sendUrl = config.Channel.ILink.SendUrl,
+                    webhookPath = config.Channel.ILink.WebhookPath,
+                    defaultUserId = config.Channel.ILink.DefaultUserId
+                }
+            }
         };
 
         await SendJsonResponse(ctx, new { success = true, data });
@@ -1394,13 +1417,10 @@ public class HttpServerHost
         using var reader = new StreamReader(ctx.Request.InputStream);
         var body = await reader.ReadToEndAsync();
 
-        if (_gateway.ILinkBridge != null &&
-            _gateway.ILinkBridge.TryParseIncoming(body, out var incoming) &&
-            incoming is not null &&
-            _gateway.TelegramHandler != null)
-        {
-            await _gateway.TelegramHandler.HandleILinkIncomingMessageAsync(incoming);
-        }
+        ColorLog.Info("ILINK", $"Webhook 收到数据: {body}");
+
+        // Webhook 暂不支持，因为 iLink4NET 使用轮询模式
+        ColorLog.Warning("ILINK", "Webhook 模式暂不支持，请使用轮询模式");
 
         ctx.Response.StatusCode = 200;
         var ok = Encoding.UTF8.GetBytes("ok");
@@ -1467,6 +1487,7 @@ public record ConfigUpdateRequest
     public string? BaseUrl { get; init; }
     public int? MaxTokens { get; init; }
     public int? MessageLimit { get; init; }
+    public string? MessageSplitDelimiters { get; init; }
     public string? ImapHost { get; init; }
     public string? EmailAddress { get; init; }
     public string? MemoryFile { get; init; }

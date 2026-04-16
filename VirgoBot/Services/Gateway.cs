@@ -30,6 +30,7 @@ public class Gateway : IDisposable
     public TelegramBotClient? Bot { get; private set; }
     public TelegramBotHandler? TelegramHandler { get; private set; }
     public ILinkBridgeService? ILinkBridge { get; private set; }
+    public ILinkMessageHandler? ILinkHandler { get; private set; }
     public StickerService StickerService { get; private set; } = null!;
     public ContactService ContactService { get; private set; } = null!;
 
@@ -63,7 +64,6 @@ public class Gateway : IDisposable
         await StopChannelsAsync();
         BuildServices();
         await StartChannelsAsync();
-        ColorLog.Success("GATEWAY", "所有服务已重启");
     }
 
     public async Task SwitchSession(string dbFileName)
@@ -117,7 +117,7 @@ public class Gateway : IDisposable
         // ILink services - only if enabled
         if (Config.Channel.ILink.Enabled)
         {
-            ILinkBridge = new ILinkBridgeService(Config.Channel.ILink);
+            ILinkBridge = new ILinkBridgeService(Config.Channel.ILink, Config.Server.MessageSplitDelimiters);
             FunctionRegistry.SetILinkBridgeService(ILinkBridge);
         }
 
@@ -127,14 +127,46 @@ public class Gateway : IDisposable
         if (Config.Channel.Telegram.Enabled)
         {
             Bot = new TelegramBotClient(Config.Channel.Telegram.BotToken, cancellationToken: _cts.Token);
-            var messageHelper = new MessageHelper(Bot);
-            var emailNotificationDispatcher = new EmailNotificationDispatcher(Bot, Config.Channel.Telegram.AllowedUsers[0], _wsManager, ILinkBridge);
+            var messageHelper = new MessageHelper(Bot, Config.Server.MessageSplitDelimiters);
+            ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0]);
+
+            // Create email notification dispatcher
+            var emailNotificationDispatcher = new EmailNotificationDispatcher(
+                Config.Channel.Email.Notification,
+                _wsManager,
+                Bot,
+                Config.Channel.Telegram.AllowedUsers[0],
+                ILinkBridge);
+
+            // Create EmailManager if EmailService exists
             if (EmailService != null)
             {
                 EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, Config.Channel.Telegram.AllowedUsers[0], LlmService);
             }
-            ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0]);
+
             TelegramHandler = new TelegramBotHandler(Config, Bot, LlmService, _memoryService, FunctionRegistry, messageHelper, EmailManager, ActivityMonitor, ILinkBridge, _cts.Token);
+        }
+        else
+        {
+            // Create email notification dispatcher without Telegram
+            var emailNotificationDispatcher = new EmailNotificationDispatcher(
+                Config.Channel.Email.Notification,
+                _wsManager,
+                null,
+                0,
+                ILinkBridge);
+
+            // Create EmailManager if EmailService exists
+            if (EmailService != null)
+            {
+                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, 0, LlmService);
+            }
+        }
+
+        // ILink message handler - only if enabled
+        if (Config.Channel.ILink.Enabled && ILinkBridge != null)
+        {
+            ILinkHandler = new ILinkMessageHandler(Config, LlmService, _memoryService, ILinkBridge, _cts.Token);
         }
 
         // Initialize channel statuses
@@ -167,7 +199,22 @@ public class Gateway : IDisposable
         }
         else
         {
-            ChannelStatuses["email"].Status = "disabled";
+            if (Config.Channel.Email.Enabled)
+            {
+                if (EmailService == null)
+                {
+                    ColorLog.Warning("EMAIL", "邮件频道未启动: EmailService 未初始化");
+                }
+                else if (EmailManager == null)
+                {
+                    ColorLog.Warning("EMAIL", "邮件频道未启动: EmailManager 未初始化");
+                }
+                ChannelStatuses["email"].Status = "stopped";
+            }
+            else
+            {
+                ChannelStatuses["email"].Status = "disabled";
+            }
         }
 
         // Telegram channel - conditional start
@@ -193,11 +240,11 @@ public class Gateway : IDisposable
         }
 
         // iLink channel - conditional start
-        if (Config.Channel.ILink.Enabled && ILinkBridge != null && TelegramHandler != null)
+        if (Config.Channel.ILink.Enabled && ILinkBridge != null && ILinkHandler != null)
         {
             try
             {
-                await ILinkBridge.StartAsync(TelegramHandler.HandleILinkIncomingMessageAsync, ct);
+                await ILinkBridge.StartAsync(ILinkHandler.HandleIncomingMessageAsync, ct);
                 ChannelStatuses["iLink"].Status = "running";
                 ColorLog.Success("ILINK", "iLink 频道已启动");
             }
@@ -209,7 +256,22 @@ public class Gateway : IDisposable
         }
         else
         {
-            ChannelStatuses["iLink"].Status = Config.Channel.ILink.Enabled ? "stopped" : "disabled";
+            if (Config.Channel.ILink.Enabled)
+            {
+                if (ILinkBridge == null)
+                {
+                    ColorLog.Warning("ILINK", "iLink 频道未启动: ILinkBridge 未初始化");
+                }
+                else if (ILinkHandler == null)
+                {
+                    ColorLog.Warning("ILINK", "iLink 频道未启动: ILinkHandler 未初始化");
+                }
+                ChannelStatuses["iLink"].Status = "stopped";
+            }
+            else
+            {
+                ChannelStatuses["iLink"].Status = "disabled";
+            }
         }
 
         IsRunning = true;
@@ -228,13 +290,19 @@ public class Gateway : IDisposable
 
         IsRunning = false;
 
-        // Update channel statuses
+        // Update channel statuses and log each channel
         foreach (var status in ChannelStatuses.Values)
         {
-            status.Status = "stopped";
+            if (status.Status == "running" || status.Status == "monitoring")
+            {
+                status.Status = "stopped";
+                ColorLog.Info(status.Name.ToUpper(), $"{status.Name} 频道已停止");
+            }
+            else
+            {
+                status.Status = "stopped";
+            }
         }
-
-        ColorLog.Info("GATEWAY", "所有频道已停止");
     }
 
     public void Dispose()
