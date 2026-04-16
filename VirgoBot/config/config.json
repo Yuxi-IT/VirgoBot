@@ -1,0 +1,42 @@
+{
+  "ApiKey": "YOUR_API_KEY",
+  "BaseUrl": "https://localhost/",
+  "Model": "gpt-4.5",
+  "MemoryFile": "system_memory.md",
+  "SoulFile": "soul.md",
+  "RuleFile": "RULE.md",
+  "CurrentSession": "",
+  "Server": {
+    "ListenUrl": "http://localhost:5000/",
+    "MaxTokens": 8192,
+    "MessageLimit": 20
+  },
+  "Channel": {
+    "ILink": {
+      "Enabled": false,
+      "Token": "YOUR_ILINK_TOKEN",
+      "WebSocketUrl": "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
+      "SendUrl": "http://localhost/bot/v1/message/send",
+      "WebhookPath": "/ilink/webhook",
+      "DefaultUserId": "ilink"
+    },
+    "Telegram": {
+      "Enabled": false,
+      "BotToken": "YOUR_BOT_TOKEN",
+      "AllowedUsers": []
+    },
+    "Email": {
+      "Enabled": false,
+      "ImapHost": "imap.example.com",
+      "ImapPort": 993,
+      "SmtpHost": "smtp.example.com",
+      "SmtpPort": 587,
+      "Address": "your@email.com",
+      "Password": "your_password"
+    }
+  },
+  "BotToken": "",
+  "AllowedUsers": [],
+  "Email": null,
+  "ILink": null
+}

@@ -57,6 +57,12 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
     }
   };
 
+  const openQrCodeInNewWindow = () => {
+    if (qrCode?.qrCodeImageUri) {
+      window.open(qrCode.qrCodeImageUri, '_blank', 'width=600,height=700');
+    }
+  };
+
   const startPolling = (qrCodeValue: string) => {
     setPolling(true);
     const interval = setInterval(async () => {
@@ -125,15 +131,18 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
 
               {qrCode && (
                 <>
-                  <img
+                  <iframe
                     src={qrCode.qrCodeImageUri}
-                    alt="QR Code"
-                    style={{ width: '256px', height: '256px' }}
+                    style={{ width: '100%', height: '500px', border: 'none', borderRadius: '8px' }}
+                    title="QR Code"
                   />
                   <div style={{ textAlign: 'center' }}>
                     <p>{getStatusText()}</p>
                     {polling && <Spinner size="sm" style={{ marginTop: '0.5rem' }} />}
                   </div>
+                  <Button size="sm" variant="ghost" onPress={openQrCodeInNewWindow}>
+                    {t('channel.ilinkLoginOpenNew')}
+                  </Button>
                 </>
               )}
 

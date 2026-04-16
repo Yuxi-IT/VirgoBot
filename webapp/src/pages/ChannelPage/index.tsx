@@ -13,10 +13,6 @@ interface ChannelsData {
   iLink: {
     enabled: boolean;
     token: string;
-    webSocketUrl: string;
-    sendUrl: string;
-    webhookPath: string;
-    defaultUserId: string;
   };
   telegram: {
     enabled: boolean;
@@ -53,10 +49,6 @@ function ChannelPage() {
   // ILink fields
   const [iLinkEnabled, setILinkEnabled] = useState(false);
   const [iLinkToken, setILinkToken] = useState('');
-  const [iLinkWsUrl, setILinkWsUrl] = useState('');
-  const [iLinkSendUrl, setILinkSendUrl] = useState('');
-  const [iLinkWebhookPath, setILinkWebhookPath] = useState('');
-  const [iLinkDefaultUserId, setILinkDefaultUserId] = useState('');
 
   // Telegram
   const [telegramEnabled, setTelegramEnabled] = useState(false);
@@ -88,10 +80,6 @@ function ChannelPage() {
         const d = res.data;
         setILinkEnabled(d.iLink?.enabled ?? false);
         setILinkToken(d.iLink?.token ?? '');
-        setILinkWsUrl(d.iLink?.webSocketUrl ?? '');
-        setILinkSendUrl(d.iLink?.sendUrl ?? '');
-        setILinkWebhookPath(d.iLink?.webhookPath ?? '');
-        setILinkDefaultUserId(d.iLink?.defaultUserId ?? '');
         setTelegramEnabled(d.telegram?.enabled ?? false);
         setBotToken(d.telegram?.botToken ?? '');
         setAllowedUsers(d.telegram?.allowedUsers ?? []);
@@ -115,10 +103,6 @@ function ChannelPage() {
   const getPayload = () => ({
     iLinkEnabled,
     iLinkToken,
-    iLinkWebSocketUrl: iLinkWsUrl,
-    iLinkSendUrl,
-    iLinkWebhookPath,
-    iLinkDefaultUserId,
     telegramEnabled,
     botToken: botToken.includes('****') ? undefined : botToken,
     allowedUsers,
@@ -162,6 +146,39 @@ function ChannelPage() {
     await loadChannels();
   };
 
+  const handleILinkEnabledChange = async (enabled: boolean) => {
+    setILinkEnabled(enabled);
+    try {
+      await api.put('/api/config/channels', { iLinkEnabled: enabled });
+      toast.success(t('channel.saveSuccess'));
+    } catch {
+      toast.danger(t('channel.saveFailed'));
+      setILinkEnabled(!enabled); // Revert on error
+    }
+  };
+
+  const handleTelegramEnabledChange = async (enabled: boolean) => {
+    setTelegramEnabled(enabled);
+    try {
+      await api.put('/api/config/channels', { telegramEnabled: enabled });
+      toast.success(t('channel.saveSuccess'));
+    } catch {
+      toast.danger(t('channel.saveFailed'));
+      setTelegramEnabled(!enabled); // Revert on error
+    }
+  };
+
+  const handleEmailEnabledChange = async (enabled: boolean) => {
+    setEmailEnabled(enabled);
+    try {
+      await api.put('/api/config/channels', { emailEnabled: enabled });
+      toast.success(t('channel.saveSuccess'));
+    } catch {
+      toast.danger(t('channel.saveFailed'));
+      setEmailEnabled(!enabled); // Revert on error
+    }
+  };
+
   if (loading) {
     return (
       <DefaultLayout>
@@ -181,16 +198,8 @@ function ChannelPage() {
           <ILinkCard
             enabled={iLinkEnabled}
             token={iLinkToken}
-            wsUrl={iLinkWsUrl}
-            sendUrl={iLinkSendUrl}
-            webhookPath={iLinkWebhookPath}
-            defaultUserId={iLinkDefaultUserId}
-            onEnabledChange={setILinkEnabled}
+            onEnabledChange={handleILinkEnabledChange}
             onTokenChange={setILinkToken}
-            onWsUrlChange={setILinkWsUrl}
-            onSendUrlChange={setILinkSendUrl}
-            onWebhookPathChange={setILinkWebhookPath}
-            onDefaultUserIdChange={setILinkDefaultUserId}
             onQrLogin={() => setShowILinkLogin(true)}
           />
 
@@ -198,7 +207,7 @@ function ChannelPage() {
             enabled={telegramEnabled}
             botToken={botToken}
             allowedUsers={allowedUsers}
-            onEnabledChange={setTelegramEnabled}
+            onEnabledChange={handleTelegramEnabledChange}
             onBotTokenChange={setBotToken}
             onAllowedUsersChange={setAllowedUsers}
           />
@@ -211,7 +220,7 @@ function ChannelPage() {
             smtpPort={smtpPort}
             address={emailAddress}
             password={emailPassword}
-            onEnabledChange={setEmailEnabled}
+            onEnabledChange={handleEmailEnabledChange}
             onImapHostChange={setImapHost}
             onImapPortChange={setImapPort}
             onSmtpHostChange={setSmtpHost}

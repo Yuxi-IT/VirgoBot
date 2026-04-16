@@ -251,5 +251,6 @@ export default {
     ilinkLoginExpired: 'QR code expired',
     ilinkLoginRefresh: 'Refresh QR Code',
     ilinkLoginSuccess: 'iLink login successful',
+    ilinkLoginOpenNew: 'Open in New Window',
   },
 };

@@ -251,5 +251,6 @@ export default {
     ilinkLoginExpired: '二维码已过期',
     ilinkLoginRefresh: '刷新二维码',
     ilinkLoginSuccess: 'iLink 登录成功',
+    ilinkLoginOpenNew: '在新窗口打开',
   },
 };

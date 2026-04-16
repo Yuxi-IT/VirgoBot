@@ -4,23 +4,14 @@ import { useI18n } from '../../i18n';
 interface ILinkCardProps {
   enabled: boolean;
   token: string;
-  wsUrl: string;
-  sendUrl: string;
-  webhookPath: string;
-  defaultUserId: string;
   onEnabledChange: (v: boolean) => void;
   onTokenChange: (v: string) => void;
-  onWsUrlChange: (v: string) => void;
-  onSendUrlChange: (v: string) => void;
-  onWebhookPathChange: (v: string) => void;
-  onDefaultUserIdChange: (v: string) => void;
   onQrLogin: () => void;
 }
 
 function ILinkCard({
-  enabled, token, wsUrl, sendUrl, webhookPath, defaultUserId,
-  onEnabledChange, onTokenChange, onWsUrlChange, onSendUrlChange,
-  onWebhookPathChange, onDefaultUserIdChange, onQrLogin,
+  enabled, token,
+  onEnabledChange, onTokenChange, onQrLogin,
 }: ILinkCardProps) {
   const { t } = useI18n();
 
@@ -53,24 +44,6 @@ function ILinkCard({
             <Label>{t('channel.token')}</Label>
             <Input />
           </TextField>
-          <TextField value={wsUrl} onChange={onWsUrlChange}>
-            <Label>{t('channel.wsUrl')}</Label>
-            <Input />
-          </TextField>
-          <TextField value={sendUrl} onChange={onSendUrlChange}>
-            <Label>{t('channel.sendUrl')}</Label>
-            <Input />
-          </TextField>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <TextField value={webhookPath} onChange={onWebhookPathChange}>
-              <Label>{t('channel.webhookPath')}</Label>
-              <Input />
-            </TextField>
-            <TextField value={defaultUserId} onChange={onDefaultUserIdChange}>
-              <Label>{t('channel.defaultUserId')}</Label>
-              <Input />
-            </TextField>
-          </div>
         </div>
       </Card.Content>
     </Card>
