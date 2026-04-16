@@ -7,7 +7,7 @@
   "RuleFile": "RULE.md",
   "CurrentSession": "",
   "Server": {
-    "ListenUrl": "http://localhost:5000/",
+    "ListenUrl": "http://0.0.0.0:5000/",
     "MaxTokens": 8192,
     "MessageLimit": 20
   },
