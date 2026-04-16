@@ -328,15 +328,16 @@ public class HttpServerHost
     {
         try
         {
-            using var reader = new StreamReader(ctx.Request.InputStream);
-            var body = await reader.ReadToEndAsync();
-            var req = JsonSerializer.Deserialize<SaveILinkCredentialsRequest>(body);
+            var req = await ReadRequestBody<SaveILinkCredentialsRequest>(ctx);
 
             if (req == null || string.IsNullOrEmpty(req.BotToken) || string.IsNullOrEmpty(req.ApiBaseUri))
             {
+                ColorLog.Warn("ILINK-LOGIN", "保存凭证失败: 缺少必要参数");
                 await SendJsonResponse(ctx, new { success = false, error = "缺少必要参数" }, 400);
                 return;
             }
+
+            ColorLog.Info("ILINK-LOGIN", $"正在保存 iLink 凭证 (BotId: {req.ILinkBotId})");
 
             _gateway.Config.Channel.ILink.Token = req.BotToken;
             _gateway.Config.Channel.ILink.WebSocketUrl = $"{req.ApiBaseUri}/bot/v1/ws?token={req.BotToken}";
@@ -345,7 +346,7 @@ public class HttpServerHost
 
             ConfigLoader.Save(_gateway.Config);
 
-            ColorLog.Success("ILINK-LOGIN", "iLink 凭证已保存");
+            ColorLog.Success("ILINK-LOGIN", "iLink 凭证已保存并启用");
             await SendJsonResponse(ctx, new { success = true });
         }
         catch (Exception ex)
@@ -1143,31 +1144,69 @@ public class HttpServerHost
         }
 
         var config = _gateway.Config;
+        var changes = new List<string>();
 
         // ILink updates
-        if (body.ILinkEnabled.HasValue) config.Channel.ILink.Enabled = body.ILinkEnabled.Value;
-        if (!string.IsNullOrWhiteSpace(body.ILinkToken)) config.Channel.ILink.Token = body.ILinkToken;
+        if (body.ILinkEnabled.HasValue)
+        {
+            config.Channel.ILink.Enabled = body.ILinkEnabled.Value;
+            changes.Add($"ILink.Enabled={body.ILinkEnabled.Value}");
+        }
+        if (!string.IsNullOrWhiteSpace(body.ILinkToken))
+        {
+            config.Channel.ILink.Token = body.ILinkToken;
+            changes.Add("ILink.Token=***");
+        }
         if (!string.IsNullOrWhiteSpace(body.ILinkWebSocketUrl)) config.Channel.ILink.WebSocketUrl = body.ILinkWebSocketUrl;
         if (!string.IsNullOrWhiteSpace(body.ILinkSendUrl)) config.Channel.ILink.SendUrl = body.ILinkSendUrl;
         if (!string.IsNullOrWhiteSpace(body.ILinkWebhookPath)) config.Channel.ILink.WebhookPath = body.ILinkWebhookPath;
         if (!string.IsNullOrWhiteSpace(body.ILinkDefaultUserId)) config.Channel.ILink.DefaultUserId = body.ILinkDefaultUserId;
 
         // Telegram updates
-        if (body.TelegramEnabled.HasValue) config.Channel.Telegram.Enabled = body.TelegramEnabled.Value;
-        if (!string.IsNullOrWhiteSpace(body.BotToken)) config.Channel.Telegram.BotToken = body.BotToken;
-        if (body.AllowedUsers != null) config.Channel.Telegram.AllowedUsers = body.AllowedUsers;
+        if (body.TelegramEnabled.HasValue)
+        {
+            config.Channel.Telegram.Enabled = body.TelegramEnabled.Value;
+            changes.Add($"Telegram.Enabled={body.TelegramEnabled.Value}");
+        }
+        if (!string.IsNullOrWhiteSpace(body.BotToken))
+        {
+            config.Channel.Telegram.BotToken = body.BotToken;
+            changes.Add("Telegram.BotToken=***");
+        }
+        if (body.AllowedUsers != null)
+        {
+            config.Channel.Telegram.AllowedUsers = body.AllowedUsers;
+            changes.Add($"Telegram.AllowedUsers=[{string.Join(",", body.AllowedUsers)}]");
+        }
 
         // Email updates
-        if (body.EmailEnabled.HasValue) config.Channel.Email.Enabled = body.EmailEnabled.Value;
+        if (body.EmailEnabled.HasValue)
+        {
+            config.Channel.Email.Enabled = body.EmailEnabled.Value;
+            changes.Add($"Email.Enabled={body.EmailEnabled.Value}");
+        }
         if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Channel.Email.ImapHost = body.ImapHost;
         if (body.ImapPort.HasValue) config.Channel.Email.ImapPort = body.ImapPort.Value;
         if (!string.IsNullOrWhiteSpace(body.SmtpHost)) config.Channel.Email.SmtpHost = body.SmtpHost;
         if (body.SmtpPort.HasValue) config.Channel.Email.SmtpPort = body.SmtpPort.Value;
         if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Channel.Email.Address = body.EmailAddress;
-        if (!string.IsNullOrWhiteSpace(body.EmailPassword)) config.Channel.Email.Password = body.EmailPassword;
+        if (!string.IsNullOrWhiteSpace(body.EmailPassword))
+        {
+            config.Channel.Email.Password = body.EmailPassword;
+            changes.Add("Email.Password=***");
+        }
 
         ConfigLoader.Save(config);
-        ColorLog.Success("CHANNEL", "频道配置已更新");
+
+        if (changes.Count > 0)
+        {
+            ColorLog.Success("CHANNEL", $"频道配置已更新: {string.Join(", ", changes)}");
+        }
+        else
+        {
+            ColorLog.Info("CHANNEL", "频道配置已保存 (无变更)");
+        }
+
         await SendJsonResponse(ctx, new { success = true, message = "Channel config saved" });
     }
 
