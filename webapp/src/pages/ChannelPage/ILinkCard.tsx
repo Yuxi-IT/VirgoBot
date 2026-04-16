@@ -1,4 +1,4 @@
-import { Card, Switch, TextField, Label, Input } from '@heroui/react';
+import { Card, Switch, TextField, Label, Input, Button } from '@heroui/react';
 import { useI18n } from '../../i18n';
 
 interface ILinkCardProps {
@@ -14,12 +14,13 @@ interface ILinkCardProps {
   onSendUrlChange: (v: string) => void;
   onWebhookPathChange: (v: string) => void;
   onDefaultUserIdChange: (v: string) => void;
+  onQrLogin: () => void;
 }
 
 function ILinkCard({
   enabled, token, wsUrl, sendUrl, webhookPath, defaultUserId,
   onEnabledChange, onTokenChange, onWsUrlChange, onSendUrlChange,
-  onWebhookPathChange, onDefaultUserIdChange,
+  onWebhookPathChange, onDefaultUserIdChange, onQrLogin,
 }: ILinkCardProps) {
   const { t } = useI18n();
 
@@ -28,17 +29,22 @@ function ILinkCard({
       <Card.Header>
         <div className="flex items-center justify-between w-full">
           <Card.Title>{t('channel.ilink')}</Card.Title>
-          <Switch
-            isSelected={enabled}
-            onChange={() => onEnabledChange(!enabled)}
-          >
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            <Switch.Content>
-              <Label>{t('channel.enabled')}</Label>
-            </Switch.Content>
-          </Switch>
+          <div className="flex items-center gap-3">
+            <Button size="sm" onPress={onQrLogin}>
+              {t('channel.ilinkQrLogin')}
+            </Button>
+            <Switch
+              isSelected={enabled}
+              onChange={() => onEnabledChange(!enabled)}
+            >
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Switch.Content>
+                <Label>{t('channel.enabled')}</Label>
+              </Switch.Content>
+            </Switch>
+          </div>
         </div>
       </Card.Header>
       <Card.Content>

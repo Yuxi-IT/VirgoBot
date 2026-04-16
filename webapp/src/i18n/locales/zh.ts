@@ -243,5 +243,13 @@ export default {
     status: '状态',
     saveSuccess: '频道配置已保存',
     saveFailed: '保存失败',
+    ilinkQrLogin: '扫码登录',
+    ilinkLogin: 'iLink 扫码登录',
+    ilinkLoginWait: '请使用 iLink 扫描二维码',
+    ilinkLoginScanned: '已扫描，请在手机上确认',
+    ilinkLoginConfirmed: '登录成功！',
+    ilinkLoginExpired: '二维码已过期',
+    ilinkLoginRefresh: '刷新二维码',
+    ilinkLoginSuccess: 'iLink 登录成功',
   },
 };

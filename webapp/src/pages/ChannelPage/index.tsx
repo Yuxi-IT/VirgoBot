@@ -7,6 +7,7 @@ import ILinkCard from './ILinkCard';
 import TelegramCard from './TelegramCard';
 import EmailCard from './EmailCard';
 import WebSocketCard from './WebSocketCard';
+import ILinkLoginModal from './ILinkLoginModal';
 
 interface ChannelsData {
   iLink: {
@@ -47,6 +48,7 @@ function ChannelPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [showILinkLogin, setShowILinkLogin] = useState(false);
 
   // ILink fields
   const [iLinkEnabled, setILinkEnabled] = useState(false);
@@ -155,6 +157,11 @@ function ChannelPage() {
     }
   };
 
+  const handleILinkLoginSuccess = async () => {
+    toast.success(t('channel.ilinkLoginSuccess'));
+    await loadChannels();
+  };
+
   if (loading) {
     return (
       <DefaultLayout>
@@ -184,6 +191,7 @@ function ChannelPage() {
             onSendUrlChange={setILinkSendUrl}
             onWebhookPathChange={setILinkWebhookPath}
             onDefaultUserIdChange={setILinkDefaultUserId}
+            onQrLogin={() => setShowILinkLogin(true)}
           />
 
           <TelegramCard
@@ -230,6 +238,12 @@ function ChannelPage() {
             </Button>
           </div>
         </div>
+
+        <ILinkLoginModal
+          isOpen={showILinkLogin}
+          onClose={() => setShowILinkLogin(false)}
+          onSuccess={handleILinkLoginSuccess}
+        />
       </div>
     </DefaultLayout>
   );

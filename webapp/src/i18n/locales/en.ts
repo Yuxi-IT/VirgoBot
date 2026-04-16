@@ -243,5 +243,13 @@ export default {
     status: 'Status',
     saveSuccess: 'Channel config saved',
     saveFailed: 'Failed to save',
+    ilinkQrLogin: 'QR Login',
+    ilinkLogin: 'iLink QR Code Login',
+    ilinkLoginWait: 'Scan QR code with iLink',
+    ilinkLoginScanned: 'Scanned, please confirm on your phone',
+    ilinkLoginConfirmed: 'Login successful!',
+    ilinkLoginExpired: 'QR code expired',
+    ilinkLoginRefresh: 'Refresh QR Code',
+    ilinkLoginSuccess: 'iLink login successful',
   },
 };
