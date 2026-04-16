@@ -253,5 +253,7 @@ export default {
     ilinkLoginSuccess: 'iLink 登录成功',
     ilinkLoginReopen: '重新打开二维码',
     ilinkLoginHint: '二维码已在新窗口打开，请使用 iLink 扫描',
+    show: '显示',
+    hide: '隐藏',
   },
 };

@@ -1,4 +1,5 @@
-import { Card, TextField, Label, Input, Switch } from '@heroui/react';
+import { Card, TextField, Label, Input, Switch, Button } from '@heroui/react';
+import { useState } from 'react';
 import { useI18n } from '../../i18n';
 
 interface EmailCardProps {
@@ -35,6 +36,7 @@ function EmailCard({
   onPasswordChange,
 }: EmailCardProps) {
   const { t } = useI18n();
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <Card>
@@ -80,7 +82,12 @@ function EmailCard({
 
           <TextField value={password} onChange={onPasswordChange}>
             <Label>{t('channel.emailPassword')}</Label>
-            <Input type="password" />
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <Input type={showPassword ? 'text' : 'password'} style={{ flex: 1 }} />
+              <Button size="sm" onPress={() => setShowPassword(!showPassword)}>
+                {showPassword ? t('channel.hide') : t('channel.show')}
+              </Button>
+            </div>
           </TextField>
         </div>
       </Card.Content>

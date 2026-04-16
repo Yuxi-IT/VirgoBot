@@ -1,4 +1,5 @@
 import { Card, Switch, TextField, Label, Input, Button } from '@heroui/react';
+import { useState } from 'react';
 import { useI18n } from '../../i18n';
 
 interface ILinkCardProps {
@@ -14,6 +15,7 @@ function ILinkCard({
   onEnabledChange, onTokenChange, onQrLogin,
 }: ILinkCardProps) {
   const { t } = useI18n();
+  const [showToken, setShowToken] = useState(false);
 
   return (
     <Card>
@@ -42,7 +44,12 @@ function ILinkCard({
         <div className="space-y-4">
           <TextField value={token} onChange={onTokenChange}>
             <Label>{t('channel.token')}</Label>
-            <Input />
+            <div className="flex gap-2">
+              <Input type={showToken ? 'text' : 'password'} className="flex-1" />
+              <Button size="sm" onPress={() => setShowToken(!showToken)}>
+                {showToken ? t('channel.hide') : t('channel.show')}
+              </Button>
+            </div>
           </TextField>
         </div>
       </Card.Content>

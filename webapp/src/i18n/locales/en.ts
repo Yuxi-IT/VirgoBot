@@ -253,5 +253,7 @@ export default {
     ilinkLoginSuccess: 'iLink login successful',
     ilinkLoginReopen: 'Reopen QR Code',
     ilinkLoginHint: 'QR code opened in new window, please scan with iLink',
+    show: 'Show',
+    hide: 'Hide',
   },
 };

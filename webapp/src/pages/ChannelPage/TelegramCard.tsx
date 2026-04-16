@@ -1,4 +1,5 @@
-import { Card, TextField, Label, Input, Switch } from '@heroui/react';
+import { Card, TextField, Label, Input, Switch, Button } from '@heroui/react';
+import { useState } from 'react';
 import { useI18n } from '../../i18n';
 
 interface TelegramCardProps {
@@ -12,6 +13,7 @@ interface TelegramCardProps {
 
 function TelegramCard({ enabled, botToken, allowedUsers, onEnabledChange, onBotTokenChange, onAllowedUsersChange }: TelegramCardProps) {
   const { t } = useI18n();
+  const [showToken, setShowToken] = useState(false);
 
   return (
     <Card>
@@ -32,7 +34,12 @@ function TelegramCard({ enabled, botToken, allowedUsers, onEnabledChange, onBotT
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <TextField value={botToken} onChange={onBotTokenChange}>
             <Label>{t('channel.botToken')}</Label>
-            <Input />
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <Input type={showToken ? 'text' : 'password'} style={{ flex: 1 }} />
+              <Button size="sm" onPress={() => setShowToken(!showToken)}>
+                {showToken ? t('channel.hide') : t('channel.show')}
+              </Button>
+            </div>
           </TextField>
 
           <TextField
