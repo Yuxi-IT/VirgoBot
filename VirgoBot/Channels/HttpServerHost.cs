@@ -1101,7 +1101,7 @@ public class HttpServerHost
             iLink = new
             {
                 enabled = config.Channel.ILink.Enabled,
-                token = MaskSecret(config.Channel.ILink.Token),
+                token = config.Channel.ILink.Token,
                 webSocketUrl = config.Channel.ILink.WebSocketUrl,
                 sendUrl = config.Channel.ILink.SendUrl,
                 webhookPath = config.Channel.ILink.WebhookPath,
@@ -1110,7 +1110,7 @@ public class HttpServerHost
             telegram = new
             {
                 enabled = config.Channel.Telegram.Enabled,
-                botToken = MaskSecret(config.Channel.Telegram.BotToken),
+                botToken = config.Channel.Telegram.BotToken,
                 allowedUsers = config.Channel.Telegram.AllowedUsers
             },
             email = new
@@ -1121,7 +1121,7 @@ public class HttpServerHost
                 smtpHost = config.Channel.Email.SmtpHost,
                 smtpPort = config.Channel.Email.SmtpPort,
                 address = config.Channel.Email.Address,
-                password = MaskSecret(config.Channel.Email.Password)
+                password = config.Channel.Email.Password
             },
             webSocket = new
             {
