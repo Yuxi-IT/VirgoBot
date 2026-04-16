@@ -2,6 +2,10 @@
   <img src="doc/75018f3ea271fec03664b2fb9748333b.webp" alt="VirgoBot Logo" width="200"/>
   <h1>VirgoBot</h1>
   <p>基于 .NET 10 的个人 AI 助手</p>
+
+  ![License](https://img.shields.io/badge/license-MIT-green)
+  ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
+  ![NodeJS](https://img.shields.io/badge/NodeJS-24.13.0-green)
 </div>
 
 ## 工作原理
