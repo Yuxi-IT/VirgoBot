@@ -55,12 +55,12 @@ function Home() {
       return <Badge variant="secondary">{t('dashboard.disabled')}</Badge>;
     }
     if (channelStatus.status === 'Running') {
-      return <Badge variant="success">{t('dashboard.running')}</Badge>;
+      return <Badge variant="primary">{t('dashboard.running')}</Badge>;
     }
     if (channelStatus.status === 'Stopped') {
-      return <Badge variant="danger">{t('dashboard.stopped')}</Badge>;
+      return <Badge variant="secondary">{t('dashboard.stopped')}</Badge>;
     }
-    return <Badge variant="warning">{channelStatus.status}</Badge>;
+    return <Badge variant="soft">{channelStatus.status}</Badge>;
   };
 
   if (loading) {

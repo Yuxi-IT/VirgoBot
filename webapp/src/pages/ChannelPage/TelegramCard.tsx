@@ -18,8 +18,13 @@ function TelegramCard({ enabled, botToken, allowedUsers, onEnabledChange, onBotT
       <Card.Header>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <Card.Title>{t('channel.telegram')}</Card.Title>
-          <Switch checked={enabled} onChange={onEnabledChange}>
-            {t('channel.enabled')}
+          <Switch isSelected={enabled} onChange={() => onEnabledChange(!enabled)}>
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            <Switch.Content>
+              <Label>{t('channel.enabled')}</Label>
+            </Switch.Content>
           </Switch>
         </div>
       </Card.Header>

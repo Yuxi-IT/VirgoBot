@@ -241,7 +241,7 @@ function ChannelPage() {
 
         <ILinkLoginModal
           isOpen={showILinkLogin}
-          onClose={() => setShowILinkLogin(false)}
+          onOpenChange={setShowILinkLogin}
           onSuccess={handleILinkLoginSuccess}
         />
       </div>

@@ -5,7 +5,7 @@ import { api } from '../../services/api';
 
 interface ILinkLoginModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
 
@@ -24,7 +24,7 @@ interface StatusData {
   };
 }
 
-function ILinkLoginModal({ isOpen, onClose, onSuccess }: ILinkLoginModalProps) {
+function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalProps) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [qrCode, setQrCode] = useState<QrCodeData | null>(null);
@@ -90,7 +90,7 @@ function ILinkLoginModal({ isOpen, onClose, onSuccess }: ILinkLoginModalProps) {
     try {
       await api.post('/api/ilink/login/save', credentials);
       onSuccess();
-      onClose();
+      onOpenChange(false);
     } catch (error) {
       console.error('Failed to save credentials:', error);
     }
@@ -112,43 +112,46 @@ function ILinkLoginModal({ isOpen, onClose, onSuccess }: ILinkLoginModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
-      <Modal.Content>
-        <Modal.Header>
-          <Modal.Title>{t('channel.ilinkLogin')}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-            {loading && <Spinner size="lg" />}
+    <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal.Container>
+        <Modal.Dialog>
+          <Modal.Header>
+            <Modal.Heading>{t('channel.ilinkLogin')}</Modal.Heading>
+            <Modal.CloseTrigger />
+          </Modal.Header>
+          <Modal.Body>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              {loading && <Spinner size="lg" />}
 
-            {qrCode && (
-              <>
-                <img
-                  src={qrCode.qrCodeImageUri}
-                  alt="QR Code"
-                  style={{ width: '256px', height: '256px' }}
-                />
-                <div style={{ textAlign: 'center' }}>
-                  <p>{getStatusText()}</p>
-                  {polling && <Spinner size="sm" style={{ marginTop: '0.5rem' }} />}
-                </div>
-              </>
-            )}
+              {qrCode && (
+                <>
+                  <img
+                    src={qrCode.qrCodeImageUri}
+                    alt="QR Code"
+                    style={{ width: '256px', height: '256px' }}
+                  />
+                  <div style={{ textAlign: 'center' }}>
+                    <p>{getStatusText()}</p>
+                    {polling && <Spinner size="sm" style={{ marginTop: '0.5rem' }} />}
+                  </div>
+                </>
+              )}
 
-            {status === 'Expired' && (
-              <Button onPress={createQrCode}>
-                {t('channel.ilinkLoginRefresh')}
-              </Button>
-            )}
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="ghost" onPress={onClose}>
-            {t('common.cancel')}
-          </Button>
-        </Modal.Footer>
-      </Modal.Content>
-    </Modal>
+              {status === 'Expired' && (
+                <Button onPress={createQrCode}>
+                  {t('channel.ilinkLoginRefresh')}
+                </Button>
+              )}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="ghost" onPress={() => onOpenChange(false)}>
+              {t('common.cancel')}
+            </Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
