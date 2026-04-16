@@ -48,6 +48,8 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
       if (res.success && res.data) {
         setQrCode(res.data);
         setStatus('Wait');
+        // 直接在新窗口打开 QR 码页面
+        window.open(res.data.qrCodeImageUri, '_blank', 'width=600,height=700');
         startPolling(res.data.qrCode);
       }
     } catch (error) {
@@ -126,30 +128,33 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
             <Modal.CloseTrigger />
           </Modal.Header>
           <Modal.Body>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem' }}>
               {loading && <Spinner size="lg" />}
 
-              {qrCode && (
+              {qrCode && status !== 'Expired' && (
                 <>
-                  <iframe
-                    src={qrCode.qrCodeImageUri}
-                    style={{ width: '100%', height: '500px', border: 'none', borderRadius: '8px' }}
-                    title="QR Code"
-                  />
-                  <div style={{ textAlign: 'center' }}>
+                  <div style={{ textAlign: 'center', fontSize: '1.1rem' }}>
                     <p>{getStatusText()}</p>
                     {polling && <Spinner size="sm" style={{ marginTop: '0.5rem' }} />}
                   </div>
-                  <Button size="sm" variant="ghost" onPress={openQrCodeInNewWindow}>
-                    {t('channel.ilinkLoginOpenNew')}
-                  </Button>
+                  <div style={{ marginTop: '1rem' }}>
+                    <Button onPress={openQrCodeInNewWindow}>
+                      {t('channel.ilinkLoginReopen')}
+                    </Button>
+                  </div>
+                  <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                    {t('channel.ilinkLoginHint')}
+                  </p>
                 </>
               )}
 
               {status === 'Expired' && (
-                <Button onPress={createQrCode}>
-                  {t('channel.ilinkLoginRefresh')}
-                </Button>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ marginBottom: '1rem' }}>{getStatusText()}</p>
+                  <Button onPress={createQrCode}>
+                    {t('channel.ilinkLoginRefresh')}
+                  </Button>
+                </div>
               )}
             </div>
           </Modal.Body>
