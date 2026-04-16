@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\iLink4NET\iLink4NET\iLink4NET.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="stickers\**\*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

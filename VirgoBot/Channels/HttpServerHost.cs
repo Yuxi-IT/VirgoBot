@@ -17,6 +17,7 @@ public class HttpServerHost
     private readonly WebSocketClientManager _wsManager;
     private readonly MemoryService _memoryService;
     private readonly LogService _logService;
+    private readonly ILinkLoginService _iLinkLoginService;
 
     private static readonly DateTime StartTime = DateTime.UtcNow;
 
@@ -30,6 +31,7 @@ public class HttpServerHost
         _wsManager = wsManager;
         _memoryService = memoryService;
         _logService = logService;
+        _iLinkLoginService = new ILinkLoginService();
     }
 
     public async Task StartAsync()
@@ -197,6 +199,19 @@ public class HttpServerHost
                     {
                         await HandleSwitchAgentRequest(ctx);
                     }
+                    // ===== iLink Login API =====
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/qrcode" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleCreateILinkQrCodeRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/status" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await HandleQueryILinkLoginStatusRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/save" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await HandleSaveILinkCredentialsRequest(ctx);
+                    }
                     // ===== Soul CRUD API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/soul" && ctx.Request.HttpMethod == "GET")
                     {
@@ -270,6 +285,74 @@ public class HttpServerHost
     private static async Task SendErrorResponse(HttpListenerContext ctx, int statusCode, string message)
     {
         await SendJsonResponse(ctx, new { success = false, error = message }, statusCode);
+    }
+
+    // ===== iLink Login Handlers =====
+
+    private async Task HandleCreateILinkQrCodeRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            var result = await _iLinkLoginService.CreateQrCodeAsync();
+            await SendJsonResponse(ctx, new { success = true, data = result });
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("ILINK-LOGIN", $"创建二维码失败: {ex.Message}");
+            await SendJsonResponse(ctx, new { success = false, error = ex.Message }, 500);
+        }
+    }
+
+    private async Task HandleQueryILinkLoginStatusRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            var qrCode = ctx.Request.QueryString["qrcode"];
+            if (string.IsNullOrEmpty(qrCode))
+            {
+                await SendJsonResponse(ctx, new { success = false, error = "缺少 qrcode 参数" }, 400);
+                return;
+            }
+
+            var result = await _iLinkLoginService.QueryStatusAsync(qrCode);
+            await SendJsonResponse(ctx, new { success = true, data = result });
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("ILINK-LOGIN", $"查询登录状态失败: {ex.Message}");
+            await SendJsonResponse(ctx, new { success = false, error = ex.Message }, 500);
+        }
+    }
+
+    private async Task HandleSaveILinkCredentialsRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            using var reader = new StreamReader(ctx.Request.InputStream);
+            var body = await reader.ReadToEndAsync();
+            var req = JsonSerializer.Deserialize<SaveILinkCredentialsRequest>(body);
+
+            if (req == null || string.IsNullOrEmpty(req.BotToken) || string.IsNullOrEmpty(req.ApiBaseUri))
+            {
+                await SendJsonResponse(ctx, new { success = false, error = "缺少必要参数" }, 400);
+                return;
+            }
+
+            _gateway.Config.Channel.ILink.Token = req.BotToken;
+            _gateway.Config.Channel.ILink.WebSocketUrl = $"{req.ApiBaseUri}/bot/v1/ws?token={req.BotToken}";
+            _gateway.Config.Channel.ILink.SendUrl = $"{req.ApiBaseUri}/bot/v1/message/send";
+            _gateway.Config.Channel.ILink.Enabled = true;
+
+            ConfigLoader.Save(_gateway.Config);
+
+            ColorLog.Success("ILINK-LOGIN", "iLink 凭证已保存");
+            await SendJsonResponse(ctx, new { success = true });
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("ILINK-LOGIN", $"保存凭证失败: {ex.Message}");
+            await SendJsonResponse(ctx, new { success = false, error = ex.Message }, 500);
+        }
     }
 
     private static async Task<T?> ReadRequestBody<T>(HttpListenerContext ctx)
@@ -1352,4 +1435,12 @@ public record AgentCreateUpdateRequest
 public record SessionSwitchRequest
 {
     public string? Session { get; init; }
+}
+
+public record SaveILinkCredentialsRequest
+{
+    public string? BotToken { get; init; }
+    public string? ILinkBotId { get; init; }
+    public string? ILinkUserId { get; init; }
+    public string? ApiBaseUri { get; init; }
 }
