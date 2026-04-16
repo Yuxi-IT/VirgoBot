@@ -17,28 +17,36 @@ public static class ConfigLoader
         {
             var defaultConfig = new Config
             {
-                BotToken = "YOUR_BOT_TOKEN",
                 ApiKey = "YOUR_API_KEY",
                 BaseUrl = "https://localhost/",
                 Model = "gpt-4.5",
-                AllowedUsers = Array.Empty<long>(),
-                Email = new EmailConfig
+                Channel = new ChannelConfig
                 {
-                    ImapHost = "imap.example.com",
-                    ImapPort = 993,
-                    SmtpHost = "smtp.example.com",
-                    SmtpPort = 587,
-                    Address = "your@email.com",
-                    Password = "your_password"
-                },
-                ILink = new ILinkConfig
-                {
-                    Enabled = false,
-                    Token = "YOUR_ILINK_TOKEN",
-                    WebSocketUrl = "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
-                    SendUrl = "http:/localhost/bot/v1/message/send",
-                    WebhookPath = "/ilink/webhook",
-                    DefaultUserId = "ilink"
+                    Telegram = new TelegramChannelConfig
+                    {
+                        Enabled = false,
+                        BotToken = "YOUR_BOT_TOKEN",
+                        AllowedUsers = Array.Empty<long>()
+                    },
+                    Email = new EmailChannelConfig
+                    {
+                        Enabled = false,
+                        ImapHost = "imap.example.com",
+                        ImapPort = 993,
+                        SmtpHost = "smtp.example.com",
+                        SmtpPort = 587,
+                        Address = "your@email.com",
+                        Password = "your_password"
+                    },
+                    ILink = new ILinkChannelConfig
+                    {
+                        Enabled = false,
+                        Token = "YOUR_ILINK_TOKEN",
+                        WebSocketUrl = "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
+                        SendUrl = "http://localhost/bot/v1/message/send",
+                        WebhookPath = "/ilink/webhook",
+                        DefaultUserId = "ilink"
+                    }
                 }
             };
             File.WriteAllText(configPath, JsonSerializer.Serialize(defaultConfig, new JsonSerializerOptions { WriteIndented = true }));
@@ -48,9 +56,51 @@ public static class ConfigLoader
         var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))
             ?? throw new InvalidOperationException($"无法解析配置文件: {configPath}");
 
-        if (config.AllowedUsers.Length == 0)
+        // Migration logic: if Channel is not configured, migrate from old structure
+        bool needsMigration = false;
+        if (config.Channel.Telegram.BotToken == "" && config.BotToken != "")
         {
-            throw new InvalidOperationException("配置错误: AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
+            config.Channel.Telegram.BotToken = config.BotToken;
+            config.Channel.Telegram.AllowedUsers = config.AllowedUsers;
+            config.Channel.Telegram.Enabled = false;
+            needsMigration = true;
+            ColorLog.Info("CONFIG", "正在迁移 Telegram 配置到新格式...");
+        }
+
+        if (config.Email != null && config.Channel.Email.ImapHost == "")
+        {
+            config.Channel.Email.ImapHost = config.Email.ImapHost;
+            config.Channel.Email.ImapPort = config.Email.ImapPort;
+            config.Channel.Email.SmtpHost = config.Email.SmtpHost;
+            config.Channel.Email.SmtpPort = config.Email.SmtpPort;
+            config.Channel.Email.Address = config.Email.Address;
+            config.Channel.Email.Password = config.Email.Password;
+            config.Channel.Email.Enabled = false;
+            needsMigration = true;
+            ColorLog.Info("CONFIG", "正在迁移 Email 配置到新格式...");
+        }
+
+        if (config.ILink != null && config.Channel.ILink.Token == "")
+        {
+            config.Channel.ILink.Token = config.ILink.Token;
+            config.Channel.ILink.WebSocketUrl = config.ILink.WebSocketUrl;
+            config.Channel.ILink.SendUrl = config.ILink.SendUrl;
+            config.Channel.ILink.WebhookPath = config.ILink.WebhookPath;
+            config.Channel.ILink.DefaultUserId = config.ILink.DefaultUserId;
+            config.Channel.ILink.Enabled = config.ILink.Enabled;
+            needsMigration = true;
+            ColorLog.Info("CONFIG", "正在迁移 ILink 配置到新格式...");
+        }
+
+        if (needsMigration)
+        {
+            Save(config);
+            ColorLog.Success("CONFIG", "配置已自动迁移到新格式");
+        }
+
+        if (config.Channel.Telegram.AllowedUsers.Length == 0)
+        {
+            throw new InvalidOperationException("配置错误: Channel.Telegram.AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
         }
 
         return config;
@@ -91,11 +141,11 @@ public static class ConfigLoader
         var soulContent = memoryService.GetAllSoulContent();
         if (!string.IsNullOrWhiteSpace(soulContent))
         {
-            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Email.Address)}\n\nyour SoulMemory: \n{soulContent}";
+            systemMemory = $"{systemMemory.Replace("{{EMAIL}}", config.Channel.Email.Address)}\n\nyour SoulMemory: \n{soulContent}";
         }
         else
         {
-            systemMemory = systemMemory.Replace("{{EMAIL}}", config.Email.Address);
+            systemMemory = systemMemory.Replace("{{EMAIL}}", config.Channel.Email.Address);
         }
 
         var ruleContent = File.ReadAllText(rulePath);

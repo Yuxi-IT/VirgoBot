@@ -99,83 +99,120 @@ public class Gateway : IDisposable
         StickerService = new StickerService("stickers");
         ContactService = new ContactService();
         LlmService = new LLMService(http, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
-        ILinkBridge = new ILinkBridgeService(Config.ILink);
 
-        EmailService = new EmailService(
-            Config.Email.ImapHost, Config.Email.ImapPort,
-            Config.Email.SmtpHost, Config.Email.SmtpPort,
-            Config.Email.Address, Config.Email.Password);
+        // Email services - only if enabled
+        if (Config.Channel.Email.Enabled)
+        {
+            EmailService = new EmailService(
+                Config.Channel.Email.ImapHost, Config.Channel.Email.ImapPort,
+                Config.Channel.Email.SmtpHost, Config.Channel.Email.SmtpPort,
+                Config.Channel.Email.Address, Config.Channel.Email.Password);
+            FunctionRegistry.SetEmailService(EmailService);
+        }
 
-        FunctionRegistry.SetEmailService(EmailService);
         FunctionRegistry.SetShellSessionService(_shellSessionService);
         FunctionRegistry.SetStickerService(StickerService);
         FunctionRegistry.SetContactService(ContactService);
-        FunctionRegistry.SetILinkBridgeService(ILinkBridge);
+
+        // ILink services - only if enabled
+        if (Config.Channel.ILink.Enabled)
+        {
+            ILinkBridge = new ILinkBridgeService(Config.Channel.ILink);
+            FunctionRegistry.SetILinkBridgeService(ILinkBridge);
+        }
 
         _cts = new CancellationTokenSource();
-        Bot = new TelegramBotClient(Config.BotToken, cancellationToken: _cts.Token);
-        var messageHelper = new MessageHelper(Bot);
-        var emailNotificationDispatcher = new EmailNotificationDispatcher(Bot, Config.AllowedUsers[0], _wsManager, ILinkBridge);
-        EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, Config.AllowedUsers[0], LlmService);
-        ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.AllowedUsers[0]);
-        TelegramHandler = new TelegramBotHandler(Config, Bot, LlmService, _memoryService, FunctionRegistry, messageHelper, EmailManager, ActivityMonitor, ILinkBridge, _cts.Token);
+
+        // Telegram services - only if enabled
+        if (Config.Channel.Telegram.Enabled)
+        {
+            Bot = new TelegramBotClient(Config.Channel.Telegram.BotToken, cancellationToken: _cts.Token);
+            var messageHelper = new MessageHelper(Bot);
+            var emailNotificationDispatcher = new EmailNotificationDispatcher(Bot, Config.Channel.Telegram.AllowedUsers[0], _wsManager, ILinkBridge);
+            if (EmailService != null)
+            {
+                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, Config.Channel.Telegram.AllowedUsers[0], LlmService);
+            }
+            ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0]);
+            TelegramHandler = new TelegramBotHandler(Config, Bot, LlmService, _memoryService, FunctionRegistry, messageHelper, EmailManager, ActivityMonitor, ILinkBridge, _cts.Token);
+        }
 
         // Initialize channel statuses
-        ChannelStatuses["telegram"] = new ChannelStatus { Name = "telegram", Enabled = true, Status = "stopped" };
+        ChannelStatuses["telegram"] = new ChannelStatus { Name = "telegram", Enabled = Config.Channel.Telegram.Enabled, Status = "stopped" };
         ChannelStatuses["http"] = new ChannelStatus { Name = "http", Enabled = true, Status = "running" };
         ChannelStatuses["webSocket"] = new ChannelStatus { Name = "webSocket", Enabled = true, Status = "running" };
-        ChannelStatuses["email"] = new ChannelStatus { Name = "email", Enabled = true, Status = "stopped" };
-        ChannelStatuses["iLink"] = new ChannelStatus { Name = "iLink", Enabled = Config.ILink.Enabled, Status = "stopped" };
+        ChannelStatuses["email"] = new ChannelStatus { Name = "email", Enabled = Config.Channel.Email.Enabled, Status = "stopped" };
+        ChannelStatuses["iLink"] = new ChannelStatus { Name = "iLink", Enabled = Config.Channel.ILink.Enabled, Status = "stopped" };
     }
 
     private async Task StartChannelsAsync()
     {
         var ct = _cts!.Token;
 
-        // Initialize email service
-        try
+        // Email channel - conditional start
+        if (Config.Channel.Email.Enabled && EmailService != null && EmailManager != null)
         {
-            await EmailService!.InitializeAsync();
-        }
-        catch (Exception ex)
-        {
-            ColorLog.Error("GATEWAY", $"邮件服务初始化失败: {ex.Message}");
-        }
-
-        // Start email monitoring
-        _ = Task.Run(() => EmailManager!.StartMonitoring(ct), ct);
-        ChannelStatuses["email"].Status = "monitoring";
-
-        // Start activity monitor
-        ActivityMonitor!.Start(ct);
-        ChannelStatuses["telegram"].Status = "running";
-
-        // Start iLink
-        if (Config.ILink.Enabled && TelegramHandler != null)
-        {
-            await ILinkBridge!.StartAsync(TelegramHandler.HandleILinkIncomingMessageAsync, ct);
-            ChannelStatuses["iLink"].Status = "running";
+            try
+            {
+                await EmailService.InitializeAsync();
+                _ = Task.Run(() => EmailManager.StartMonitoring(ct), ct);
+                ChannelStatuses["email"].Status = "monitoring";
+                ColorLog.Success("EMAIL", "邮件频道已启动");
+            }
+            catch (Exception ex)
+            {
+                ColorLog.Error("EMAIL", $"邮件服务初始化失败: {ex.Message}");
+                ChannelStatuses["email"].Status = "error";
+            }
         }
         else
         {
-            ChannelStatuses["iLink"].Status = Config.ILink.Enabled ? "stopped" : "disabled";
+            ChannelStatuses["email"].Status = "disabled";
         }
 
-        // Register Telegram handler
-        TelegramHandler!.Register();
-
-        try
+        // Telegram channel - conditional start
+        if (Config.Channel.Telegram.Enabled && Bot != null && TelegramHandler != null && ActivityMonitor != null)
         {
-            var me = await Bot!.GetMe();
-            ColorLog.Success("BOT", $"@{me.Username} running");
+            try
+            {
+                ActivityMonitor.Start(ct);
+                TelegramHandler.Register();
+                var me = await Bot.GetMe();
+                ColorLog.Success("TELEGRAM", $"Bot 已连接: @{me.Username}");
+                ChannelStatuses["telegram"].Status = "running";
+            }
+            catch (Exception ex)
+            {
+                ColorLog.Error("TELEGRAM", $"Telegram 服务启动失败: {ex.Message}");
+                ChannelStatuses["telegram"].Status = "error";
+            }
         }
-        catch (Exception ex)
+        else
         {
-            ColorLog.Error("ERR", ex.Message);
+            ChannelStatuses["telegram"].Status = "disabled";
+        }
+
+        // iLink channel - conditional start
+        if (Config.Channel.ILink.Enabled && ILinkBridge != null && TelegramHandler != null)
+        {
+            try
+            {
+                await ILinkBridge.StartAsync(TelegramHandler.HandleILinkIncomingMessageAsync, ct);
+                ChannelStatuses["iLink"].Status = "running";
+                ColorLog.Success("ILINK", "iLink 频道已启动");
+            }
+            catch (Exception ex)
+            {
+                ColorLog.Error("ILINK", $"iLink 服务启动失败: {ex.Message}");
+                ChannelStatuses["iLink"].Status = "error";
+            }
+        }
+        else
+        {
+            ChannelStatuses["iLink"].Status = Config.Channel.ILink.Enabled ? "stopped" : "disabled";
         }
 
         IsRunning = true;
-        ColorLog.Success("GATEWAY", "所有频道已启动");
     }
 
     private async Task StopChannelsAsync()

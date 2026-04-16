@@ -63,8 +63,8 @@ public class HttpServerHost
                     {
                         await HandleChatRequest(ctx);
                     }
-                    else if (_gateway.Config.ILink.Enabled &&
-                             ctx.Request.Url?.AbsolutePath == _gateway.Config.ILink.WebhookPath &&
+                    else if (_gateway.Config.Channel.ILink.Enabled &&
+                             ctx.Request.Url?.AbsolutePath == _gateway.Config.Channel.ILink.WebhookPath &&
                              ctx.Request.HttpMethod == "POST")
                     {
                         await HandleILinkWebhook(ctx);
@@ -384,11 +384,11 @@ public class HttpServerHost
                 connectedClients = clients.Count,
                 channels = new Dictionary<string, object>
                 {
-                    ["telegram"] = new { enabled = true, status = _gateway.IsRunning ? "running" : "stopped" },
+                    ["telegram"] = new { enabled = _gateway.Config.Channel.Telegram.Enabled, status = _gateway.ChannelStatuses["telegram"].Status },
                     ["http"] = new { enabled = true, status = "running" },
                     ["webSocket"] = new { enabled = true, status = "running", clients = clients.Count },
-                    ["email"] = new { enabled = true, status = _gateway.IsRunning ? "monitoring" : "stopped" },
-                    ["iLink"] = new { enabled = _gateway.Config.ILink.Enabled, status = _gateway.Config.ILink.Enabled && _gateway.IsRunning ? "running" : _gateway.Config.ILink.Enabled ? "stopped" : "disabled" }
+                    ["email"] = new { enabled = _gateway.Config.Channel.Email.Enabled, status = _gateway.ChannelStatuses["email"].Status },
+                    ["iLink"] = new { enabled = _gateway.Config.Channel.ILink.Enabled, status = _gateway.ChannelStatuses["iLink"].Status }
                 },
                 server = new
                 {
@@ -1219,7 +1219,7 @@ public class HttpServerHost
                     ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
 
                     _gateway.ActivityMonitor?.UpdateActivity();
-                    var reply = await _gateway.LlmService.AskAsync(_gateway.Config.AllowedUsers[0], chatReq?.message ?? "");
+                    var reply = await _gateway.LlmService.AskAsync(_gateway.Config.Channel.Telegram.AllowedUsers[0], chatReq?.message ?? "");
 
                     var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
                     await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -1234,7 +1234,7 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
         var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
-        var reply = await _gateway.LlmService.AskAsync(_gateway.Config.AllowedUsers[0], req?.message ?? "");
+        var reply = await _gateway.LlmService.AskAsync(_gateway.Config.Channel.Telegram.AllowedUsers[0], req?.message ?? "");
         var response = Encoding.UTF8.GetBytes(reply);
 
         ColorLog.Info("MSG-HTTP", $"[@{req?.userId ?? ""}] '{req?.message ?? ""}'");

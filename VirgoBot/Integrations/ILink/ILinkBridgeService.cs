@@ -9,11 +9,11 @@ namespace VirgoBot.Integrations.ILink;
 
 public sealed class ILinkBridgeService
 {
-    private readonly ILinkConfig _config;
+    private readonly ILinkChannelConfig _config;
     private readonly HttpClient _httpClient;
     private ClientWebSocket? _socket;
 
-    public ILinkBridgeService(ILinkConfig config)
+    public ILinkBridgeService(ILinkChannelConfig config)
     {
         _config = config;
         _httpClient = new HttpClient();

@@ -55,7 +55,7 @@ public class TelegramBotHandler
 
     private async Task OnMessage(Message msg)
     {
-        if (msg.Text is null || !_config.AllowedUsers.Contains(msg.From!.Id)) return;
+        if (msg.Text is null || !_config.Channel.Telegram.AllowedUsers.Contains(msg.From!.Id)) return;
 
         _activityMonitor.UpdateActivity();
         ColorLog.Info($"MSG-{msg.Type}", $"[@{msg.From.Username}({msg.From.Id})] '{msg.Text}'");
@@ -110,7 +110,7 @@ public class TelegramBotHandler
     {
         if (update is { CallbackQuery: { } query })
         {
-            if (!_config.AllowedUsers.Contains(query.From.Id) || query.Data is null) return;
+            if (!_config.Channel.Telegram.AllowedUsers.Contains(query.From.Id) || query.Data is null) return;
 
             if (query.Data.StartsWith("ignore_"))
             {
