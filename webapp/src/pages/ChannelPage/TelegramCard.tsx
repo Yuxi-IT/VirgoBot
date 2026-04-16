@@ -1,24 +1,46 @@
-import { Card, TextField, Label, Input } from '@heroui/react';
+import { Card, TextField, Label, Input, Switch } from '@heroui/react';
 import { useI18n } from '../../i18n';
 
 interface TelegramCardProps {
+  enabled: boolean;
   botToken: string;
+  allowedUsers: number[];
+  onEnabledChange: (v: boolean) => void;
   onBotTokenChange: (v: string) => void;
+  onAllowedUsersChange: (v: number[]) => void;
 }
 
-function TelegramCard({ botToken, onBotTokenChange }: TelegramCardProps) {
+function TelegramCard({ enabled, botToken, allowedUsers, onEnabledChange, onBotTokenChange, onAllowedUsersChange }: TelegramCardProps) {
   const { t } = useI18n();
 
   return (
     <Card>
       <Card.Header>
-        <Card.Title>{t('channel.telegram')}</Card.Title>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Card.Title>{t('channel.telegram')}</Card.Title>
+          <Switch checked={enabled} onChange={onEnabledChange}>
+            {t('channel.enabled')}
+          </Switch>
+        </div>
       </Card.Header>
       <Card.Content>
-        <TextField value={botToken} onChange={onBotTokenChange}>
-          <Label>{t('channel.botToken')}</Label>
-          <Input />
-        </TextField>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <TextField value={botToken} onChange={onBotTokenChange}>
+            <Label>{t('channel.botToken')}</Label>
+            <Input />
+          </TextField>
+
+          <TextField
+            value={allowedUsers.join(', ')}
+            onChange={(v) => {
+              const users = v.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+              onAllowedUsersChange(users);
+            }}
+          >
+            <Label>{t('channel.allowedUsers')}</Label>
+            <Input placeholder={t('channel.allowedUsersHint')} />
+          </TextField>
+        </div>
       </Card.Content>
     </Card>
   );

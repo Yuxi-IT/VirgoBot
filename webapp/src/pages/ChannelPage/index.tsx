@@ -5,6 +5,7 @@ import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import ILinkCard from './ILinkCard';
 import TelegramCard from './TelegramCard';
+import EmailCard from './EmailCard';
 import WebSocketCard from './WebSocketCard';
 
 interface ChannelsData {
@@ -17,7 +18,18 @@ interface ChannelsData {
     defaultUserId: string;
   };
   telegram: {
+    enabled: boolean;
     botToken: string;
+    allowedUsers: number[];
+  };
+  email: {
+    enabled: boolean;
+    imapHost: string;
+    imapPort: number;
+    smtpHost: string;
+    smtpPort: number;
+    address: string;
+    password: string;
   };
   webSocket: {
     connectedClients: number;
@@ -45,7 +57,18 @@ function ChannelPage() {
   const [iLinkDefaultUserId, setILinkDefaultUserId] = useState('');
 
   // Telegram
+  const [telegramEnabled, setTelegramEnabled] = useState(false);
   const [botToken, setBotToken] = useState('');
+  const [allowedUsers, setAllowedUsers] = useState<number[]>([]);
+
+  // Email
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [imapHost, setImapHost] = useState('');
+  const [imapPort, setImapPort] = useState(993);
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [emailAddress, setEmailAddress] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
 
   // WebSocket (read-only)
   const [wsClients, setWsClients] = useState(0);
@@ -67,7 +90,16 @@ function ChannelPage() {
         setILinkSendUrl(d.iLink?.sendUrl ?? '');
         setILinkWebhookPath(d.iLink?.webhookPath ?? '');
         setILinkDefaultUserId(d.iLink?.defaultUserId ?? '');
+        setTelegramEnabled(d.telegram?.enabled ?? false);
         setBotToken(d.telegram?.botToken ?? '');
+        setAllowedUsers(d.telegram?.allowedUsers ?? []);
+        setEmailEnabled(d.email?.enabled ?? false);
+        setImapHost(d.email?.imapHost ?? '');
+        setImapPort(d.email?.imapPort ?? 993);
+        setSmtpHost(d.email?.smtpHost ?? '');
+        setSmtpPort(d.email?.smtpPort ?? 587);
+        setEmailAddress(d.email?.address ?? '');
+        setEmailPassword(d.email?.password ?? '');
         setWsClients(d.webSocket?.connectedClients ?? 0);
         setWsStatus(d.webSocket?.status ?? '');
       }
@@ -85,7 +117,16 @@ function ChannelPage() {
     iLinkSendUrl,
     iLinkWebhookPath,
     iLinkDefaultUserId,
+    telegramEnabled,
     botToken: botToken.includes('****') ? undefined : botToken,
+    allowedUsers,
+    emailEnabled,
+    imapHost,
+    imapPort,
+    smtpHost,
+    smtpPort,
+    emailAddress,
+    emailPassword: emailPassword.includes('****') ? undefined : emailPassword,
   });
 
   const saveChannels = async () => {
@@ -146,8 +187,29 @@ function ChannelPage() {
           />
 
           <TelegramCard
+            enabled={telegramEnabled}
             botToken={botToken}
+            allowedUsers={allowedUsers}
+            onEnabledChange={setTelegramEnabled}
             onBotTokenChange={setBotToken}
+            onAllowedUsersChange={setAllowedUsers}
+          />
+
+          <EmailCard
+            enabled={emailEnabled}
+            imapHost={imapHost}
+            imapPort={imapPort}
+            smtpHost={smtpHost}
+            smtpPort={smtpPort}
+            address={emailAddress}
+            password={emailPassword}
+            onEnabledChange={setEmailEnabled}
+            onImapHostChange={setImapHost}
+            onImapPortChange={setImapPort}
+            onSmtpHostChange={setSmtpHost}
+            onSmtpPortChange={setSmtpPort}
+            onAddressChange={setEmailAddress}
+            onPasswordChange={setEmailPassword}
           />
 
           <WebSocketCard
