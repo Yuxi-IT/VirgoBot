@@ -1100,16 +1100,28 @@ public class HttpServerHost
         {
             iLink = new
             {
-                enabled = config.ILink.Enabled,
-                token = config.ILink.Token,
-                webSocketUrl = config.ILink.WebSocketUrl,
-                sendUrl = config.ILink.SendUrl,
-                webhookPath = config.ILink.WebhookPath,
-                defaultUserId = config.ILink.DefaultUserId
+                enabled = config.Channel.ILink.Enabled,
+                token = MaskSecret(config.Channel.ILink.Token),
+                webSocketUrl = config.Channel.ILink.WebSocketUrl,
+                sendUrl = config.Channel.ILink.SendUrl,
+                webhookPath = config.Channel.ILink.WebhookPath,
+                defaultUserId = config.Channel.ILink.DefaultUserId
             },
             telegram = new
             {
-                botToken = MaskSecret(config.BotToken)
+                enabled = config.Channel.Telegram.Enabled,
+                botToken = MaskSecret(config.Channel.Telegram.BotToken),
+                allowedUsers = config.Channel.Telegram.AllowedUsers
+            },
+            email = new
+            {
+                enabled = config.Channel.Email.Enabled,
+                imapHost = config.Channel.Email.ImapHost,
+                imapPort = config.Channel.Email.ImapPort,
+                smtpHost = config.Channel.Email.SmtpHost,
+                smtpPort = config.Channel.Email.SmtpPort,
+                address = config.Channel.Email.Address,
+                password = MaskSecret(config.Channel.Email.Password)
             },
             webSocket = new
             {
@@ -1133,15 +1145,26 @@ public class HttpServerHost
         var config = _gateway.Config;
 
         // ILink updates
-        if (body.ILinkEnabled.HasValue) config.ILink.Enabled = body.ILinkEnabled.Value;
-        if (!string.IsNullOrWhiteSpace(body.ILinkToken)) config.ILink.Token = body.ILinkToken;
-        if (!string.IsNullOrWhiteSpace(body.ILinkWebSocketUrl)) config.ILink.WebSocketUrl = body.ILinkWebSocketUrl;
-        if (!string.IsNullOrWhiteSpace(body.ILinkSendUrl)) config.ILink.SendUrl = body.ILinkSendUrl;
-        if (!string.IsNullOrWhiteSpace(body.ILinkWebhookPath)) config.ILink.WebhookPath = body.ILinkWebhookPath;
-        if (!string.IsNullOrWhiteSpace(body.ILinkDefaultUserId)) config.ILink.DefaultUserId = body.ILinkDefaultUserId;
+        if (body.ILinkEnabled.HasValue) config.Channel.ILink.Enabled = body.ILinkEnabled.Value;
+        if (!string.IsNullOrWhiteSpace(body.ILinkToken)) config.Channel.ILink.Token = body.ILinkToken;
+        if (!string.IsNullOrWhiteSpace(body.ILinkWebSocketUrl)) config.Channel.ILink.WebSocketUrl = body.ILinkWebSocketUrl;
+        if (!string.IsNullOrWhiteSpace(body.ILinkSendUrl)) config.Channel.ILink.SendUrl = body.ILinkSendUrl;
+        if (!string.IsNullOrWhiteSpace(body.ILinkWebhookPath)) config.Channel.ILink.WebhookPath = body.ILinkWebhookPath;
+        if (!string.IsNullOrWhiteSpace(body.ILinkDefaultUserId)) config.Channel.ILink.DefaultUserId = body.ILinkDefaultUserId;
 
         // Telegram updates
-        if (!string.IsNullOrWhiteSpace(body.BotToken)) config.BotToken = body.BotToken;
+        if (body.TelegramEnabled.HasValue) config.Channel.Telegram.Enabled = body.TelegramEnabled.Value;
+        if (!string.IsNullOrWhiteSpace(body.BotToken)) config.Channel.Telegram.BotToken = body.BotToken;
+        if (body.AllowedUsers != null) config.Channel.Telegram.AllowedUsers = body.AllowedUsers;
+
+        // Email updates
+        if (body.EmailEnabled.HasValue) config.Channel.Email.Enabled = body.EmailEnabled.Value;
+        if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Channel.Email.ImapHost = body.ImapHost;
+        if (body.ImapPort.HasValue) config.Channel.Email.ImapPort = body.ImapPort.Value;
+        if (!string.IsNullOrWhiteSpace(body.SmtpHost)) config.Channel.Email.SmtpHost = body.SmtpHost;
+        if (body.SmtpPort.HasValue) config.Channel.Email.SmtpPort = body.SmtpPort.Value;
+        if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Channel.Email.Address = body.EmailAddress;
+        if (!string.IsNullOrWhiteSpace(body.EmailPassword)) config.Channel.Email.Password = body.EmailPassword;
 
         ConfigLoader.Save(config);
         ColorLog.Success("CHANNEL", "频道配置已更新");
@@ -1423,7 +1446,16 @@ public record ChannelUpdateRequest
     public string? ILinkSendUrl { get; init; }
     public string? ILinkWebhookPath { get; init; }
     public string? ILinkDefaultUserId { get; init; }
+    public bool? TelegramEnabled { get; init; }
     public string? BotToken { get; init; }
+    public long[]? AllowedUsers { get; init; }
+    public bool? EmailEnabled { get; init; }
+    public string? ImapHost { get; init; }
+    public int? ImapPort { get; init; }
+    public string? SmtpHost { get; init; }
+    public int? SmtpPort { get; init; }
+    public string? EmailAddress { get; init; }
+    public string? EmailPassword { get; init; }
 }
 
 public record AgentCreateUpdateRequest
