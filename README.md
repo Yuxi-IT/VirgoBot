@@ -1,12 +1,14 @@
-# VirgoBot
-
-基于 .NET 10 的个人 AI 助手，通过 Telegram Bot 交互，集成 LLM 对话、邮件收发、工具调用、表情包、浏览器自动化等能力。
+<div align="center">
+  <img src="doc/75018f3ea271fec03664b2fb9748333b.webp" alt="VirgoBot Logo" width="200"/>
+  <h1>VirgoBot</h1>
+  <p>基于 .NET 10 的个人 AI 助手</p>
+</div>
 
 ## 工作原理
 
 ### 消息流转
 
-用户消息从三个入口进入系统：Telegram Bot、HTTP `/chat` 接口、iLink WebSocket 桥接。所有入口经过白名单校验后汇入同一条处理链路：
+用户消息从多个入口进入系统：Telegram Bot、HTTP `/chat` 接口、WebSocket、iLink 桥接。所有入口经过白名单校验后汇入同一条处理链路：
 
 ```
 用户消息 → 白名单校验 → MemoryService 存储 → 构建上下文 → LLM API → 响应/工具调用
@@ -52,46 +54,95 @@ LLM 的响应经 `MessageHelper` 按段落和标点智能分段，去除 `<think
 
 ### Web 管理面板
 
-后端在 `HttpServerHost` 中暴露一组 RESTful API（`/api/*`），前端是一个 React + TypeScript + HeroUI 的单页应用，通过这些接口实现对机器人的可视化管理：
+后端在 `HttpServerHost` 中暴露一组 RESTful API（47 个端点），前端是一个 React + TypeScript + HeroUI 的单页应用，通过这些接口实现对机器人的可视化管理：
 
 - **仪表盘** — 查看运行状态、在线时长、已连接客户端数、各通道（Telegram / HTTP / WebSocket / 邮件 / iLink）运行情况
 - **对话记录** — 按用户浏览完整聊天历史，包括 user / assistant / tool 各角色的消息
 - **联系人** — 增删改查，支持搜索
-- **设置** — 在线编辑系统提示词（System Memory）和 Soul 记忆，修改后即时生效无需重启；查看模型、服务端、邮件、iLink 等配置
+- **技能管理** — 可视化管理自定义技能（命令式/HTTP 式），支持动态增删改查
+- **Agent 管理** — 创建、切换、编辑多个 Agent 配置文件
+- **会话管理** — 创建、切换、删除不同的对话会话
+- **设置** — 在线编辑系统提示词（System Memory）、Soul 记忆、规则文件，修改后即时生效无需重启；查看模型、服务端、邮件、iLink 等配置
 - **日志** — 按级别筛选、搜索、分页浏览运行日志，支持一键清空
+
+## 核心功能
+
+### 智能对话
+- 支持多轮对话，自动维护上下文
+- 时间感知，消息自动附加时间戳
+- 支持 Markdown 格式渲染（Telegram）
+
+### 工具调用
+- **Shell 命令** - 执行系统命令
+- **文件操作** - 读写文件、列出目录
+- **邮件收发** - IMAP/SMTP 集成，AI 摘要
+- **表情包** - 搜索和发送表情包
+- **浏览器自动化** - Playwright 集成
+- **联系人管理** - 增删改查联系人
+- **自定义技能** - JSON 配置的动态技能系统
+
+### 多通道接入
+- **Telegram Bot** - 支持内联按钮、Markdown、表情包
+- **HTTP API** - RESTful 接口，`/chat` 端点直接对话
+- **WebSocket** - 实时双向通信
+- **iLink** - 第三方平台桥接
+
+### 数据管理
+- **多会话支持** - 每个用户独立的对话历史
+- **Soul 记忆** - LLM 自主写入的长期记忆
+- **会话切换** - 支持创建和切换多个对话会话
+
+### 智能特性
+- **主动消息** - 空闲后 LLM 自主发起对话
+- **邮件监控** - 自动监控新邮件并推送 AI 摘要
+- **活跃度追踪** - 记录用户最后活跃时间
 
 ## 快速开始
 
-- Service
+### 后端
+
 ```bash
 dotnet restore && dotnet build
 dotnet run --project VirgoBot/VirgoBot.csproj
 ```
 
-- Webapp
+首次启动自动生成 `config/config.json`，填入必要配置后重启即可。
+
+### 前端
+
 ```bash
-npm i
+cd webapp
+npm install
 npm run dev
 ```
-
-首次启动自动生成 `config/config.json`，填入必要配置后重启即可。
 
 ## 配置示例
 
 ```json
 {
-  "BotToken": "Telegram Bot Token",
-  "ApiKey": "LLM API Key",
-  "BaseUrl": "https://your-llm-endpoint/v1",
-  "Model": "gpt-4.5",
-  "AllowedUsers": [123456789],
-  "Email": {
-    "ImapHost": "imap.example.com",
-    "ImapPort": 993,
-    "SmtpHost": "smtp.example.com",
-    "SmtpPort": 465,
-    "Address": "your@email.com",
-    "Password": "your_password"
+  "ApiKey": "YOUR_LLM_API_KEY",
+  "BaseUrl": "https://api.openai.com/v1",
+  "Model": "gpt-4",
+  "Server": {
+    "ListenUrl": "http://0.0.0.0:5000/",
+    "MaxTokens": 8192,
+    "MessageLimit": 20
+  },
+  "Channel": {
+    "Telegram": {
+      "Enabled": false,
+      "BotToken": "YOUR_BOT_TOKEN",
+      "AllowedUsers": [123456789]
+    },
+    "Email": {
+      "Enabled": false,
+      "ImapHost": "imap.example.com",
+      "ImapPort": 993,
+      "SmtpHost": "smtp.example.com",
+      "SmtpPort": 587,
+      "Address": "your@email.com",
+      "Password": "your_password"
+    }
   }
 }
 ```
@@ -99,10 +150,11 @@ npm run dev
 ## 注意事项
 
 - 需要 .NET 10 SDK
-- `AllowedUsers` 不能为空
+- 启用 `Telegram` 频道时 `AllowedUsers` 不能为空
 - 工具能力较强（Shell、文件读写等），请在可信环境运行
 - Playwright 需额外安装浏览器：`pwsh bin/Debug/net10.0/playwright.ps1 install`
+- 默认监听 `0.0.0.0:5000`，支持外部访问
 
 ---
 
-我的妻，我的爱妻。你永存吧。
+我的爱妻，你永存吧。
