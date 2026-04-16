@@ -12,13 +12,12 @@ namespace VirgoBot.Services;
 
 public class Gateway : IDisposable
 {
-    // Persistent dependencies (process lifetime)
     private readonly LogService _logService;
     private readonly WebSocketClientManager _wsManager;
     private readonly MemoryService _memoryService;
     private readonly ShellSessionService _shellSessionService = new();
+    private readonly HttpClient _httpClient = new();
 
-    // Restartable services (managed by Gateway)
     private CancellationTokenSource? _cts;
 
     public Config Config { get; private set; } = null!;
@@ -72,11 +71,9 @@ public class Gateway : IDisposable
         _memoryService.SwitchDatabase(dbFileName);
         SoulFunctions.ClearCache();
 
-        // Update config
         Config.CurrentSession = dbFileName;
         ConfigLoader.Save(Config);
 
-        // Rebuild services to pick up new soul content
         await StopChannelsAsync();
         BuildServices();
         await StartChannelsAsync();
@@ -88,19 +85,16 @@ public class Gateway : IDisposable
         Config = ConfigLoader.Load();
         var systemMemory = ConfigLoader.LoadSystemMemory(Config, _memoryService);
 
-        // Update memory service limit from config
         _memoryService.UpdateMessageLimit(Config.Server.MessageLimit);
 
-        var http = new HttpClient();
-        http.DefaultRequestHeaders.Authorization =
+        _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", Config.ApiKey);
 
         FunctionRegistry = new FunctionRegistry(Config, _memoryService);
         StickerService = new StickerService("stickers");
         ContactService = new ContactService();
-        LlmService = new LLMService(http, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
+        LlmService = new LLMService(_httpClient, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
 
-        // Email services - only if enabled
         if (Config.Channel.Email.Enabled)
         {
             EmailService = new EmailService(
@@ -114,7 +108,6 @@ public class Gateway : IDisposable
         FunctionRegistry.SetStickerService(StickerService);
         FunctionRegistry.SetContactService(ContactService);
 
-        // ILink services - only if enabled
         if (Config.Channel.ILink.Enabled)
         {
             ILinkBridge = new ILinkBridgeService(Config.Channel.ILink, Config.Server.MessageSplitDelimiters);
@@ -123,14 +116,12 @@ public class Gateway : IDisposable
 
         _cts = new CancellationTokenSource();
 
-        // Telegram services - only if enabled
         if (Config.Channel.Telegram.Enabled)
         {
             Bot = new TelegramBotClient(Config.Channel.Telegram.BotToken, cancellationToken: _cts.Token);
             var messageHelper = new MessageHelper(Bot, Config.Server.MessageSplitDelimiters);
             ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0]);
 
-            // Create email notification dispatcher
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 Config.Channel.Email.Notification,
                 _wsManager,
@@ -138,7 +129,7 @@ public class Gateway : IDisposable
                 Config.Channel.Telegram.AllowedUsers[0],
                 ILinkBridge);
 
-            // Create EmailManager if EmailService exists
+
             if (EmailService != null)
             {
                 EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, Config.Channel.Telegram.AllowedUsers[0], LlmService);
@@ -148,7 +139,6 @@ public class Gateway : IDisposable
         }
         else
         {
-            // Create email notification dispatcher without Telegram
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 Config.Channel.Email.Notification,
                 _wsManager,
@@ -156,20 +146,18 @@ public class Gateway : IDisposable
                 0,
                 ILinkBridge);
 
-            // Create EmailManager if EmailService exists
+
             if (EmailService != null)
             {
                 EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, 0, LlmService);
             }
         }
 
-        // ILink message handler - only if enabled
         if (Config.Channel.ILink.Enabled && ILinkBridge != null)
         {
             ILinkHandler = new ILinkMessageHandler(Config, LlmService, _memoryService, ILinkBridge, _cts.Token);
         }
 
-        // Initialize channel statuses
         ChannelStatuses["telegram"] = new ChannelStatus { Name = "telegram", Enabled = Config.Channel.Telegram.Enabled, Status = "stopped" };
         ChannelStatuses["http"] = new ChannelStatus { Name = "http", Enabled = true, Status = "running" };
         ChannelStatuses["webSocket"] = new ChannelStatus { Name = "webSocket", Enabled = true, Status = "running" };
@@ -181,7 +169,6 @@ public class Gateway : IDisposable
     {
         var ct = _cts!.Token;
 
-        // Email channel - conditional start
         if (Config.Channel.Email.Enabled && EmailService != null && EmailManager != null)
         {
             try
@@ -217,7 +204,6 @@ public class Gateway : IDisposable
             }
         }
 
-        // Telegram channel - conditional start
         if (Config.Channel.Telegram.Enabled && Bot != null && TelegramHandler != null && ActivityMonitor != null)
         {
             try
@@ -239,7 +225,6 @@ public class Gateway : IDisposable
             ChannelStatuses["telegram"].Status = "disabled";
         }
 
-        // iLink channel - conditional start
         if (Config.Channel.ILink.Enabled && ILinkBridge != null && ILinkHandler != null)
         {
             try
@@ -282,7 +267,6 @@ public class Gateway : IDisposable
         if (_cts != null)
         {
             await _cts.CancelAsync();
-            // Give services a moment to process cancellation
             await Task.Delay(500);
             _cts.Dispose();
             _cts = null;
@@ -290,7 +274,6 @@ public class Gateway : IDisposable
 
         IsRunning = false;
 
-        // Update channel statuses and log each channel
         foreach (var status in ChannelStatuses.Values)
         {
             if (status.Status == "running" || status.Status == "monitoring")
@@ -308,6 +291,8 @@ public class Gateway : IDisposable
     public void Dispose()
     {
         _shellSessionService.Dispose();
+        _httpClient?.Dispose();
+        ILinkBridge?.Dispose();
     }
 }
 
@@ -315,5 +300,5 @@ public class ChannelStatus
 {
     public string Name { get; set; } = "";
     public bool Enabled { get; set; }
-    public string Status { get; set; } = "stopped";  // "running" | "stopped" | "monitoring" | "disabled"
+    public string Status { get; set; } = "stopped";
 }

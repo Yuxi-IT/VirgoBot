@@ -3,7 +3,7 @@ using ILink4NET.Models;
 
 namespace VirgoBot.Services;
 
-public class ILinkLoginService
+public class ILinkLoginService : IDisposable
 {
     private readonly HttpClient _httpClient;
     private ILinkBotClient? _botClient;
@@ -44,6 +44,11 @@ public class ILinkLoginService
             } : null
         };
     }
+
+    public void Dispose()
+    {
+        _httpClient?.Dispose();
+    }
 }
 
 public class LoginQrCodeResponse
@@ -65,3 +70,4 @@ public class CredentialsDto
     public string ILinkUserId { get; set; } = "";
     public string ApiBaseUri { get; set; } = "";
 }
+

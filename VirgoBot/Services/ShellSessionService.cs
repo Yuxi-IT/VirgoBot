@@ -3,9 +3,6 @@ using VirgoBot.Utilities;
 
 namespace VirgoBot.Services;
 
-/// <summary>
-/// 管理所有持久交互式 Shell 会话（进程生命周期级别）。
-/// </summary>
 public class ShellSessionService : IDisposable
 {
     private static readonly TimeSpan IdleTimeout = TimeSpan.FromMinutes(10);
@@ -20,9 +17,6 @@ public class ShellSessionService : IDisposable
         _cleanupTimer = new Timer(CleanupIdleSessions, null, CleanupInterval, CleanupInterval);
     }
 
-    /// <summary>
-    /// 创建新的 Shell 会话，返回 8 位短 ID。
-    /// </summary>
     public string CreateSession(string shellType = "auto")
     {
         var sessionId = Guid.NewGuid().ToString("N")[..8];
@@ -32,9 +26,6 @@ public class ShellSessionService : IDisposable
         return sessionId;
     }
 
-    /// <summary>
-    /// 向指定会话发送输入并等待输出。
-    /// </summary>
     public async Task<string> SendInputAsync(string sessionId, string input, int idleTimeoutMs = 2000, int maxWaitMs = 30000)
     {
         if (!_sessions.TryGetValue(sessionId, out var session))
@@ -50,9 +41,6 @@ public class ShellSessionService : IDisposable
         return await session.SendAndReadAsync(input, idleTimeoutMs, maxWaitMs);
     }
 
-    /// <summary>
-    /// 关闭并移除指定会话。
-    /// </summary>
     public string CloseSession(string sessionId)
     {
         if (!_sessions.TryRemove(sessionId, out var session))
@@ -63,9 +51,6 @@ public class ShellSessionService : IDisposable
         return $"会话 {sessionId} 已关闭";
     }
 
-    /// <summary>
-    /// 列出所有活跃会话的状态。
-    /// </summary>
     public IReadOnlyList<ShellSessionInfo> ListSessions()
     {
         return _sessions.Select(kvp => new ShellSessionInfo

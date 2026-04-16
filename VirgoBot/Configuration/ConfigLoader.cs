@@ -56,48 +56,6 @@ public static class ConfigLoader
         var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))
             ?? throw new InvalidOperationException($"无法解析配置文件: {configPath}");
 
-        // Migration logic: if Channel is not configured, migrate from old structure
-        bool needsMigration = false;
-        if (config.Channel.Telegram.BotToken == "" && config.BotToken != "")
-        {
-            config.Channel.Telegram.BotToken = config.BotToken;
-            config.Channel.Telegram.AllowedUsers = config.AllowedUsers;
-            config.Channel.Telegram.Enabled = false;
-            needsMigration = true;
-            ColorLog.Info("CONFIG", "正在迁移 Telegram 配置到新格式...");
-        }
-
-        if (config.Email != null && config.Channel.Email.ImapHost == "")
-        {
-            config.Channel.Email.ImapHost = config.Email.ImapHost;
-            config.Channel.Email.ImapPort = config.Email.ImapPort;
-            config.Channel.Email.SmtpHost = config.Email.SmtpHost;
-            config.Channel.Email.SmtpPort = config.Email.SmtpPort;
-            config.Channel.Email.Address = config.Email.Address;
-            config.Channel.Email.Password = config.Email.Password;
-            config.Channel.Email.Enabled = false;
-            needsMigration = true;
-            ColorLog.Info("CONFIG", "正在迁移 Email 配置到新格式...");
-        }
-
-        if (config.ILink != null && config.Channel.ILink.Token == "")
-        {
-            config.Channel.ILink.Token = config.ILink.Token;
-            config.Channel.ILink.WebSocketUrl = config.ILink.WebSocketUrl;
-            config.Channel.ILink.SendUrl = config.ILink.SendUrl;
-            config.Channel.ILink.WebhookPath = config.ILink.WebhookPath;
-            config.Channel.ILink.DefaultUserId = config.ILink.DefaultUserId;
-            config.Channel.ILink.Enabled = config.ILink.Enabled;
-            needsMigration = true;
-            ColorLog.Info("CONFIG", "正在迁移 ILink 配置到新格式...");
-        }
-
-        if (needsMigration)
-        {
-            Save(config);
-            ColorLog.Success("CONFIG", "配置已自动迁移到新格式");
-        }
-
         if (config.Channel.Telegram.AllowedUsers.Length == 0)
         {
             throw new InvalidOperationException("配置错误: Channel.Telegram.AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
@@ -108,36 +66,36 @@ public static class ConfigLoader
 
     public static string LoadSystemMemory(Config config, MemoryService memoryService)
     {
-        var memoryPath = Path.Combine(AppConstants.ConfigDirectory, config.MemoryFile);
-        var soulPath = Path.Combine(AppConstants.ConfigDirectory, config.SoulFile);
-        var rulePath = Path.Combine(AppConstants.ConfigDirectory, config.RuleFile);
+        var configDir = AppConstants.ConfigDirectory;
+        var memoryPath = Path.Combine(configDir, config.MemoryFile);
+        var soulPath = Path.Combine(configDir, config.SoulFile);
+        var rulePath = Path.Combine(configDir, config.RuleFile);
 
         if (!File.Exists(memoryPath))
         {
-            File.WriteAllText(memoryPath, "# 系统记忆\n\n你是 Virgo，一个智能助手。\n\n## 能力\n- 邮件收发管理\n- 文件读写操作\n- Shell命令执行\n- 网页浏览\n- 通讯录管理\n");
+            File.WriteAllText(memoryPath, "You are a helpful assistant.");
             ColorLog.Info("MEMORY", $"已创建默认记忆文件: {memoryPath}");
         }
 
         if (!File.Exists(rulePath))
         {
-            File.WriteAllText(rulePath, "# Rules\n\n在此添加自定义规则，这些规则会自动加载到系统提示中。\n");
+            File.WriteAllText(rulePath, "");
             ColorLog.Info("RULE", $"已创建默认规则文件: {rulePath}");
         }
 
-        // Migrate soul.md to database on first run
-        if (memoryService.GetSoulCount() == 0 && File.Exists(soulPath))
+        if (File.Exists(soulPath))
         {
             var soulFileContent = File.ReadAllText(soulPath);
             if (!string.IsNullOrWhiteSpace(soulFileContent))
             {
                 memoryService.AddSoulEntry(soulFileContent);
+                File.Delete(soulPath);
                 ColorLog.Success("MEMORY", "Soul 文件已迁移到数据库");
             }
         }
 
         var systemMemory = File.ReadAllText(memoryPath);
 
-        // Read soul from database instead of file
         var soulContent = memoryService.GetAllSoulContent();
         if (!string.IsNullOrWhiteSpace(soulContent))
         {

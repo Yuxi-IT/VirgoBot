@@ -14,7 +14,6 @@ public static class MessageSplitter
             return new[] { text };
         }
 
-        // 将分隔符字符串按 | 分割成数组
         var delimiterArray = delimiters.Split('|', StringSplitOptions.RemoveEmptyEntries);
 
         if (delimiterArray.Length == 0)
@@ -22,10 +21,8 @@ public static class MessageSplitter
             return new[] { text };
         }
 
-        // 使用所有分隔符分割文本
         var parts = text.Split(delimiterArray, StringSplitOptions.RemoveEmptyEntries);
 
-        // 过滤掉空白段落
         return parts
             .Select(p => p.Trim())
             .Where(p => !string.IsNullOrEmpty(p))

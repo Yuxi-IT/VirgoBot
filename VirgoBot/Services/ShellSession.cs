@@ -3,9 +3,6 @@ using System.Text;
 
 namespace VirgoBot.Services;
 
-/// <summary>
-/// 单个持久交互式 Shell 会话，封装一个长期运行的进程。
-/// </summary>
 public class ShellSession : IDisposable
 {
     private const int MaxOutputLength = 8000;
@@ -59,9 +56,6 @@ public class ShellSession : IDisposable
         _process.BeginErrorReadLine();
     }
 
-    /// <summary>
-    /// 发送输入到 stdin，然后轮询等待输出稳定后返回结果。
-    /// </summary>
     public async Task<string> SendAndReadAsync(string input, int idleTimeoutMs = 2000, int maxWaitMs = 30000)
     {
         if (_disposed || _process.HasExited)
@@ -69,10 +63,9 @@ public class ShellSession : IDisposable
 
         LastActivity = DateTime.UtcNow;
 
-        // 清空缓冲区
         lock (_bufferLock) { _outputBuffer.Clear(); }
 
-        // 写入 stdin
+
         try
         {
             await _process.StandardInput.WriteLineAsync(input);
@@ -83,7 +76,7 @@ public class ShellSession : IDisposable
             return $"[写入失败: {ex.Message}]";
         }
 
-        // 轮询等待输出稳定
+
         var stopwatch = Stopwatch.StartNew();
         var lastLength = 0;
         var idleStart = stopwatch.ElapsedMilliseconds;
@@ -97,27 +90,23 @@ public class ShellSession : IDisposable
 
             if (currentLength != lastLength)
             {
-                // 有新输出，重置空闲计时
                 lastLength = currentLength;
                 idleStart = stopwatch.ElapsedMilliseconds;
             }
             else if (stopwatch.ElapsedMilliseconds - idleStart >= idleTimeoutMs)
             {
-                // 空闲超时，输出稳定
                 break;
             }
 
-            // 进程已退出且无新输出
             if (_process.HasExited)
             {
-                await Task.Delay(200); // 等待最后的输出刷新
+                await Task.Delay(200);
                 break;
             }
         }
 
         LastActivity = DateTime.UtcNow;
 
-        // 读取并截断输出
         string result;
         lock (_bufferLock) { result = _outputBuffer.ToString(); }
 
@@ -138,8 +127,7 @@ public class ShellSession : IDisposable
         {
             if (!_process.HasExited)
             {
-                // 关闭 stdin 触发进程优雅退出
-                try { _process.StandardInput.Close(); } catch { /* ignore */ }
+                try { _process.StandardInput.Close(); } catch { }
 
                 if (!_process.WaitForExit(3000))
                 {
@@ -147,7 +135,7 @@ public class ShellSession : IDisposable
                 }
             }
         }
-        catch { /* ignore cleanup errors */ }
+        catch { }
         finally
         {
             _process.Dispose();

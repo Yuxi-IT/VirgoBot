@@ -85,7 +85,6 @@ public class ConfigApiHandler
 
             var config = _gateway.Config;
 
-            // Merge partial updates
             if (!string.IsNullOrWhiteSpace(body.Model)) config.Model = body.Model;
             if (!string.IsNullOrWhiteSpace(body.BaseUrl)) config.BaseUrl = body.BaseUrl;
             if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;

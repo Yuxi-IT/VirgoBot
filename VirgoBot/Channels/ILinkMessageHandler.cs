@@ -39,7 +39,7 @@ public class ILinkMessageHandler
 
         ColorLog.Info("ILINK-IN", $"[@{incoming.UserId}] {content}");
 
-        var reply = await _llmService.AskAsync(GetStableHashCode(incoming.UserId), content);
+        var reply = await _llmService.AskAsync(HashHelper.GetStableHashCode(incoming.UserId), content);
 
         if (string.IsNullOrWhiteSpace(reply))
         {
@@ -47,24 +47,5 @@ public class ILinkMessageHandler
         }
 
         await _iLinkBridge.ReplyLongTextAsync(incoming, reply, _cancellationToken);
-    }
-
-    private static long GetStableHashCode(string str)
-    {
-        unchecked
-        {
-            int hash1 = 5381;
-            int hash2 = hash1;
-
-            for (int i = 0; i < str.Length && str[i] != '\0'; i += 2)
-            {
-                hash1 = ((hash1 << 5) + hash1) ^ str[i];
-                if (i == str.Length - 1 || str[i + 1] == '\0')
-                    break;
-                hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
-            }
-
-            return hash1 + (hash2 * 1566083941);
-        }
     }
 }

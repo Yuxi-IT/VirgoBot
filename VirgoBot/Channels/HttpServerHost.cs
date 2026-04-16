@@ -20,7 +20,6 @@ public class HttpServerHost
     private readonly LogService _logService;
     private readonly ILinkLoginService _iLinkLoginService;
 
-    // Handler instances
     private readonly ContactApiHandler _contactApiHandler;
     private readonly ConfigApiHandler _configApiHandler;
     private readonly SkillApiHandler _skillApiHandler;
@@ -43,7 +42,7 @@ public class HttpServerHost
         _logService = logService;
         _iLinkLoginService = new ILinkLoginService();
 
-        // Initialize handlers
+
         _contactApiHandler = new ContactApiHandler(gateway);
         _configApiHandler = new ConfigApiHandler(gateway, memoryService);
         _skillApiHandler = new SkillApiHandler(gateway);
@@ -94,7 +93,6 @@ public class HttpServerHost
                     {
                         await HandleStickerRequest(ctx);
                     }
-                    // ===== Management API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/status" && ctx.Request.HttpMethod == "GET")
                     {
                         await _statusApiHandler.HandleStatusRequest(ctx);
@@ -163,7 +161,6 @@ public class HttpServerHost
                     {
                         await _statusApiHandler.HandleClearLogsRequest(ctx);
                     }
-                    // ===== Skills API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/skills" && ctx.Request.HttpMethod == "GET")
                     {
                         await _skillApiHandler.HandleGetSkillsRequest(ctx);
@@ -184,7 +181,6 @@ public class HttpServerHost
                     {
                         await _skillApiHandler.HandleDeleteSkillRequest(ctx);
                     }
-                    // ===== Gateway API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/gateway/restart" && ctx.Request.HttpMethod == "POST")
                     {
                         await _statusApiHandler.HandleGatewayRestartRequest(ctx);
@@ -193,7 +189,6 @@ public class HttpServerHost
                     {
                         await _statusApiHandler.HandleGatewayStatusRequest(ctx);
                     }
-                    // ===== Agent API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/agents" && ctx.Request.HttpMethod == "GET")
                     {
                         await _agentApiHandler.HandleGetAgentsRequest(ctx);
@@ -218,7 +213,6 @@ public class HttpServerHost
                     {
                         await _agentApiHandler.HandleSwitchAgentRequest(ctx);
                     }
-                    // ===== iLink Login API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/qrcode" && ctx.Request.HttpMethod == "POST")
                     {
                         await _channelApiHandler.HandleCreateILinkQrCodeRequest(ctx);
@@ -231,7 +225,6 @@ public class HttpServerHost
                     {
                         await _channelApiHandler.HandleSaveILinkCredentialsRequest(ctx);
                     }
-                    // ===== Soul CRUD API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/soul" && ctx.Request.HttpMethod == "GET")
                     {
                         await _agentApiHandler.HandleGetSoulEntriesRequest(ctx);
@@ -248,7 +241,6 @@ public class HttpServerHost
                     {
                         await _agentApiHandler.HandleDeleteSoulEntryRequest(ctx);
                     }
-                    // ===== Channel Config API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/config/channels" && ctx.Request.HttpMethod == "GET")
                     {
                         await _channelApiHandler.HandleGetChannelsConfigRequest(ctx);
@@ -257,7 +249,6 @@ public class HttpServerHost
                     {
                         await _channelApiHandler.HandleUpdateChannelsConfigRequest(ctx);
                     }
-                    // ===== Session API =====
                     else if (ctx.Request.Url?.AbsolutePath == "/api/sessions" && ctx.Request.HttpMethod == "GET")
                     {
                         await _sessionApiHandler.HandleGetSessionsRequest(ctx);
@@ -288,8 +279,6 @@ public class HttpServerHost
             });
         }
     }
-
-    // ===== Core Handlers (WebSocket, Chat, ILink Webhook, Sticker) =====
 
     private async Task HandleWebSocketConnection(HttpListenerContext ctx)
     {
@@ -394,7 +383,6 @@ public class HttpServerHost
 
         ColorLog.Info("ILINK", $"Webhook 收到数据: {body}");
 
-        // Webhook 暂不支持，因为 iLink4NET 使用轮询模式
         ColorLog.Warning("ILINK", "Webhook 模式暂不支持，请使用轮询模式");
 
         ctx.Response.StatusCode = 200;

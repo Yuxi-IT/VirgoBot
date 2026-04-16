@@ -66,7 +66,6 @@ public class ChannelApiHandler
         var config = _gateway.Config;
         var changes = new List<string>();
 
-        // ILink updates
         if (body.ILinkEnabled.HasValue)
         {
             config.Channel.ILink.Enabled = body.ILinkEnabled.Value;
@@ -82,7 +81,7 @@ public class ChannelApiHandler
         if (!string.IsNullOrWhiteSpace(body.ILinkWebhookPath)) config.Channel.ILink.WebhookPath = body.ILinkWebhookPath;
         if (!string.IsNullOrWhiteSpace(body.ILinkDefaultUserId)) config.Channel.ILink.DefaultUserId = body.ILinkDefaultUserId;
 
-        // Telegram updates
+
         if (body.TelegramEnabled.HasValue)
         {
             config.Channel.Telegram.Enabled = body.TelegramEnabled.Value;
@@ -99,7 +98,6 @@ public class ChannelApiHandler
             changes.Add($"Telegram.AllowedUsers=[{string.Join(",", body.AllowedUsers)}]");
         }
 
-        // Email updates
         if (body.EmailEnabled.HasValue)
         {
             config.Channel.Email.Enabled = body.EmailEnabled.Value;

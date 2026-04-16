@@ -175,7 +175,6 @@ public static class SkillLoader
     {
         var result = ResolveTemplate(commandTemplate, parameters, input);
 
-        // 清理多余空格
         result = Regex.Replace(result, @"\s{2,}", " ").Trim();
 
         return result;
@@ -209,7 +208,6 @@ public static class SkillLoader
 
             using var request = new HttpRequestMessage(httpMethod, url);
 
-            // Determine content type from headers
             var contentType = "application/json";
             foreach (var kv in resolvedHeaders)
             {
@@ -223,7 +221,6 @@ public static class SkillLoader
                 }
             }
 
-            // Set body for methods that support it
             if (!string.IsNullOrEmpty(body) &&
                 (httpMethod == HttpMethod.Post || httpMethod == HttpMethod.Put || httpMethod == HttpMethod.Patch))
             {

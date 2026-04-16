@@ -46,7 +46,6 @@ public static class SoulFunctions
             var content = input.GetProperty("content").GetString() ?? "";
             memoryService.AddSoulEntry(content);
 
-            // Invalidate cache after write
             _cachedSoulContent = null;
             _cacheExpiry = DateTime.MinValue;
 

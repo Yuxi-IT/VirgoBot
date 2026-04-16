@@ -93,7 +93,6 @@ public class EmailNotificationDispatcher
         try
         {
             var message = BuildILinkMessage(email, aiResponse);
-            // 注意：iLink 需要原始 IncomingMessage 才能回复，邮件通知暂不支持
             ColorLog.Warning("ILINK", "邮件通知到 iLink 暂不支持（需要原始消息上下文）");
             await Task.CompletedTask;
         }

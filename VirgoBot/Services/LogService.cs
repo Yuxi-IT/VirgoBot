@@ -22,7 +22,6 @@ public class LogService
 
             _logs.Add(entry);
 
-            // Ring buffer: remove oldest when exceeding max
             if (_logs.Count > MaxEntries)
             {
                 _logs.RemoveAt(0);

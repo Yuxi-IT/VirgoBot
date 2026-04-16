@@ -7,7 +7,6 @@ public static class InteractiveShellFunctions
 {
     public static IEnumerable<FunctionDefinition> Register(ShellSessionService shellSessionService)
     {
-        // create_shell - 创建持久交互式 Shell 会话
         yield return new FunctionDefinition("create_shell", "创建持久交互式Shell会话，支持多步交互操作（如REPL）", new
         {
             type = "object",
@@ -38,7 +37,6 @@ public static class InteractiveShellFunctions
             }
         });
 
-        // shell_input - 向会话发送输入并等待输出
         yield return new FunctionDefinition("shell_input", "向持久Shell会话发送输入并等待输出返回", new
         {
             type = "object",
@@ -74,7 +72,6 @@ public static class InteractiveShellFunctions
             return await shellSessionService.SendInputAsync(sessionId, text, idleTimeoutMs, maxWaitMs);
         });
 
-        // close_shell - 关闭 Shell 会话
         yield return new FunctionDefinition("close_shell", "关闭持久Shell会话并释放资源", new
         {
             type = "object",

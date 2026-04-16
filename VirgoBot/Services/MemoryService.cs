@@ -41,7 +41,7 @@ public class MemoryService : IDisposable
         if (string.IsNullOrWhiteSpace(dbFileName))
             throw new ArgumentException("Database file name cannot be empty");
 
-        // Close current connection
+
         _conn.Close();
         _conn.Dispose();
 
@@ -62,7 +62,7 @@ public class MemoryService : IDisposable
         var dbFileName = $"{Guid.NewGuid()}.db";
         var fullPath = Path.Combine(MemorysDirectory, dbFileName);
 
-        // Create and initialize the new database
+
         using var conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
         conn.Open();
 
@@ -106,7 +106,6 @@ public class MemoryService : IDisposable
         if (File.Exists(fullPath))
         {
             File.Delete(fullPath);
-            // Also delete WAL and SHM files if they exist
             var walPath = fullPath + "-wal";
             var shmPath = fullPath + "-shm";
             if (File.Exists(walPath)) File.Delete(walPath);
@@ -144,7 +143,6 @@ public class MemoryService : IDisposable
             }
             catch
             {
-                // If we can't read the db, just use defaults
             }
 
             sessions.Add(new SessionInfo
@@ -283,13 +281,11 @@ public class MemoryService : IDisposable
 
     public (List<MessageRecord> Messages, int Total) LoadMessagesWithPagination(long userId, int limit, int offset)
     {
-        // Get total count
         using var countCmd = _conn.CreateCommand();
         countCmd.CommandText = "SELECT COUNT(*) FROM messages WHERE user_id = @uid";
         countCmd.Parameters.AddWithValue("@uid", userId);
         var total = Convert.ToInt32(countCmd.ExecuteScalar());
 
-        // Get paginated messages
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = "SELECT id, role, content, created_at FROM messages WHERE user_id = @uid ORDER BY id DESC LIMIT @limit OFFSET @offset";
         cmd.Parameters.AddWithValue("@uid", userId);
@@ -301,7 +297,6 @@ public class MemoryService : IDisposable
         while (reader.Read())
         {
             var contentJson = reader.GetString(2);
-            // Try to extract plain text from JSON content
             string contentText;
             try
             {
@@ -344,8 +339,6 @@ public class MemoryService : IDisposable
         messages.Reverse();
         return (messages, total);
     }
-
-    // ===== Soul CRUD =====
 
     public List<SoulRecord> GetAllSoulEntries()
     {

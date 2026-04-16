@@ -125,7 +125,6 @@ public class SkillApiHandler
             return;
         }
 
-        // 如果名称变了，需要重命名文件
         if (!string.IsNullOrWhiteSpace(body.Name) && body.Name != name)
         {
             var newFilePath = Path.Combine(AppConstants.SkillsDirectory, $"{body.Name}.json");

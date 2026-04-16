@@ -18,7 +18,6 @@ public static class ILinkFunctions
         }, async input =>
         {
             var imagePath = input.GetProperty("image_path").GetString() ?? "";
-            // 注意：iLink 需要原始 IncomingMessage 才能发送图片，暂不支持
             return "iLink 发送图片功能暂不支持（需要原始消息上下文）";
         });
     }

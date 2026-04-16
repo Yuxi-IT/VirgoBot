@@ -81,7 +81,6 @@ public class AgentApiHandler
             return;
         }
 
-        // Sanitize name: only allow alphanumeric, Chinese chars, underscore, dash
         var safeName = body.Name.Trim();
         if (string.IsNullOrWhiteSpace(safeName))
         {
@@ -122,7 +121,6 @@ public class AgentApiHandler
             return;
         }
 
-        // 如果名称变了，需要重命名文件
         if (!string.IsNullOrWhiteSpace(body.Name) && body.Name != name)
         {
             var newFilePath = Path.Combine(AppConstants.ConfigDirectory, "agent", $"{body.Name}.md");
@@ -134,7 +132,6 @@ public class AgentApiHandler
             File.Delete(filePath);
             filePath = newFilePath;
 
-            // 如果当前正在使用这个 agent，也要更新配置
             if (_gateway.Config.MemoryFile == $"agent/{name}.md")
             {
                 _gateway.Config.MemoryFile = $"agent/{body.Name}.md";
@@ -158,7 +155,6 @@ public class AgentApiHandler
             return;
         }
 
-        // 不允许删除当前正在使用的 agent
         if (_gateway.Config.MemoryFile == $"agent/{name}.md")
         {
             await SendErrorResponse(ctx, 400, "Cannot delete the currently active agent");
