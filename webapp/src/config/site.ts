@@ -1,4 +1,4 @@
-import { LayoutList, Comment, Persons, Gear, FileText, Rocket, PersonWorker, CirclesIntersection, ArrowShapeTurnUpRight } from "@gravity-ui/icons";
+import { LayoutList, Comment, Persons, Gear, FileText, Rocket, PersonWorker, CirclesIntersection, ArrowShapeTurnUpRight, Clock } from "@gravity-ui/icons";
 import { ComponentType, SVGProps } from "react";
 
 export const siteConfig = {
@@ -20,5 +20,6 @@ export const navItems: {
     { icon: Persons, label: "Contacts", url: "/contacts", showInBottomNav: false },
     { icon: Gear, label: "Settings", url: "/settings" },
     { icon: Rocket, label: "Skills", url: "/skills", showInBottomNav: false },
+    { icon: Clock, label: "Tasks", url: "/tasks", showInBottomNav: false },
     { icon: FileText, label: "Logs", url: "/logs", showInBottomNav: false },
 ];
