@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using VirgoBot.Configuration;
+using VirgoBot.Utilities;
 
 namespace VirgoBot.Functions;
 
@@ -38,14 +39,14 @@ public static class SkillLoader
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SkillLoader] 加载 Skill 失败: {Path.GetFileName(file)} - {ex.Message}");
+                ColorLog.Warning("SkillLoader", $"加载 Skill 失败: {Path.GetFileName(file)} - {ex.Message}");
             }
 
             if (def != null)
                 loaded.Add(def);
         }
 
-        Console.WriteLine($"[SkillLoader] 已加载 {loaded.Count} 个外部 Skill");
+        ColorLog.Warning("SkillLoader", $"已加载 {loaded.Count} 个外部 Skill");
         return loaded;
     }
 
