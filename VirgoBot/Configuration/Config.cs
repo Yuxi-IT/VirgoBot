@@ -19,6 +19,14 @@ public class ServerConfig
     public int MaxTokens { get; set; } = AppConstants.DefaultMaxTokens;
     public int MessageLimit { get; set; } = AppConstants.DefaultMessageLimit;
     public string MessageSplitDelimiters { get; set; } = "。|！|？|?|\n\n|\n";
+    public AutoResponseConfig AutoResponse { get; set; } = new();
+}
+
+public class AutoResponseConfig
+{
+    public bool Enabled { get; set; } = false;
+    public int MinIdleMinutes { get; set; } = 30;
+    public int MaxIdleMinutes { get; set; } = 120;
 }
 
 public class ChannelConfig

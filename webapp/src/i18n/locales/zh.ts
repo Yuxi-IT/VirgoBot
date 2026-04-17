@@ -104,6 +104,11 @@ export default {
     allowedUsers: '允许的用户',
     saveSuccess: '设置保存成功',
     saveFailed: '保存设置失败',
+    autoResponse: '自动响应',
+    autoResponseEnabled: '启用自动响应',
+    autoResponseHint: '当用户空闲一段时间后，机器人会主动发送消息',
+    minIdleMinutes: '最小空闲时间（分钟）',
+    maxIdleMinutes: '最大空闲时间（分钟）',
   },
   gateway: {
     restart: '重启服务',

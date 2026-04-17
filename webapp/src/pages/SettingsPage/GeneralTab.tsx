@@ -1,4 +1,4 @@
-import { Card, Button, Spinner, TextField, Label, Input, Separator, Chip } from '@heroui/react';
+import { Card, Button, Spinner, TextField, Label, Input, Separator, Chip, Switch } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import type { ConfigData } from './types';
 
@@ -9,11 +9,17 @@ interface GeneralTabProps {
   editMaxTokens: string;
   editMessageLimit: string;
   editMessageSplitDelimiters: string;
+  editAutoResponseEnabled: boolean;
+  editAutoResponseMinIdle: string;
+  editAutoResponseMaxIdle: string;
   onEditModel: (v: string) => void;
   onEditBaseUrl: (v: string) => void;
   onEditMaxTokens: (v: string) => void;
   onEditMessageLimit: (v: string) => void;
   onEditMessageSplitDelimiters: (v: string) => void;
+  onEditAutoResponseEnabled: (v: boolean) => void;
+  onEditAutoResponseMinIdle: (v: string) => void;
+  onEditAutoResponseMaxIdle: (v: string) => void;
   saving: boolean;
   restarting: boolean;
   onSave: () => void;
@@ -22,7 +28,9 @@ interface GeneralTabProps {
 
 function GeneralTab({
   config, editModel, editBaseUrl, editMaxTokens, editMessageLimit, editMessageSplitDelimiters,
+  editAutoResponseEnabled, editAutoResponseMinIdle, editAutoResponseMaxIdle,
   onEditModel, onEditBaseUrl, onEditMaxTokens, onEditMessageLimit, onEditMessageSplitDelimiters,
+  onEditAutoResponseEnabled, onEditAutoResponseMinIdle, onEditAutoResponseMaxIdle,
   saving, restarting, onSave, onSaveAndRestart,
 }: GeneralTabProps) {
   const { t } = useI18n();
@@ -67,6 +75,31 @@ function GeneralTab({
               Use | to separate multiple delimiters. Messages will be split by these delimiters before sending.
             </p>
           </TextField>
+
+          <Separator />
+
+          <h3 className="font-semibold">{t('settings.autoResponse')}</h3>
+          <div>
+            <Label>{t('settings.autoResponseEnabled')}</Label>
+            <div className="mt-2">
+              <Switch isSelected={editAutoResponseEnabled} onChange={onEditAutoResponseEnabled} />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {t('settings.autoResponseHint')}
+            </p>
+          </div>
+          {editAutoResponseEnabled && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <TextField value={editAutoResponseMinIdle} onChange={onEditAutoResponseMinIdle}>
+                <Label>{t('settings.minIdleMinutes')}</Label>
+                <Input type="number" min="1" />
+              </TextField>
+              <TextField value={editAutoResponseMaxIdle} onChange={onEditAutoResponseMaxIdle}>
+                <Label>{t('settings.maxIdleMinutes')}</Label>
+                <Input type="number" min="1" />
+              </TextField>
+            </div>
+          )}
 
           <Separator />
 

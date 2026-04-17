@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Telegram.Bot;
+using VirgoBot.Configuration;
 using VirgoBot.Utilities;
 
 namespace VirgoBot.Services;
@@ -11,16 +12,18 @@ public class ActivityMonitor
     private readonly TelegramBotClient _bot;
     private readonly WebSocketClientManager _wsManager;
     private readonly long _userId;
+    private readonly Config _config;
     private DateTime _lastActivity = DateTime.Now;
     private Timer? _proactiveTimer;
     private readonly Random _random = new();
 
-    public ActivityMonitor(LLMService llmService, TelegramBotClient bot, WebSocketClientManager wsManager, long userId)
+    public ActivityMonitor(LLMService llmService, TelegramBotClient bot, WebSocketClientManager wsManager, long userId, Config config)
     {
         _llmService = llmService;
         _bot = bot;
         _wsManager = wsManager;
         _userId = userId;
+        _config = config;
     }
 
     public void UpdateActivity()
@@ -39,10 +42,20 @@ public class ActivityMonitor
                 try { await Task.Delay(TimeSpan.FromMinutes(1), ct); }
                 catch (OperationCanceledException) { break; }
 
-                var idle = DateTime.Now - _lastActivity;
-                if (idle.TotalMinutes >= 30 && _proactiveTimer == null)
+                if (!_config.Server.AutoResponse.Enabled)
                 {
-                    var delay = _random.Next(30, 120);
+                    continue;
+                }
+
+                var idle = DateTime.Now - _lastActivity;
+                var minIdle = _config.Server.AutoResponse.MinIdleMinutes;
+
+                if (idle.TotalMinutes >= minIdle && _proactiveTimer == null)
+                {
+                    var minDelay = _config.Server.AutoResponse.MinIdleMinutes;
+                    var maxDelay = _config.Server.AutoResponse.MaxIdleMinutes;
+                    var delay = _random.Next(minDelay, maxDelay);
+
                     ColorLog.Info("ACTIVITY", $"用户空闲 {idle.TotalMinutes:F0}分钟，将在 {delay}分钟后主动发消息");
 
                     _proactiveTimer = new Timer(async _ =>

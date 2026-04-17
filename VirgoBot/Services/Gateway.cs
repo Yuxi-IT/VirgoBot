@@ -120,7 +120,7 @@ public class Gateway : IDisposable
         {
             Bot = new TelegramBotClient(Config.Channel.Telegram.BotToken, cancellationToken: _cts.Token);
             var messageHelper = new MessageHelper(Bot, Config.Server.MessageSplitDelimiters);
-            ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0]);
+            ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0], Config);
 
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 Config.Channel.Email.Notification,

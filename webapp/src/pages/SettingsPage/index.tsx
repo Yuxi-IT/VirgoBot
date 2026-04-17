@@ -23,6 +23,9 @@ function SettingsPage() {
   const [editMaxTokens, setEditMaxTokens] = useState('');
   const [editMessageLimit, setEditMessageLimit] = useState('');
   const [editMessageSplitDelimiters, setEditMessageSplitDelimiters] = useState('');
+  const [editAutoResponseEnabled, setEditAutoResponseEnabled] = useState(false);
+  const [editAutoResponseMinIdle, setEditAutoResponseMinIdle] = useState('30');
+  const [editAutoResponseMaxIdle, setEditAutoResponseMaxIdle] = useState('120');
   const [editImapHost, setEditImapHost] = useState('');
   const [editEmailAddress, setEditEmailAddress] = useState('');
 
@@ -41,6 +44,9 @@ function SettingsPage() {
         setEditMaxTokens(String(res.data.server.maxTokens));
         setEditMessageLimit(String(res.data.server.messageLimit));
         setEditMessageSplitDelimiters(res.data.server.messageSplitDelimiters);
+        setEditAutoResponseEnabled(res.data.server.autoResponse.enabled);
+        setEditAutoResponseMinIdle(String(res.data.server.autoResponse.minIdleMinutes));
+        setEditAutoResponseMaxIdle(String(res.data.server.autoResponse.maxIdleMinutes));
         setEditImapHost(res.data.channel.email.imapHost);
         setEditEmailAddress(res.data.channel.email.address);
       }
@@ -60,6 +66,9 @@ function SettingsPage() {
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
         messageSplitDelimiters: editMessageSplitDelimiters,
+        autoResponseEnabled: editAutoResponseEnabled,
+        autoResponseMinIdle: parseInt(editAutoResponseMinIdle) || undefined,
+        autoResponseMaxIdle: parseInt(editAutoResponseMaxIdle) || undefined,
         imapHost: editImapHost,
         emailAddress: editEmailAddress,
       });
@@ -80,6 +89,9 @@ function SettingsPage() {
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
         messageSplitDelimiters: editMessageSplitDelimiters,
+        autoResponseEnabled: editAutoResponseEnabled,
+        autoResponseMinIdle: parseInt(editAutoResponseMinIdle) || undefined,
+        autoResponseMaxIdle: parseInt(editAutoResponseMaxIdle) || undefined,
         imapHost: editImapHost,
         emailAddress: editEmailAddress,
       });
@@ -139,11 +151,17 @@ function SettingsPage() {
                 editMaxTokens={editMaxTokens}
                 editMessageLimit={editMessageLimit}
                 editMessageSplitDelimiters={editMessageSplitDelimiters}
+                editAutoResponseEnabled={editAutoResponseEnabled}
+                editAutoResponseMinIdle={editAutoResponseMinIdle}
+                editAutoResponseMaxIdle={editAutoResponseMaxIdle}
                 onEditModel={setEditModel}
                 onEditBaseUrl={setEditBaseUrl}
                 onEditMaxTokens={setEditMaxTokens}
                 onEditMessageLimit={setEditMessageLimit}
                 onEditMessageSplitDelimiters={setEditMessageSplitDelimiters}
+                onEditAutoResponseEnabled={setEditAutoResponseEnabled}
+                onEditAutoResponseMinIdle={setEditAutoResponseMinIdle}
+                onEditAutoResponseMaxIdle={setEditAutoResponseMaxIdle}
                 saving={saving}
                 restarting={restarting}
                 onSave={saveConfig}

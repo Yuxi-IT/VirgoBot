@@ -104,6 +104,11 @@ export default {
     allowedUsers: 'Allowed Users',
     saveSuccess: 'Settings saved successfully',
     saveFailed: 'Failed to save settings',
+    autoResponse: 'Auto Response',
+    autoResponseEnabled: 'Enable Auto Response',
+    autoResponseHint: 'Bot will proactively send messages after user is idle for a period',
+    minIdleMinutes: 'Min Idle Minutes',
+    maxIdleMinutes: 'Max Idle Minutes',
   },
   gateway: {
     restart: 'Restart Services',

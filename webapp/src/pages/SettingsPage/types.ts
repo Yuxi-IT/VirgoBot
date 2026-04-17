@@ -7,6 +7,11 @@ export interface ConfigData {
     maxTokens: number;
     messageLimit: number;
     messageSplitDelimiters: string;
+    autoResponse: {
+      enabled: boolean;
+      minIdleMinutes: number;
+      maxIdleMinutes: number;
+    };
   };
   channel: {
     telegram: {

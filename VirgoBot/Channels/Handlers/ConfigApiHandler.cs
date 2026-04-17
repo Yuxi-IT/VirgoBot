@@ -31,7 +31,13 @@ public class ConfigApiHandler
                 listenUrl = config.Server.ListenUrl,
                 maxTokens = config.Server.MaxTokens,
                 messageLimit = config.Server.MessageLimit,
-                messageSplitDelimiters = config.Server.MessageSplitDelimiters
+                messageSplitDelimiters = config.Server.MessageSplitDelimiters,
+                autoResponse = new
+                {
+                    enabled = config.Server.AutoResponse.Enabled,
+                    minIdleMinutes = config.Server.AutoResponse.MinIdleMinutes,
+                    maxIdleMinutes = config.Server.AutoResponse.MaxIdleMinutes
+                }
             },
             channel = new
             {
@@ -90,6 +96,9 @@ public class ConfigApiHandler
             if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;
             if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
             if (!string.IsNullOrWhiteSpace(body.MessageSplitDelimiters)) config.Server.MessageSplitDelimiters = body.MessageSplitDelimiters;
+            if (body.AutoResponseEnabled.HasValue) config.Server.AutoResponse.Enabled = body.AutoResponseEnabled.Value;
+            if (body.AutoResponseMinIdle.HasValue) config.Server.AutoResponse.MinIdleMinutes = body.AutoResponseMinIdle.Value;
+            if (body.AutoResponseMaxIdle.HasValue) config.Server.AutoResponse.MaxIdleMinutes = body.AutoResponseMaxIdle.Value;
             if (!string.IsNullOrWhiteSpace(body.ImapHost)) config.Channel.Email.ImapHost = body.ImapHost;
             if (!string.IsNullOrWhiteSpace(body.EmailAddress)) config.Channel.Email.Address = body.EmailAddress;
             if (!string.IsNullOrWhiteSpace(body.MemoryFile)) config.MemoryFile = body.MemoryFile;
@@ -189,6 +198,9 @@ public record ConfigUpdateRequest
     public int? MaxTokens { get; init; }
     public int? MessageLimit { get; init; }
     public string? MessageSplitDelimiters { get; init; }
+    public bool? AutoResponseEnabled { get; init; }
+    public int? AutoResponseMinIdle { get; init; }
+    public int? AutoResponseMaxIdle { get; init; }
     public string? ImapHost { get; init; }
     public string? EmailAddress { get; init; }
     public string? MemoryFile { get; init; }
