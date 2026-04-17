@@ -18,8 +18,8 @@ export const navItems: {
     { icon: CirclesIntersection, label: "Memory", url: "/memory" },
     { icon: ArrowShapeTurnUpRight, label: "Channel", url: "/channel", showInBottomNav: false },
     { icon: Persons, label: "Contacts", url: "/contacts", showInBottomNav: false },
-    { icon: Gear, label: "Settings", url: "/settings" },
     { icon: Rocket, label: "Skills", url: "/skills", showInBottomNav: false },
     { icon: Clock, label: "Tasks", url: "/tasks", showInBottomNav: false },
     { icon: FileText, label: "Logs", url: "/logs", showInBottomNav: false },
+    { icon: Gear, label: "Settings", url: "/settings" },
 ];

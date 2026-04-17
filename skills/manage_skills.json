@@ -1,0 +1,26 @@
+{
+  "name": "manage_skills",
+  "description": "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容，需要skill_name参数)、create(创建新skill，需要skill_name和skill_content参数)、update(更新skill，需要skill_name和skill_content参数)、delete(删除skill，需要skill_name参数)。skill_content 必须是完整的 JSON 字符串，包含 name、description、mode、parameters、command 或 http 等字段。",
+  "mode": "command",
+  "parameters": [
+    {
+      "name": "action",
+      "type": "string",
+      "description": "操作类型：list、get、create、update、delete",
+      "required": true
+    },
+    {
+      "name": "skill_name",
+      "type": "string",
+      "description": "skill 文件名(不含.json后缀)，用于 get/create/update/delete 操作",
+      "required": false
+    },
+    {
+      "name": "skill_content",
+      "type": "string",
+      "description": "完整的 skill JSON 内容，用于 create 和 update 操作",
+      "required": false
+    }
+  ],
+  "command": "echo 'Skill management function executed'"
+}
