@@ -19,8 +19,8 @@ public class FunctionRegistry
         RegisterAll(SystemFunctions.Register());
         RegisterAll(ShellFunctions.Register());
         RegisterAll(FileFunctions.Register());
-        RegisterAll(DouyinFunctions.Register());
         RegisterAll(SoulFunctions.Register(memoryService));
+        RegisterAll(SkillManagementFunctions.Register());
         RegisterAll(SkillLoader.LoadAll());
     }
 
