@@ -27,6 +27,8 @@ public class HttpServerHost
     private readonly ChannelApiHandler _channelApiHandler;
     private readonly SessionApiHandler _sessionApiHandler;
     private readonly StatusApiHandler _statusApiHandler;
+    private readonly ScheduledTaskApiHandler _taskApiHandler;
+    private readonly ScheduledTaskService _taskService;
 
     private static readonly DateTime StartTime = DateTime.UtcNow;
 
@@ -41,7 +43,7 @@ public class HttpServerHost
         _memoryService = memoryService;
         _logService = logService;
         _iLinkLoginService = new ILinkLoginService();
-
+        _taskService = new ScheduledTaskService();
 
         _contactApiHandler = new ContactApiHandler(gateway);
         _configApiHandler = new ConfigApiHandler(gateway, memoryService);
@@ -50,6 +52,7 @@ public class HttpServerHost
         _channelApiHandler = new ChannelApiHandler(gateway, _iLinkLoginService);
         _sessionApiHandler = new SessionApiHandler(gateway, memoryService);
         _statusApiHandler = new StatusApiHandler(gateway, memoryService, logService, wsManager);
+        _taskApiHandler = new ScheduledTaskApiHandler(_taskService);
     }
 
     public async Task StartAsync()
@@ -180,6 +183,30 @@ public class HttpServerHost
                     else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "DELETE")
                     {
                         await _skillApiHandler.HandleDeleteSkillRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/tasks" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await _taskApiHandler.HandleGetTasksRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/tasks" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _taskApiHandler.HandleCreateTaskRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.Url?.AbsolutePath.EndsWith("/toggle") == true && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _taskApiHandler.HandleToggleTaskRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.HttpMethod == "GET")
+                    {
+                        await _taskApiHandler.HandleGetTaskRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await _taskApiHandler.HandleUpdateTaskRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.HttpMethod == "DELETE")
+                    {
+                        await _taskApiHandler.HandleDeleteTaskRequest(ctx);
                     }
                     else if (ctx.Request.Url?.AbsolutePath == "/api/gateway/restart" && ctx.Request.HttpMethod == "POST")
                     {
