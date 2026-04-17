@@ -60,6 +60,12 @@ public static class SkillLoader
         var description = root.GetProperty("description").GetString()
             ?? throw new InvalidOperationException("Skill 缺少 description 字段");
 
+        // Special handling for manage_skills
+        if (name == "manage_skills")
+        {
+            return CreateManageSkillsFunction(name, description, root);
+        }
+
         var mode = root.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
 
         var parameters = new List<SkillParameter>();
@@ -324,6 +330,81 @@ public static class SkillLoader
 
         var httpJson = JsonSerializer.Serialize(httpExample, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(dir, "_example_http.json"), httpJson);
+    }
+
+    private static FunctionDefinition CreateManageSkillsFunction(string name, string description, JsonElement root)
+    {
+        var parameters = new List<SkillParameter>();
+        if (root.TryGetProperty("parameters", out var paramsElement))
+        {
+            foreach (var param in paramsElement.EnumerateArray())
+            {
+                parameters.Add(new SkillParameter
+                {
+                    Name = param.GetProperty("name").GetString() ?? "",
+                    Type = param.TryGetProperty("type", out var t) ? t.GetString() ?? "string" : "string",
+                    Description = param.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "",
+                    Required = param.TryGetProperty("required", out var r) && r.GetBoolean()
+                });
+            }
+        }
+
+        var inputSchema = BuildInputSchema(parameters);
+
+        return new FunctionDefinition(name, description, inputSchema, async input =>
+        {
+            try
+            {
+                var action = input.TryGetProperty("action", out var a) ? a.GetString() ?? "list" : "list";
+                var skillName = input.TryGetProperty("skill_name", out var sn) ? sn.GetString() ?? "" : "";
+                var skillContent = input.TryGetProperty("skill_content", out var sc) ? sc.GetString() ?? "" : "";
+
+                var baseUrl = "http://localhost:5000/api/skills";
+
+                return action.ToLower() switch
+                {
+                    "list" => await ExecuteManageSkillsHttp("GET", baseUrl, null),
+                    "get" => await ExecuteManageSkillsHttp("GET", $"{baseUrl}/{skillName}", null),
+                    "create" => await ExecuteManageSkillsHttp("POST", baseUrl,
+                        JsonSerializer.Serialize(new { name = skillName, content = skillContent })),
+                    "update" => await ExecuteManageSkillsHttp("PUT", $"{baseUrl}/{skillName}",
+                        JsonSerializer.Serialize(new { name = skillName, content = skillContent })),
+                    "delete" => await ExecuteManageSkillsHttp("DELETE", $"{baseUrl}/{skillName}", null),
+                    _ => "无效的操作类型，支持: list, get, create, update, delete"
+                };
+            }
+            catch (Exception ex)
+            {
+                return $"执行失败: {ex.Message}";
+            }
+        });
+    }
+
+    private static async Task<string> ExecuteManageSkillsHttp(string method, string url, string? body)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(new HttpMethod(method), url);
+
+            if (!string.IsNullOrEmpty(body))
+            {
+                request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            }
+
+            var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return $"HTTP {(int)response.StatusCode}: {content}";
+            }
+
+            return content;
+        }
+        catch (Exception ex)
+        {
+            return $"请求失败: {ex.Message}";
+        }
     }
 
     private class SkillParameter
