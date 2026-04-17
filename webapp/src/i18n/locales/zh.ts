@@ -5,9 +5,9 @@ export default {
     contacts: '联系人',
     settings: '设置',
     logs: '日志',
-    skills: 'Skills',
+    skills: '技能',
     tasks: '定时任务',
-    agent: '智能体',
+    agent: '设定',
     memory: '记忆',
     channel: '频道',
     notFound: '404'

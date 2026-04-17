@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Label } from '@heroui/react';
-import { MenuList } from '../components/MenuList';
 import { navItems, siteConfig } from '../config/site';
 import { useI18n } from '../i18n';
 import { Globe } from '@gravity-ui/icons';
@@ -79,7 +78,6 @@ function Sidebar({ isSmallScreen = false, isOpen = false, onClose }: SidebarProp
               </Dropdown.Popover>
             </Dropdown>
 
-            <MenuList />
           </div>
         </div>
       </aside>

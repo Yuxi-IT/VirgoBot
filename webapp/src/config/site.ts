@@ -13,11 +13,11 @@ export const navItems: {
     showInBottomNav?: boolean;
 }[] = [
     { icon: LayoutList, label: "Dashboard", url: "/" },
+    { icon: Persons, label: "Contacts", url: "/contacts", showInBottomNav: false },
     { icon: Comment, label: "Chat", url: "/chat" },
     { icon: PersonWorker, label: "Agent", url: "/agent", showInBottomNav: false },
     { icon: CirclesIntersection, label: "Memory", url: "/memory" },
     { icon: ArrowShapeTurnUpRight, label: "Channel", url: "/channel", showInBottomNav: false },
-    { icon: Persons, label: "Contacts", url: "/contacts", showInBottomNav: false },
     { icon: Rocket, label: "Skills", url: "/skills", showInBottomNav: false },
     { icon: Clock, label: "Tasks", url: "/tasks", showInBottomNav: false },
     { icon: FileText, label: "Logs", url: "/logs", showInBottomNav: false },

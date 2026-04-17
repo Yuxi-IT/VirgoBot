@@ -4,6 +4,7 @@ import Navbar from './layout/Navbar';
 import AppRoutes from './routes';
 import { siteConfig } from './config/site';
 import { Bars } from '@gravity-ui/icons';
+import { Button } from '@heroui/react';
 
 export function setTitle(title: string){
   document.title = siteConfig.name + (title ? ` - ${title}` : '');
@@ -32,12 +33,13 @@ const Navigation = () => {
 
       {/* Mobile hamburger button */}
       {isSmallScreen && (
-        <button
-          className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md"
+        <Button
+          className={`fixed top-4 left-4 z-50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md ${sidebarOpen ? 'hidden' : ''}`}
           onClick={() => setSidebarOpen(true)}
+          isIconOnly
         >
-          <Bars className="w-5 h-5" />
-        </button>
+          <Bars className="w-5 h-5 text-gray-900 dark:text-gray-100" />
+        </Button>
       )}
 
       {/* Mobile overlay */}

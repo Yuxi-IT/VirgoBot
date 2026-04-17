@@ -76,7 +76,7 @@ export function BottomNav({ defaultActive, onItemClick }: BottomNavProps) {
   const shouldHide = currentItem?.label == null || currentItem?.showBottomNav === false;
 
   return (
-    <div className={`fixed bottom-[35px] left-[20px] right-[20px] px-1 scale-105 z-50 sm:hidden ${shouldHide ? 'hidden' : ''}`}>
+    <div className={`fixed bottom-[35px] left-[20px] right-[20px] px-1 scale-105 z-30 sm:hidden ${shouldHide ? 'hidden' : ''}`}>
 
       <div className="relative bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm rounded-[35px] shadow-lg">
         
