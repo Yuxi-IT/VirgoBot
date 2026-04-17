@@ -7,7 +7,7 @@ public static class SkillManagementFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串，包含 name、description、mode、parameters、command 或 http 等字段。", new
+        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串，包含 name、description、mode、parameters、command 或 http 等字段。标准格式：{\r\n  \"name\": \"example_skill\",\r\n  \"description\": \"\\u8FD9\\u662F\\u4E00\\u4E2A\\u793A\\u4F8B Skill\\uFF0C\\u4EE5\\u4E0B\\u5212\\u7EBF\\u5F00\\u5934\\u7684\\u6587\\u4EF6\\u4E0D\\u4F1A\\u88AB\\u52A0\\u8F7D\",\r\n  \"parameters\": [\r\n    {\r\n      \"name\": \"arg1\",\r\n      \"type\": \"string\",\r\n      \"description\": \"\\u53C2\\u65701\",\r\n      \"required\": true\r\n    },\r\n    {\r\n      \"name\": \"arg2\",\r\n      \"type\": \"string\",\r\n      \"description\": \"\\u53C2\\u65702(\\u53EF\\u9009)\",\r\n      \"required\": false\r\n    }\r\n  ],\r\n  \"command\": \"echo {{arg1}} {{arg2}}\"\r\n}", new
         {
             type = "object",
             properties = new
