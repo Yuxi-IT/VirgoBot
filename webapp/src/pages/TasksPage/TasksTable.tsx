@@ -1,4 +1,4 @@
-import { Table, TextField, Input, Badge, Button, Spinner } from '@heroui/react';
+import { Table, Badge, Button, Spinner, Card, SearchField } from '@heroui/react';
 import { Pencil, TrashBin } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import type { ScheduledTask } from './types';
@@ -39,87 +39,95 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
   };
 
   return (
-    <div className="space-y-4">
-      <TextField>
-        <Input
-          placeholder={t('common.search')}
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-        />
-      </TextField>
+    <>
+      <div className="mb-4">
+        <SearchField value={searchQuery} onChange={onSearchChange}>
+          <SearchField.Group>
+            <SearchField.SearchIcon />
+            <SearchField.Input placeholder={t('common.search')} />
+            <SearchField.ClearButton />
+          </SearchField.Group>
+        </SearchField>
+      </div>
 
-      {loading ? (
-        <div className="flex justify-center py-8">
-          <Spinner size="lg" />
-        </div>
-      ) : (
-        <Table>
-          <Table.Header>
-            <Table.Column>{t('tasks.name')}</Table.Column>
-            <Table.Column>{t('tasks.type')}</Table.Column>
-            <Table.Column>{t('tasks.schedule')}</Table.Column>
-            <Table.Column>{t('tasks.lastRun')}</Table.Column>
-            <Table.Column>{t('tasks.nextRun')}</Table.Column>
-            <Table.Column>{t('tasks.status')}</Table.Column>
-            <Table.Column>{t('common.actions')}</Table.Column>
-          </Table.Header>
-          <Table.Body>
-            {filteredTasks.length === 0 ? (
-              <Table.Row>
-                <Table.Cell colSpan={7} className="text-center py-8 text-gray-500">
-                  {t('common.noData')}
-                </Table.Cell>
-              </Table.Row>
-            ) : (
-              filteredTasks.map((task) => (
-                <Table.Row key={task.id}>
-                  <Table.Cell>
-                    <div>
-                      <div className="font-medium">{task.name}</div>
-                      <div className="text-sm text-gray-500">{task.description}</div>
-                    </div>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Badge variant={task.taskType === 'http' ? 'primary' : 'secondary'}>
-                      {task.taskType.toUpperCase()}
-                    </Badge>
-                  </Table.Cell>
-                  <Table.Cell>{getScheduleText(task)}</Table.Cell>
-                  <Table.Cell className="text-sm">{formatTime(task.lastRunTime)}</Table.Cell>
-                  <Table.Cell className="text-sm">{formatTime(task.nextRunTime)}</Table.Cell>
-                  <Table.Cell>
-                    <Switch
-                      isSelected={task.enabled}
-                      onChange={() => onToggle(task)}
-                    />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        isIconOnly
-                        onPress={() => onEdit(task)}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        isIconOnly
-                        onPress={() => onDelete(task)}
-                      >
-                        <TrashBin />
-                      </Button>
-                    </div>
-                  </Table.Cell>
-                </Table.Row>
-              ))
-            )}
-          </Table.Body>
-        </Table>
-      )}
-    </div>
+      <Card>
+        <Card.Content>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Spinner size="lg" />
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <p className="text-center py-8 text-gray-500">{t('common.noData')}</p>
+          ) : (
+            <Table>
+              <Table.ScrollContainer>
+                <Table.Content aria-label="Tasks">
+                  <Table.Header>
+                    <Table.Column>{t('tasks.name')}</Table.Column>
+                    <Table.Column>{t('tasks.type')}</Table.Column>
+                    <Table.Column>{t('tasks.schedule')}</Table.Column>
+                    <Table.Column>{t('tasks.lastRun')}</Table.Column>
+                    <Table.Column>{t('tasks.nextRun')}</Table.Column>
+                    <Table.Column>{t('tasks.status')}</Table.Column>
+                    <Table.Column>{t('common.actions')}</Table.Column>
+                  </Table.Header>
+                  <Table.Body>
+                    {filteredTasks.map((task) => (
+                      <Table.Row key={task.id}>
+                        <Table.Cell>
+                          <div>
+                            <div className="font-medium">{task.name}</div>
+                            <div className="text-sm text-gray-500">{task.description}</div>
+                          </div>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Badge variant={
+                            task.taskType === 'http' ? 'primary' :
+                            task.taskType === 'shell' ? 'secondary' :
+                            'soft'
+                          }>
+                            {task.taskType.toUpperCase()}
+                          </Badge>
+                        </Table.Cell>
+                        <Table.Cell>{getScheduleText(task)}</Table.Cell>
+                        <Table.Cell className="text-sm">{formatTime(task.lastRunTime)}</Table.Cell>
+                        <Table.Cell className="text-sm">{formatTime(task.nextRunTime)}</Table.Cell>
+                        <Table.Cell>
+                          <Switch
+                            isSelected={task.enabled}
+                            onChange={() => onToggle(task)}
+                          />
+                        </Table.Cell>
+                        <Table.Cell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              isIconOnly
+                              onPress={() => onEdit(task)}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              isIconOnly
+                              onPress={() => onDelete(task)}
+                            >
+                              <TrashBin />
+                            </Button>
+                          </div>
+                        </Table.Cell>
+                      </Table.Row>
+                    ))}
+                  </Table.Body>
+                </Table.Content>
+              </Table.ScrollContainer>
+            </Table>
+          )}
+        </Card.Content>
+      </Card>
+    </>
   );
 }
 

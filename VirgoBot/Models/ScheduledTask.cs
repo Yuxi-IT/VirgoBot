@@ -17,7 +17,7 @@ public class ScheduledTask
     public bool Enabled { get; set; } = true;
 
     [JsonPropertyName("taskType")]
-    public string TaskType { get; set; } = "http"; // "http" or "shell"
+    public string TaskType { get; set; } = "http"; // "http", "shell", or "text"
 
     [JsonPropertyName("scheduleType")]
     public string ScheduleType { get; set; } = "interval"; // "interval" or "cron" or "daily"
@@ -48,6 +48,9 @@ public class ScheduledTask
 
     [JsonPropertyName("shellCommand")]
     public string ShellCommand { get; set; } = "";
+
+    [JsonPropertyName("textInstruction")]
+    public string TextInstruction { get; set; } = "";
 
     [JsonPropertyName("lastRunTime")]
     public DateTime? LastRunTime { get; set; }

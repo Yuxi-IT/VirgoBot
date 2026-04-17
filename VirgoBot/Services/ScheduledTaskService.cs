@@ -15,9 +15,11 @@ public class ScheduledTaskService
     private readonly Dictionary<string, Timer> _timers = new();
     private readonly HttpClient _httpClient = new();
     private readonly object _lock = new();
+    private readonly LLMService? _llmService;
 
-    public ScheduledTaskService()
+    public ScheduledTaskService(LLMService? llmService = null)
     {
+        _llmService = llmService;
         var configDir = AppConstants.ConfigDirectory;
         Directory.CreateDirectory(configDir);
         _tasksFilePath = Path.Combine(configDir, TasksFileName);
@@ -242,6 +244,10 @@ public class ScheduledTaskService
             {
                 await ExecuteShellTask(task);
             }
+            else if (task.TaskType == "text")
+            {
+                await ExecuteTextTask(task);
+            }
 
             ColorLog.Success("TASK", $"定时任务执行成功: {task.Name}");
         }
@@ -303,6 +309,33 @@ public class ScheduledTaskService
 
         if (!string.IsNullOrWhiteSpace(error))
             ColorLog.Error("TASK", $"Shell 错误: {error.Substring(0, Math.Min(200, error.Length))}");
+    }
+
+    private async Task ExecuteTextTask(ScheduledTask task)
+    {
+        if (_llmService == null)
+        {
+            ColorLog.Error("TASK", "LLMService 未初始化，无法执行文本指令任务");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(task.TextInstruction))
+        {
+            ColorLog.Error("TASK", "文本指令为空");
+            return;
+        }
+
+        ColorLog.Info("TASK", $"执行文本指令: {task.TextInstruction}");
+
+        try
+        {
+            var response = await _llmService.AskAsync(0, task.TextInstruction);
+            ColorLog.Success("TASK", $"AI 响应: {response.Substring(0, Math.Min(200, response.Length))}");
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("TASK", $"执行文本指令失败: {ex.Message}");
+        }
     }
 
     public void Dispose()

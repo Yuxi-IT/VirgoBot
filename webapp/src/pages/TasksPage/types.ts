@@ -3,7 +3,7 @@ export interface ScheduledTask {
   name: string;
   description: string;
   enabled: boolean;
-  taskType: 'http' | 'shell';
+  taskType: 'http' | 'shell' | 'text';
   scheduleType: 'interval' | 'daily' | 'cron';
   intervalMinutes: number;
   dailyTime: string;
@@ -14,6 +14,7 @@ export interface ScheduledTask {
   httpHeaders: Record<string, string>;
   httpBody: string;
   shellCommand: string;
+  textInstruction: string;
   lastRunTime?: string;
   nextRunTime?: string;
   createdAt: string;

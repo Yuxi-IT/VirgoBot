@@ -20,7 +20,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formEnabled, setFormEnabled] = useState(true);
-  const [formTaskType, setFormTaskType] = useState<'http' | 'shell'>('http');
+  const [formTaskType, setFormTaskType] = useState<'http' | 'shell' | 'text'>('http');
   const [formScheduleType, setFormScheduleType] = useState<'interval' | 'daily'>('interval');
   const [formIntervalMinutes, setFormIntervalMinutes] = useState(60);
   const [formDailyTime, setFormDailyTime] = useState('09:00');
@@ -30,6 +30,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
   const [formHttpHeadersText, setFormHttpHeadersText] = useState('');
   const [formHttpBody, setFormHttpBody] = useState('');
   const [formShellCommand, setFormShellCommand] = useState('');
+  const [formTextInstruction, setFormTextInstruction] = useState('');
 
   useEffect(() => {
     if (isOpen && editingTask) {
@@ -53,6 +54,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormHttpHeadersText('');
     setFormHttpBody('');
     setFormShellCommand('');
+    setFormTextInstruction('');
   };
 
   const loadTaskData = (task: ScheduledTask) => {
@@ -68,6 +70,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormHttpUrl(task.httpUrl);
     setFormHttpBody(task.httpBody);
     setFormShellCommand(task.shellCommand);
+    setFormTextInstruction(task.textInstruction || '');
 
     const headersText = task.httpHeaders
       ? Object.entries(task.httpHeaders).map(([key, value]) => `${key}: ${value}`).join('\n')
@@ -96,6 +99,11 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
       return;
     }
 
+    if (formTaskType === 'text' && !formTextInstruction.trim()) {
+      toast.danger(t('tasks.textInstructionRequired'));
+      return;
+    }
+
     const headers: Record<string, string> = {};
     if (formHttpHeadersText.trim()) {
       formHttpHeadersText.split('\n').forEach(line => {
@@ -121,6 +129,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
       httpHeaders: headers,
       httpBody: formHttpBody,
       shellCommand: formShellCommand,
+      textInstruction: formTextInstruction,
     };
 
     try {
@@ -198,6 +207,13 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                       onPress={() => setFormTaskType('shell')}
                     >
                       {t('tasks.shell')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={formTaskType === 'text' ? 'primary' : 'secondary'}
+                      onPress={() => setFormTaskType('text')}
+                    >
+                      {t('tasks.text')}
                     </Button>
                   </div>
                 </div>
@@ -289,6 +305,18 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                       placeholder={t('tasks.commandPlaceholder')}
                       rows={4}
                       className="font-mono"
+                    />
+                  </TextField>
+                )}
+
+                {formTaskType === 'text' && (
+                  <TextField value={formTextInstruction} onChange={setFormTextInstruction}>
+                    <Label>{t('tasks.textInstruction')}</Label>
+                    <TextArea
+                      value={formTextInstruction}
+                      onChange={(e) => setFormTextInstruction(e.target.value)}
+                      placeholder={t('tasks.textInstructionPlaceholder')}
+                      rows={4}
                     />
                   </TextField>
                 )}
