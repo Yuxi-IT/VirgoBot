@@ -172,6 +172,12 @@ export default {
     headerValue: 'Header Value',
     urlRequired: 'URL is required',
     commandRequired: 'Command is required',
+    importFromFile: 'Import from File',
+    importFromUrl: 'Import from URL',
+    skillUrl: 'Skill URL',
+    importing: 'Importing...',
+    importSuccess: 'Skill imported successfully',
+    importFailed: 'Failed to import skill',
   },
   agent: {
     title: 'Agent Management',

@@ -172,6 +172,12 @@ export default {
     headerValue: '请求头值',
     urlRequired: 'URL 不能为空',
     commandRequired: '命令不能为空',
+    importFromFile: '从文件导入',
+    importFromUrl: '从网络导入',
+    skillUrl: '技能 URL',
+    importing: '导入中...',
+    importSuccess: '技能导入成功',
+    importFailed: '技能导入失败',
   },
   agent: {
     title: '智能体管理',
