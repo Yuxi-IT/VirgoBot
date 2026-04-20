@@ -129,7 +129,7 @@ public class MemoryService : IDisposable
 
             try
             {
-                using var conn = new SqliteConnection($"Data Source={file};Cache=Shared;Mode=ReadOnly");
+                using var conn = new SqliteConnection($"Data Source={file};Mode=ReadOnly");
                 conn.Open();
 
                 using var msgCmd = conn.CreateCommand();

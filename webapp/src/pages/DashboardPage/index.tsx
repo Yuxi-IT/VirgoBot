@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Spinner, Alert, Button, Modal, Card, Link, CloseButton } from '@heroui/react';
+import { Spinner, Alert, Button, Modal, Card, Link } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';

@@ -35,6 +35,23 @@ public class SkillApiHandler
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
 
+                // 多子模块 Skill
+                if (root.TryGetProperty("subSkills", out var subSkillsEl) && subSkillsEl.ValueKind == JsonValueKind.Array)
+                {
+                    skills.Add(new
+                    {
+                        fileName,
+                        name = root.GetProperty("name").GetString() ?? "",
+                        description = root.GetProperty("description").GetString() ?? "",
+                        command = "",
+                        mode = "multi",
+                        parameterCount = 0,
+                        skillType = "json",
+                        subSkillCount = subSkillsEl.GetArrayLength()
+                    });
+                    continue;
+                }
+
                 var mode = root.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
 
                 string command;
@@ -57,7 +74,8 @@ public class SkillApiHandler
                     command,
                     mode,
                     parameterCount = root.TryGetProperty("parameters", out var p) ? p.GetArrayLength() : 0,
-                    skillType = "json"
+                    skillType = "json",
+                    subSkillCount = 0
                 });
             }
             catch
@@ -86,7 +104,8 @@ public class SkillApiHandler
                     command = "",
                     mode = "skill.md",
                     parameterCount = 0,
-                    skillType = "skill.md"
+                    skillType = "skill.md",
+                    subSkillCount = 0
                 });
             }
             catch
@@ -388,7 +407,7 @@ public class SkillApiHandler
 
             foreach (var entry in archive.Entries)
             {
-                if (entry.Length == 0 && entry.FullName.EndsWith("/")) continue; // 跳过目录条目
+                if (entry.Length == 0 && entry.FullName.EndsWith("/")) continue;
 
                 var entryPath = entry.FullName.Replace('\\', '/');
 

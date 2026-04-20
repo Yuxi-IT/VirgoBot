@@ -68,16 +68,20 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                         <Table.Cell>
                           <Chip
                             size="sm"
-                            color={skill.mode === 'http' ? 'accent' : skill.mode === 'skill.md' ? 'success' : 'default'}
+                            color={skill.mode === 'http' ? 'accent' : skill.mode === 'skill.md' ? 'success' : skill.mode === 'multi' ? 'warning' : 'default'}
                             variant="soft"
                           >
-                            {skill.mode === 'http' ? 'HTTP' : skill.mode === 'skill.md' ? 'SKILL.md' : 'Command'}
+                            {skill.mode === 'http' ? 'HTTP' : skill.mode === 'skill.md' ? 'SKILL.md' : skill.mode === 'multi' ? 'Multi' : 'Command'}
                           </Chip>
                         </Table.Cell>
                         <Table.Cell>
                           {skill.mode === 'skill.md' ? (
                             <Chip size="sm" variant="soft" color="success">
                               <span className="font-mono text-xs">OpenClaw</span>
+                            </Chip>
+                          ) : skill.mode === 'multi' ? (
+                            <Chip size="sm" variant="soft" color="warning">
+                              <span className="font-mono text-xs">{skill.subSkillCount} 个子功能</span>
                             </Chip>
                           ) : (
                             <Chip size="sm" variant="soft">
@@ -86,7 +90,9 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                           )}
                         </Table.Cell>
                         <Table.Cell>
-                          <Chip size="sm" color="accent">{skill.parameterCount}</Chip>
+                          <Chip size="sm" color="accent">
+                            {skill.mode === 'multi' ? skill.subSkillCount ?? 0 : skill.parameterCount}
+                          </Chip>
                         </Table.Cell>
                         <Table.Cell>
                           <div className="flex gap-2">

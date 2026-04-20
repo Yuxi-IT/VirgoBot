@@ -18,6 +18,7 @@ export interface SkillInfo {
   mode: string;
   parameterCount: number;
   skillType?: string;
+  subSkillCount?: number;
 }
 
 export interface SkillsResponse {
@@ -40,6 +41,15 @@ export interface SkillParam {
   required: boolean;
 }
 
+export interface SubSkillJson {
+  name: string;
+  description: string;
+  parameters: SkillParam[];
+  command?: string;
+  mode?: string;
+  http?: SkillHttpConfig;
+}
+
 export interface SkillJson {
   name: string;
   description: string;
@@ -47,4 +57,5 @@ export interface SkillJson {
   command?: string;
   mode?: string;
   http?: SkillHttpConfig;
+  subSkills?: SubSkillJson[];
 }

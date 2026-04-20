@@ -33,8 +33,8 @@ public static class SkillLoader
 
             try
             {
-                var def = ParseSkillFile(file);
-                if (def != null) loaded.Add(def);
+                var defs = ParseSkillFile(file);
+                loaded.AddRange(defs);
             }
             catch (Exception ex)
             {
@@ -96,7 +96,7 @@ public static class SkillLoader
         });
     }
 
-    private static FunctionDefinition ParseSkillFile(string filePath)
+    private static IEnumerable<FunctionDefinition> ParseSkillFile(string filePath)
     {
         var json = File.ReadAllText(filePath);
         using var doc = JsonDocument.Parse(json);
@@ -107,10 +107,37 @@ public static class SkillLoader
         var description = root.GetProperty("description").GetString()
             ?? throw new InvalidOperationException("Skill 缺少 description 字段");
 
-        var mode = root.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
+        // 如果有 subSkills，展开为多个 FunctionDefinition
+        if (root.TryGetProperty("subSkills", out var subSkillsEl) && subSkillsEl.ValueKind == JsonValueKind.Array)
+        {
+            var defs = new List<FunctionDefinition>();
+            foreach (var subSkill in subSkillsEl.EnumerateArray())
+            {
+                var def = ParseSkillNode(subSkill, name);
+                if (def != null) defs.Add(def);
+            }
+            return defs;
+        }
+
+        // 单功能 Skill（向后兼容）
+        var single = ParseSkillNode(root, null);
+        return single != null ? [single] : [];
+    }
+
+    private static FunctionDefinition? ParseSkillNode(JsonElement node, string? parentName)
+    {
+        var rawName = node.GetProperty("name").GetString()
+            ?? throw new InvalidOperationException("Skill 缺少 name 字段");
+        var description = node.GetProperty("description").GetString()
+            ?? throw new InvalidOperationException("Skill 缺少 description 字段");
+
+        // 子模块名称加上父级前缀，如 office_word_read
+        var name = parentName != null ? $"{parentName}_{rawName}" : rawName;
+
+        var mode = node.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
 
         var parameters = new List<SkillParameter>();
-        if (root.TryGetProperty("parameters", out var paramsElement))
+        if (node.TryGetProperty("parameters", out var paramsElement))
         {
             foreach (var param in paramsElement.EnumerateArray())
             {
@@ -128,7 +155,7 @@ public static class SkillLoader
 
         if (mode == "http")
         {
-            var httpEl = root.GetProperty("http");
+            var httpEl = node.GetProperty("http");
             var method = httpEl.GetProperty("method").GetString() ?? "GET";
             var urlTemplate = httpEl.GetProperty("url").GetString() ?? "";
 
@@ -136,27 +163,22 @@ public static class SkillLoader
             if (httpEl.TryGetProperty("headers", out var headersEl) && headersEl.ValueKind == JsonValueKind.Object)
             {
                 foreach (var h in headersEl.EnumerateObject())
-                {
                     headerTemplates[h.Name] = h.Value.GetString() ?? "";
-                }
             }
 
             var bodyTemplate = httpEl.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
 
             return new FunctionDefinition(name, description, inputSchema, async input =>
-            {
-                return await ExecuteHttpAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input);
-            });
+                await ExecuteHttpAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input));
         }
         else
         {
-            var command = root.GetProperty("command").GetString()
+            var command = node.GetProperty("command").GetString()
                 ?? throw new InvalidOperationException("Skill 缺少 command 字段");
-            var commandTemplate = command;
 
             return new FunctionDefinition(name, description, inputSchema, input =>
             {
-                var resolvedCommand = ResolveCommand(commandTemplate, parameters, input);
+                var resolvedCommand = ResolveCommand(command, parameters, input);
                 return Task.FromResult(ExecuteShell(resolvedCommand));
             });
         }
@@ -371,6 +393,33 @@ public static class SkillLoader
 
         var httpJson = JsonSerializer.Serialize(httpExample, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(dir, "_example_http.json"), httpJson);
+
+        // 多子模块示例
+        var multiExample = new
+        {
+            name = "example_multi",
+            description = "这是一个包含多个子功能的示例 Skill，子功能会注册为 example_multi_子功能名",
+            subSkills = new object[]
+            {
+                new
+                {
+                    name = "hello",
+                    description = "打招呼",
+                    parameters = new[] { new { name = "name", type = "string", description = "名字", required = true } },
+                    command = "echo Hello, {{name}}!"
+                },
+                new
+                {
+                    name = "time",
+                    description = "获取当前时间",
+                    parameters = Array.Empty<object>(),
+                    command = "date"
+                }
+            }
+        };
+
+        var multiJson = JsonSerializer.Serialize(multiExample, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(Path.Combine(dir, "_example_multi.json"), multiJson);
     }
 
     private class SkillParameter

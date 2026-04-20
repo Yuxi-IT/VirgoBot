@@ -7,7 +7,7 @@ public static class SkillManagementFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串，包含 name、description、mode、parameters、command 或 http 等字段。标准格式：{\r\n  \"name\": \"example_skill\",\r\n  \"description\": \"\\u8FD9\\u662F\\u4E00\\u4E2A\\u793A\\u4F8B Skill\\uFF0C\\u4EE5\\u4E0B\\u5212\\u7EBF\\u5F00\\u5934\\u7684\\u6587\\u4EF6\\u4E0D\\u4F1A\\u88AB\\u52A0\\u8F7D\",\r\n  \"parameters\": [\r\n    {\r\n      \"name\": \"arg1\",\r\n      \"type\": \"string\",\r\n      \"description\": \"\\u53C2\\u65701\",\r\n      \"required\": true\r\n    },\r\n    {\r\n      \"name\": \"arg2\",\r\n      \"type\": \"string\",\r\n      \"description\": \"\\u53C2\\u65702(\\u53EF\\u9009)\",\r\n      \"required\": false\r\n    }\r\n  ],\r\n  \"command\": \"echo {{arg1}} {{arg2}}\"\r\n}", new
+        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串。支持两种格式：1) 单功能 skill，包含 name、description、parameters、command 或 http 字段；2) 多子功能 skill，包含 name、description 和 subSkills 数组，每个子功能有独立的 name、description、parameters、command 或 http，子功能注册时名称为 父名_子名，如 office_word_read。", new
         {
             type = "object",
             properties = new
@@ -60,13 +60,32 @@ public static class SkillManagementFunctions
                 using var doc = JsonDocument.Parse(json);
                 var root = doc.RootElement;
 
+                if (root.TryGetProperty("subSkills", out var subSkillsEl) && subSkillsEl.ValueKind == JsonValueKind.Array)
+                {
+                    var subNames = subSkillsEl.EnumerateArray()
+                        .Select(s => s.TryGetProperty("name", out var sn) ? sn.GetString() : null)
+                        .Where(n => n != null)
+                        .ToList();
+                    skills.Add(new
+                    {
+                        fileName,
+                        name = root.TryGetProperty("name", out var n) ? n.GetString() : fileName,
+                        description = root.TryGetProperty("description", out var d) ? d.GetString() : "",
+                        mode = "multi",
+                        skillType = "json",
+                        subSkills = subNames
+                    });
+                    continue;
+                }
+
                 skills.Add(new
                 {
                     fileName,
-                    name = root.TryGetProperty("name", out var n) ? n.GetString() : fileName,
-                    description = root.TryGetProperty("description", out var d) ? d.GetString() : "",
+                    name = root.TryGetProperty("name", out var n2) ? n2.GetString() : fileName,
+                    description = root.TryGetProperty("description", out var d2) ? d2.GetString() : "",
                     mode = root.TryGetProperty("mode", out var m) ? m.GetString() : "command",
-                    skillType = "json"
+                    skillType = "json",
+                    subSkills = (List<string?>)null!
                 });
             }
             catch
