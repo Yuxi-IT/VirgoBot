@@ -24,7 +24,6 @@ public class SkillApiHandler
 
         var skills = new List<object>();
 
-        // JSON 格式 Skill
         foreach (var file in Directory.GetFiles(dir, "*.json"))
         {
             var fileName = Path.GetFileName(file);
@@ -67,7 +66,6 @@ public class SkillApiHandler
             }
         }
 
-        // SKILL.md 目录格式 Skill
         foreach (var subDir in Directory.GetDirectories(dir))
         {
             var skillMdPath = Path.Combine(subDir, "SKILL.md");
@@ -93,7 +91,6 @@ public class SkillApiHandler
             }
             catch
             {
-                // skip
             }
         }
 
@@ -181,7 +178,6 @@ public class SkillApiHandler
         var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
         var dir = AppConstants.SkillsDirectory;
 
-        // 先检查 JSON 文件
         var filePath = Path.Combine(dir, $"{name}.json");
         if (File.Exists(filePath))
         {
@@ -191,7 +187,6 @@ public class SkillApiHandler
             return;
         }
 
-        // 再检查 SKILL.md 目录
         var skillDir = Path.Combine(dir, name);
         if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
         {
@@ -217,12 +212,10 @@ public class SkillApiHandler
 
             if (contentType.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase))
             {
-                // 从 multipart 表单中提取文件内容
                 zipBytes = await ExtractZipFromMultipart(ctx);
             }
             else
             {
-                // 直接读取 body 作为 zip 内容
                 using var ms = new MemoryStream();
                 await ctx.Request.InputStream.CopyToAsync(ms);
                 zipBytes = ms.ToArray();
@@ -296,12 +289,10 @@ public class SkillApiHandler
 
     private static async Task<byte[]> ExtractZipFromMultipart(HttpListenerContext ctx)
     {
-        // 简单的 multipart 解析：找到第一个文件部分
         using var ms = new MemoryStream();
         await ctx.Request.InputStream.CopyToAsync(ms);
         var rawBytes = ms.ToArray();
 
-        // 提取 boundary
         var contentType = ctx.Request.ContentType ?? "";
         var boundaryIndex = contentType.IndexOf("boundary=", StringComparison.OrdinalIgnoreCase);
         if (boundaryIndex < 0) return rawBytes; // fallback
@@ -309,13 +300,11 @@ public class SkillApiHandler
         var boundary = "--" + contentType[(boundaryIndex + 9)..].Trim();
         var boundaryBytes = System.Text.Encoding.ASCII.GetBytes(boundary);
 
-        // 找到第一个 part 的数据起始位置（跳过 headers）
         var headerEnd = FindSequence(rawBytes, System.Text.Encoding.ASCII.GetBytes("\r\n\r\n"), 0);
         if (headerEnd < 0) return rawBytes;
 
         var dataStart = headerEnd + 4;
 
-        // 找到结束 boundary
         var endBoundaryBytes = System.Text.Encoding.ASCII.GetBytes("\r\n" + boundary);
         var dataEnd = FindSequence(rawBytes, endBoundaryBytes, dataStart);
         if (dataEnd < 0) dataEnd = rawBytes.Length;
@@ -346,7 +335,6 @@ public class SkillApiHandler
             using var zipStream = new MemoryStream(zipBytes);
             using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
 
-            // 检测 zip 内部结构：找到 SKILL.md
             ZipArchiveEntry? skillMdEntry = null;
             string? skillDirPrefix = null;
 
@@ -356,7 +344,6 @@ public class SkillApiHandler
                 if (name.EndsWith("SKILL.md", StringComparison.OrdinalIgnoreCase))
                 {
                     skillMdEntry = entry;
-                    // 提取目录前缀（如 "my-skill/SKILL.md" -> "my-skill/"）
                     var slashIdx = name.LastIndexOf('/');
                     skillDirPrefix = slashIdx >= 0 ? name[..(slashIdx + 1)] : "";
                     break;
@@ -365,7 +352,6 @@ public class SkillApiHandler
 
             if (skillMdEntry == null)
             {
-                // 没有 SKILL.md，尝试作为 JSON skill 导入
                 var jsonEntry = archive.Entries.FirstOrDefault(e =>
                     e.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase) &&
                     !e.FullName.StartsWith("_"));
@@ -387,7 +373,6 @@ public class SkillApiHandler
                 return (true, skillName, null);
             }
 
-            // 读取 SKILL.md 内容，解析 name
             using var mdStream = skillMdEntry.Open();
             using var mdReader = new StreamReader(mdStream);
             var mdContent = await mdReader.ReadToEndAsync();
@@ -396,20 +381,17 @@ public class SkillApiHandler
             if (parsed == null)
                 return (false, null, "SKILL.md 缺少有效的 frontmatter (name/description)");
 
-            // 使用 SKILL.md 中的 name 作为目录名
             var targetDir = Path.Combine(AppConstants.SkillsDirectory, parsed.Name);
             if (Directory.Exists(targetDir))
                 Directory.Delete(targetDir, recursive: true);
             Directory.CreateDirectory(targetDir);
 
-            // 解压所有文件到目标目录
             foreach (var entry in archive.Entries)
             {
                 if (entry.Length == 0 && entry.FullName.EndsWith("/")) continue; // 跳过目录条目
 
                 var entryPath = entry.FullName.Replace('\\', '/');
 
-                // 去掉公共前缀
                 var relativePath = skillDirPrefix != null && entryPath.StartsWith(skillDirPrefix)
                     ? entryPath[skillDirPrefix.Length..]
                     : entryPath;

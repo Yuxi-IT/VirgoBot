@@ -79,7 +79,6 @@ function SkillsPage() {
 
     try {
       if (file.name.endsWith('.zip')) {
-        // 导入 OpenClaw 格式压缩包
         const formData = new FormData();
         formData.append('file', file);
         const response = await fetch('/api/skills/import', {
@@ -89,7 +88,6 @@ function SkillsPage() {
         const result = await response.json();
         if (!result.success) throw new Error(result.error || 'Import failed');
       } else {
-        // 导入 JSON 格式
         const text = await file.text();
         const skillData = JSON.parse(text);
         await api.post('/api/skills', skillData);
@@ -116,7 +114,6 @@ function SkillsPage() {
       const isZip = importUrl.trim().toLowerCase().endsWith('.zip');
 
       if (isZip) {
-        // 让后端下载并解压 zip
         const response = await fetch('/api/skills/import-url', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -125,7 +122,6 @@ function SkillsPage() {
         const result = await response.json();
         if (!result.success) throw new Error(result.error || 'Import failed');
       } else {
-        // 直接下载 JSON
         const response = await fetch(importUrl);
         if (!response.ok) throw new Error('Failed to fetch');
         const skillData = await response.json();
@@ -189,7 +185,6 @@ function SkillsPage() {
           onSaved={loadSkills}
         />
 
-        {/* Import from URL Modal */}
         <Modal>
           <Modal.Backdrop isOpen={importModal.isOpen} onOpenChange={importModal.toggle}>
             <Modal.Container size="lg">
@@ -216,7 +211,6 @@ function SkillsPage() {
           </Modal.Backdrop>
         </Modal>
 
-        {/* Delete Confirmation Modal */}
         <Modal>
           <Modal.Backdrop isOpen={deleteModal.isOpen} onOpenChange={deleteModal.toggle}>
             <Modal.Container size="lg">

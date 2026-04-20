@@ -49,7 +49,6 @@ public static class SkillManagementFunctions
     {
         var skills = new List<object>();
 
-        // JSON 格式
         foreach (var file in Directory.GetFiles(dir, "*.json"))
         {
             var fileName = Path.GetFileName(file);
@@ -76,7 +75,6 @@ public static class SkillManagementFunctions
             }
         }
 
-        // SKILL.md 目录格式
         foreach (var subDir in Directory.GetDirectories(dir))
         {
             var skillMdPath = Path.Combine(subDir, "SKILL.md");
@@ -130,7 +128,6 @@ public static class SkillManagementFunctions
 
         try
         {
-            // 验证 JSON 格式
             JsonDocument.Parse(skillContent);
             File.WriteAllText(filePath, skillContent);
             return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' 创建成功" });
@@ -155,7 +152,6 @@ public static class SkillManagementFunctions
 
         try
         {
-            // 验证 JSON 格式
             JsonDocument.Parse(skillContent);
             File.WriteAllText(filePath, skillContent);
             return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' 更新成功" });

@@ -26,7 +26,6 @@ public static class SkillLoader
 
         var loaded = new List<FunctionDefinition>();
 
-        // 加载 JSON 格式 Skill
         foreach (var file in Directory.GetFiles(dir, "*.json"))
         {
             if (Path.GetFileName(file).StartsWith("_"))
@@ -43,7 +42,6 @@ public static class SkillLoader
             }
         }
 
-        // 加载 OpenClaw SKILL.md 格式 Skill（目录格式）
         foreach (var subDir in Directory.GetDirectories(dir))
         {
             var skillMdPath = Path.Combine(subDir, "SKILL.md");
@@ -74,12 +72,10 @@ public static class SkillLoader
 
         var skillDirName = Path.GetFileName(skillDir);
 
-        // 构建注入到 LLM 的 description：包含 SKILL.md 正文内容
         var fullDescription = string.IsNullOrWhiteSpace(parsed.Body)
             ? parsed.Description
             : $"{parsed.Description}\n\n---\n{parsed.Body}";
 
-        // 无参数 schema，由 LLM 根据 SKILL.md 内容自行决定如何使用
         var inputSchema = new Dictionary<string, object>
         {
             ["type"] = "object",
@@ -96,7 +92,6 @@ public static class SkillLoader
         return new FunctionDefinition(parsed.Name, fullDescription, inputSchema, input =>
         {
             var userInput = input.TryGetProperty("input", out var inp) ? inp.GetString() ?? "" : "";
-            // SKILL.md 格式的 Skill 是纯提示词驱动，返回确认信息
             return Task.FromResult($"[Skill '{parsed.Name}' 已激活] 输入: {userInput}");
         });
     }
