@@ -119,8 +119,17 @@ public class SkillApiHandler
     public async Task HandleGetSkillRequest(HttpListenerContext ctx)
     {
         var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
-        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
 
+        // SKILL.md 目录型：name 格式为 "dirName"，对应 skills/dirName/SKILL.md
+        var skillMdPath = Path.Combine(AppConstants.SkillsDirectory, name, "SKILL.md");
+        if (File.Exists(skillMdPath))
+        {
+            var mdContent = await File.ReadAllTextAsync(skillMdPath);
+            await SendJsonResponse(ctx, new { success = true, data = new { fileName = $"{name}/SKILL.md", content = mdContent, skillType = "skill.md" } });
+            return;
+        }
+
+        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
         if (!File.Exists(filePath))
         {
             await SendErrorResponse(ctx, 404, "Skill not found");
@@ -128,7 +137,7 @@ public class SkillApiHandler
         }
 
         var content = await File.ReadAllTextAsync(filePath);
-        await SendJsonResponse(ctx, new { success = true, data = new { fileName = $"{name}.json", content } });
+        await SendJsonResponse(ctx, new { success = true, data = new { fileName = $"{name}.json", content, skillType = "json" } });
     }
 
     public async Task HandleCreateSkillRequest(HttpListenerContext ctx)
@@ -160,18 +169,28 @@ public class SkillApiHandler
     public async Task HandleUpdateSkillRequest(HttpListenerContext ctx)
     {
         var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
-        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
-
-        if (!File.Exists(filePath))
-        {
-            await SendErrorResponse(ctx, 404, "Skill not found");
-            return;
-        }
 
         var body = await ReadRequestBody<SkillRequest>(ctx);
         if (body == null || string.IsNullOrWhiteSpace(body.Content))
         {
             await SendErrorResponse(ctx, 400, "Content is required");
+            return;
+        }
+
+        // SKILL.md 目录型
+        var skillMdPath = Path.Combine(AppConstants.SkillsDirectory, name, "SKILL.md");
+        if (File.Exists(skillMdPath))
+        {
+            await File.WriteAllTextAsync(skillMdPath, body.Content);
+            ColorLog.Success("SKILL", $"SKILL.md 已更新: {name}");
+            await SendJsonResponse(ctx, new { success = true, message = "Skill updated" });
+            return;
+        }
+
+        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
+        if (!File.Exists(filePath))
+        {
+            await SendErrorResponse(ctx, 404, "Skill not found");
             return;
         }
 

@@ -3,9 +3,10 @@ import { Button, Modal, toast, TextField, Label, Input } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
-import { api } from '../../services/api';
+import { api, BASE_URL } from '../../services/api';
 import SkillsTable from './SkillsTable';
 import SkillFormModal from './SkillFormModal';
+import SkillMdEditModal from './SkillMdEditModal';
 import type { SkillInfo, SkillsResponse } from './types';
 
 function SkillsPage() {
@@ -22,6 +23,9 @@ function SkillsPage() {
   const formModal = useOverlayState();
   const deleteModal = useOverlayState();
   const importModal = useOverlayState();
+  const skillMdModal = useOverlayState();
+
+  const [editingSkillMd, setEditingSkillMd] = useState<SkillInfo | null>(null);
 
   useEffect(() => {
     loadSkills();
@@ -47,8 +51,13 @@ function SkillsPage() {
   };
 
   const openEditModal = (skill: SkillInfo) => {
-    setEditingSkill(skill);
-    formModal.open();
+    if (skill.skillType === 'skill.md') {
+      setEditingSkillMd(skill);
+      skillMdModal.open();
+    } else {
+      setEditingSkill(skill);
+      formModal.open();
+    }
   };
 
   const openDeleteModal = (skill: SkillInfo) => {
@@ -81,7 +90,7 @@ function SkillsPage() {
       if (file.name.endsWith('.zip')) {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await fetch('/api/skills/import', {
+        const response = await fetch(`${BASE_URL}/api/skills/import`, {
           method: 'POST',
           body: formData,
         });
@@ -114,7 +123,7 @@ function SkillsPage() {
       const isZip = importUrl.trim().toLowerCase().endsWith('.zip');
 
       if (isZip) {
-        const response = await fetch('/api/skills/import-url', {
+        const response = await fetch(`${BASE_URL}/api/skills/import-url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: importUrl.trim() }),
@@ -182,6 +191,14 @@ function SkillsPage() {
           onOpenChange={formModal.toggle}
           onClose={formModal.close}
           editingSkill={editingSkill}
+          onSaved={loadSkills}
+        />
+
+        <SkillMdEditModal
+          isOpen={skillMdModal.isOpen}
+          onOpenChange={skillMdModal.toggle}
+          onClose={skillMdModal.close}
+          skill={editingSkillMd}
           onSaved={loadSkills}
         />
 
