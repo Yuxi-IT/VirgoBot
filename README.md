@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="doc/75018f3ea271fec03664b2fb9748333b.webp" alt="VirgoBot Logo" width="200"/>
+  <img src="doc/75018f3ea271fec03664b2fb9748333b.webp" alt="VirgoBot Logo" width="600"/>
   <h1>VirgoBot</h1>
   <p>基于 .NET 10 的多通道 AI 助手框架</p>
 
