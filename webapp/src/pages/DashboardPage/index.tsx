@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Spinner, Alert, Button, Modal } from '@heroui/react';
+import { Spinner, Alert, Button, Modal, Card, Link, CloseButton } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
@@ -8,6 +8,7 @@ import StatusCards from './StatusCards';
 import ChannelStatusGrid from './ChannelStatusGrid';
 import ServerConfigCard from './ServerConfigCard';
 import type { StatusData, ApiResponse } from './types';
+import { ArrowsRotateRight, LogoGithub } from '@gravity-ui/icons';
 
 function DashboardPage() {
   const { t } = useI18n();
@@ -91,15 +92,58 @@ function DashboardPage() {
           <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
           <Button
             variant="danger"
+            isIconOnly
             onPress={restartModal.open}
             isDisabled={restarting}
           >
             {restarting ? (
-              <><Spinner size="sm" className="mr-2" />{t('gateway.restarting')}</>
+              <><Spinner size="sm" className="mr-2" /><ArrowsRotateRight/></>
             ) : (
-              t('gateway.restart')
+              <ArrowsRotateRight/>
             )}
           </Button>
+        </div>
+        <div className='mb-4 flex flex-col gap-4 md:flex-row'>
+          <Card className="w-full md:w-[50%]">
+            <LogoGithub aria-label="Dollar sign icon" className="text-primary size-6" role="img" />
+            <Card.Header>
+              <Card.Title>你好！感谢使用VirgoBot！</Card.Title>
+              <Card.Description>
+                VirgoBot是基于 .NET 10 的多通道 AI 助手框架
+              </Card.Description>
+            </Card.Header>
+            <Card.Footer>
+              <Link
+                aria-label="goto github"
+                href="https://github.com/Yuxi-IT/VirgoBot"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Github
+                <Link.Icon aria-hidden="true" />
+              </Link>
+            </Card.Footer>
+          </Card>
+
+          <Card className="w-full md:w-[50%] md:flex-row">
+            <div className="relative h-[140px] w-full shrink-0 overflow-hidden rounded-2xl sm:h-[120px] sm:w-[120px]">
+              <img
+                alt="Cherries"
+                className="rounded-[45px] pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
+                loading="lazy"
+                src="./icon.png"
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-3">
+              <Card.Header className="gap-1">
+                <Card.Title className="pr-8">它有什么亮点？</Card.Title>
+                <Card.Description>
+                  你可以导入自己的设定，可以是动画中的虚拟人物，也可以是小说中的角色，甚至是你自己！<br/>
+                  原生支持多种多样的Skill，也可以设置定时任务，帮你随时收集数据
+                </Card.Description>
+              </Card.Header>
+            </div>
+          </Card>
         </div>
 
         {/* Restart Confirmation Modal */}

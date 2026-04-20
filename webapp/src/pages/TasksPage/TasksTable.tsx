@@ -1,4 +1,4 @@
-import { Table, Badge, Button, Spinner, Card, SearchField } from '@heroui/react';
+import { Table, Button, Spinner, Card, SearchField } from '@heroui/react';
 import { Pencil, TrashBin } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import type { ScheduledTask } from './types';
@@ -81,22 +81,19 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
                           </div>
                         </Table.Cell>
                         <Table.Cell>
-                          <Badge variant={
-                            task.taskType === 'http' ? 'primary' :
-                            task.taskType === 'shell' ? 'secondary' :
-                            'soft'
-                          }>
-                            {task.taskType.toUpperCase()}
-                          </Badge>
+                          {task.taskType.toUpperCase()}
                         </Table.Cell>
                         <Table.Cell>{getScheduleText(task)}</Table.Cell>
                         <Table.Cell className="text-sm">{formatTime(task.lastRunTime)}</Table.Cell>
                         <Table.Cell className="text-sm">{formatTime(task.nextRunTime)}</Table.Cell>
                         <Table.Cell>
-                          <Switch
+                          <Switch 
                             isSelected={task.enabled}
-                            onChange={() => onToggle(task)}
-                          />
+                            onChange={() => onToggle(task)}>
+                            <Switch.Control>
+                              <Switch.Thumb />
+                            </Switch.Control>
+                          </Switch>
                         </Table.Cell>
                         <Table.Cell>
                           <div className="flex gap-2">

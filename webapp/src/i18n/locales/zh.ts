@@ -2,11 +2,11 @@ export default {
   nav: {
     dashboard: '仪表盘',
     chat: '聊天',
-    contacts: '联系人',
+    contacts: '通讯录',
     settings: '设置',
     logs: '日志',
     skills: '技能',
-    tasks: '定时任务',
+    tasks: '任务',
     agent: '设定',
     memory: '记忆',
     channel: '频道',
