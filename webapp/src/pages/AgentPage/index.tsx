@@ -5,6 +5,7 @@ import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import CreateAgentForm from './CreateAgentForm';
 import AgentCard from './AgentCard';
+import SwitchAgentModal from './SwitchAgentModal';
 import type { AgentInfo, AgentsResponse } from './types';
 
 function AgentPage() {
@@ -12,8 +13,10 @@ function AgentPage() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [currentAgent, setCurrentAgent] = useState('');
   const [loading, setLoading] = useState(true);
-  const [switching, setSwitching] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+
+  const [pendingSwitch, setPendingSwitch] = useState<{ memoryPath: string; agentName: string } | null>(null);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     loadAgents();
@@ -34,14 +37,32 @@ function AgentPage() {
     }
   };
 
-  const switchAgent = async (memoryPath: string) => {
-    if (!confirm(t('agent.switchConfirm'))) return;
+  const requestSwitch = (memoryPath: string, agentName: string) => {
+    setPendingSwitch({ memoryPath, agentName });
+  };
+
+  const confirmSwitch = async (createNewSession: boolean) => {
+    if (!pendingSwitch) return;
     try {
       setSwitching(true);
-      await api.put('/api/config/agent', { memoryFile: memoryPath });
+
+      if (createNewSession) {
+        const res = await api.post<{ success: boolean; data: { fileName: string } }>('/api/sessions', {});
+        if (res.success) {
+          await api.put('/api/sessions/switch', { session: res.data.fileName });
+        }
+      }
+
+      await api.put('/api/config/agent', { memoryFile: pendingSwitch.memoryPath });
       await api.post('/api/gateway/restart', {});
-      toast.success(t('agent.switchSuccess'));
-      setCurrentAgent(memoryPath);
+
+      toast.success(
+        createNewSession
+          ? t('agent.switchSuccessWithSession')
+          : t('agent.switchSuccess')
+      );
+      setCurrentAgent(pendingSwitch.memoryPath);
+      setPendingSwitch(null);
     } catch {
       toast.danger(t('settings.saveFailed'));
     } finally {
@@ -89,13 +110,21 @@ function AgentPage() {
                 agent={agent}
                 isCurrent={currentAgent === agent.memoryPath}
                 switching={switching}
-                onSwitch={switchAgent}
+                onSwitch={(memoryPath) => requestSwitch(memoryPath, agent.name)}
                 onDeleted={loadAgents}
               />
             ))}
           </div>
         )}
       </div>
+
+      <SwitchAgentModal
+        isOpen={pendingSwitch !== null}
+        agentName={pendingSwitch?.agentName ?? ''}
+        processing={switching}
+        onConfirm={confirmSwitch}
+        onCancel={() => { if (!switching) setPendingSwitch(null); }}
+      />
     </DefaultLayout>
   );
 }

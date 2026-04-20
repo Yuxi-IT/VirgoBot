@@ -210,6 +210,13 @@ export default {
     generateFailed: 'AI generation failed, please check API configuration',
     alreadyExists: 'An agent with this name already exists',
     aiGenerateHint: 'Enter a character name and AI will automatically generate a detailed profile and save it',
+    switchModalTitle: 'Switch Agent',
+    switchModalDesc: 'You are about to switch to agent "{name}"',
+    switchModalWarning: '⚠️ Switching agents may cause cognitive drift: the new agent\'s settings may be inconsistent with the current session\'s history, affecting conversation coherence.',
+    switchModalHint: 'Recommended: Creating a new session avoids cognitive drift and lets the agent start fresh.',
+    switchWithNewSession: 'Create New Session & Switch',
+    switchNoNewSession: 'Switch Only',
+    switchSuccessWithSession: 'Agent switched and new session created',
   },
   memory: {
     title: 'Memory Management',

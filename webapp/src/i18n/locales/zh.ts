@@ -210,6 +210,13 @@ export default {
     generateFailed: 'AI 生成失败，请检查 API 配置',
     alreadyExists: '同名智能体已存在',
     aiGenerateHint: '输入角色名称，AI 将自动生成详细设定并保存，无需手动填写内容',
+    switchModalTitle: '切换智能体设定',
+    switchModalDesc: '您即将切换到智能体「{name}」',
+    switchModalWarning: '⚠️ 切换智能体设定可能导致认知偏移：新的智能体设定与当前会话的历史对话可能不一致，影响对话连贯性。',
+    switchModalHint: '建议：创建新会话可以避免认知偏移，让智能体从全新的状态开始对话。',
+    switchWithNewSession: '创建新会话并切换',
+    switchNoNewSession: '仅切换设定',
+    switchSuccessWithSession: '已切换智能体并创建新会话',
   },
   memory: {
     title: '记忆管理',
