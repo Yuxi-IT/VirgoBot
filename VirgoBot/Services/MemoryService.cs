@@ -105,6 +105,7 @@ public class MemoryService : IDisposable
         var fullPath = Path.Combine(MemorysDirectory, dbFileName);
         if (File.Exists(fullPath))
         {
+            SqliteConnection.ClearAllPools();
             File.Delete(fullPath);
             var walPath = fullPath + "-wal";
             var shmPath = fullPath + "-shm";
