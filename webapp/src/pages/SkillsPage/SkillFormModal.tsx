@@ -73,13 +73,14 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
   const { t } = useI18n();
   const set = (patch: Partial<SubSkillState>) => onChange(index, { ...sub, ...patch });
 
-  const addParam = () => set({ params: [...sub.params, { name: '', type: 'string', description: '', required: false }] });
+  const safeParams = Array.isArray(sub.params) ? sub.params : [];
+  const addParam = () => set({ params: [...safeParams, { name: '', type: 'string', description: '', required: false }] });
   const updateParam = (i: number, field: keyof SkillParam, value: string | boolean) => {
-    const updated = [...sub.params];
+    const updated = [...safeParams];
     (updated[i] as any)[field] = value;
     set({ params: updated });
   };
-  const removeParam = (i: number) => set({ params: sub.params.filter((_, idx) => idx !== i) });
+  const removeParam = (i: number) => set({ params: safeParams.filter((_, idx) => idx !== i) });
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3">
@@ -164,7 +165,7 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
           <Label className="text-xs">{t('skills.parameters')}</Label>
           <Button size="sm" variant="secondary" onPress={addParam}>{t('skills.addParam')}</Button>
         </div>
-        {sub.params.length === 0 ? (
+        {!Array.isArray(sub.params) || sub.params.length === 0 ? (
           <p className="text-xs text-gray-400">{t('common.noData')}</p>
         ) : (
           <div className="space-y-2">
@@ -259,17 +260,20 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
 
         if (parsed.subSkills && parsed.subSkills.length > 0) {
           setFormSkillMode('multi');
-          setSubSkills(parsed.subSkills.map(s => ({
-            name: s.name,
-            description: s.description || '',
-            mode: s.mode === 'http' ? 'http' : 'command',
-            command: s.command || '',
-            httpMethod: s.http?.method || 'GET',
-            httpUrl: s.http?.url || '',
-            httpHeadersText: s.http?.headers ? headersToText(s.http.headers) : '',
-            httpBody: s.http?.body || '',
-            params: s.parameters || [],
-          })));
+          setSubSkills(parsed.subSkills.map(s => {
+            const params = Array.isArray(s.parameters) ? s.parameters : [];
+            return {
+              name: s.name || '',
+              description: s.description || '',
+              mode: s.mode === 'http' ? 'http' : 'command',
+              command: s.command || '',
+              httpMethod: s.http?.method || 'GET',
+              httpUrl: s.http?.url || '',
+              httpHeadersText: s.http?.headers ? headersToText(s.http.headers) : '',
+              httpBody: s.http?.body || '',
+              params,
+            } satisfies SubSkillState;
+          }));
         } else {
           setFormSkillMode('single');
           setFormParams(parsed.parameters || []);
