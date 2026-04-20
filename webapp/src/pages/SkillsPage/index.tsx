@@ -68,7 +68,7 @@ function SkillsPage() {
   const handleDelete = async () => {
     if (!deletingSkill) return;
     try {
-      const skillName = deletingSkill.fileName.replace('.json', '');
+      const skillName = deletingSkill.fileName.replace('.json', '').replace('/SKILL.md', '');
       await api.del(`/api/skills/${skillName}`);
       toast.success(t('skills.deleteSuccess'));
       deleteModal.close();
