@@ -174,10 +174,12 @@ export default {
     commandRequired: 'Command is required',
     importFromFile: 'Import from File',
     importFromUrl: 'Import from URL',
-    skillUrl: 'Skill URL',
+    skillUrl: 'Skill URL (.json or .zip)',
     importing: 'Importing...',
     importSuccess: 'Skill imported successfully',
     importFailed: 'Failed to import skill',
+    skillTypeJson: 'JSON',
+    skillTypeSkillMd: 'SKILL.md',
   },
   agent: {
     title: 'Agent Management',

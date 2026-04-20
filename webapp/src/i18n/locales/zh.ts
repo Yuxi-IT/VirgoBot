@@ -174,10 +174,12 @@ export default {
     commandRequired: '命令不能为空',
     importFromFile: '从文件导入',
     importFromUrl: '从网络导入',
-    skillUrl: '技能 URL',
+    skillUrl: '技能 URL（支持 .json 或 .zip）',
     importing: '导入中...',
     importSuccess: '技能导入成功',
     importFailed: '技能导入失败',
+    skillTypeJson: 'JSON',
+    skillTypeSkillMd: 'SKILL.md',
   },
   agent: {
     title: '智能体管理',

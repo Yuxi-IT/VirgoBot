@@ -78,10 +78,22 @@ function SkillsPage() {
     if (!file) return;
 
     try {
-      const text = await file.text();
-      const skillData = JSON.parse(text);
-
-      await api.post('/api/skills', skillData);
+      if (file.name.endsWith('.zip')) {
+        // 导入 OpenClaw 格式压缩包
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/skills/import', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || 'Import failed');
+      } else {
+        // 导入 JSON 格式
+        const text = await file.text();
+        const skillData = JSON.parse(text);
+        await api.post('/api/skills', skillData);
+      }
       toast.success(t('skills.importSuccess'));
       await loadSkills();
     } catch {
@@ -101,11 +113,24 @@ function SkillsPage() {
 
     try {
       setImporting(true);
-      const response = await fetch(importUrl);
-      if (!response.ok) throw new Error('Failed to fetch');
+      const isZip = importUrl.trim().toLowerCase().endsWith('.zip');
 
-      const skillData = await response.json();
-      await api.post('/api/skills', skillData);
+      if (isZip) {
+        // 让后端下载并解压 zip
+        const response = await fetch('/api/skills/import-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: importUrl.trim() }),
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || 'Import failed');
+      } else {
+        // 直接下载 JSON
+        const response = await fetch(importUrl);
+        if (!response.ok) throw new Error('Failed to fetch');
+        const skillData = await response.json();
+        await api.post('/api/skills', skillData);
+      }
 
       toast.success(t('skills.importSuccess'));
       importModal.close();
@@ -142,7 +167,7 @@ function SkillsPage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".json"
+          accept=".json,.zip"
           onChange={handleFileChange}
           style={{ display: 'none' }}
         />

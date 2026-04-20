@@ -68,16 +68,22 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                         <Table.Cell>
                           <Chip
                             size="sm"
-                            color={skill.mode === 'http' ? 'accent' : 'default'}
+                            color={skill.mode === 'http' ? 'accent' : skill.mode === 'skill.md' ? 'success' : 'default'}
                             variant="soft"
                           >
-                            {skill.mode === 'http' ? 'HTTP' : 'Command'}
+                            {skill.mode === 'http' ? 'HTTP' : skill.mode === 'skill.md' ? 'SKILL.md' : 'Command'}
                           </Chip>
                         </Table.Cell>
                         <Table.Cell>
-                          <Chip size="sm" variant="soft">
-                            <span className="font-mono text-xs">{skill.command.length > 30 ? skill.command.substring(0, 30) + '...' : skill.command}</span>
-                          </Chip>
+                          {skill.mode === 'skill.md' ? (
+                            <Chip size="sm" variant="soft" color="success">
+                              <span className="font-mono text-xs">OpenClaw</span>
+                            </Chip>
+                          ) : (
+                            <Chip size="sm" variant="soft">
+                              <span className="font-mono text-xs">{skill.command.length > 30 ? skill.command.substring(0, 30) + '...' : skill.command}</span>
+                            </Chip>
+                          )}
                         </Table.Cell>
                         <Table.Cell>
                           <Chip size="sm" color="accent">{skill.parameterCount}</Chip>

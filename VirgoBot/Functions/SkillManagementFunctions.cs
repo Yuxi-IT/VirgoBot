@@ -47,10 +47,10 @@ public static class SkillManagementFunctions
 
     private static string ListSkills(string dir)
     {
-        var files = Directory.GetFiles(dir, "*.json");
         var skills = new List<object>();
 
-        foreach (var file in files)
+        // JSON 格式
+        foreach (var file in Directory.GetFiles(dir, "*.json"))
         {
             var fileName = Path.GetFileName(file);
             if (fileName.StartsWith("_")) continue;
@@ -66,13 +66,38 @@ public static class SkillManagementFunctions
                     fileName,
                     name = root.TryGetProperty("name", out var n) ? n.GetString() : fileName,
                     description = root.TryGetProperty("description", out var d) ? d.GetString() : "",
-                    mode = root.TryGetProperty("mode", out var m) ? m.GetString() : "command"
+                    mode = root.TryGetProperty("mode", out var m) ? m.GetString() : "command",
+                    skillType = "json"
                 });
             }
             catch
             {
-                skills.Add(new { fileName, name = fileName, description = "解析失败", mode = "unknown" });
+                skills.Add(new { fileName, name = fileName, description = "解析失败", mode = "unknown", skillType = "json" });
             }
+        }
+
+        // SKILL.md 目录格式
+        foreach (var subDir in Directory.GetDirectories(dir))
+        {
+            var skillMdPath = Path.Combine(subDir, "SKILL.md");
+            if (!File.Exists(skillMdPath)) continue;
+
+            try
+            {
+                var content = File.ReadAllText(skillMdPath);
+                var parsed = SkillMdParser.Parse(content);
+                if (parsed == null) continue;
+
+                skills.Add(new
+                {
+                    fileName = Path.GetFileName(subDir) + "/SKILL.md",
+                    name = parsed.Name,
+                    description = parsed.Description,
+                    mode = "skill.md",
+                    skillType = "skill.md"
+                });
+            }
+            catch { }
         }
 
         return JsonSerializer.Serialize(new { success = true, count = skills.Count, skills }, new JsonSerializerOptions { WriteIndented = true });

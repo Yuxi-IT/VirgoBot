@@ -172,6 +172,14 @@ public class HttpServerHost
                     {
                         await _skillApiHandler.HandleCreateSkillRequest(ctx);
                     }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills/import" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _skillApiHandler.HandleImportSkillZipRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills/import-url" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _skillApiHandler.HandleImportSkillZipFromUrlRequest(ctx);
+                    }
                     else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "GET")
                     {
                         await _skillApiHandler.HandleGetSkillRequest(ctx);

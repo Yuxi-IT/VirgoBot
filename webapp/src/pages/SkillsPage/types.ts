@@ -17,6 +17,7 @@ export interface SkillInfo {
   command: string;
   mode: string;
   parameterCount: number;
+  skillType?: string;
 }
 
 export interface SkillsResponse {

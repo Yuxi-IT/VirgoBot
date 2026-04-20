@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.IO.Compression;
 using VirgoBot.Configuration;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
@@ -22,6 +23,8 @@ public class SkillApiHandler
         Directory.CreateDirectory(dir);
 
         var skills = new List<object>();
+
+        // JSON 格式 Skill
         foreach (var file in Directory.GetFiles(dir, "*.json"))
         {
             var fileName = Path.GetFileName(file);
@@ -54,12 +57,43 @@ public class SkillApiHandler
                     description = root.GetProperty("description").GetString() ?? "",
                     command,
                     mode,
-                    parameterCount = root.TryGetProperty("parameters", out var p) ? p.GetArrayLength() : 0
+                    parameterCount = root.TryGetProperty("parameters", out var p) ? p.GetArrayLength() : 0,
+                    skillType = "json"
                 });
             }
             catch
             {
-                skills.Add(new { fileName, name = fileName, description = "解析失败", command = "", mode = "command", parameterCount = 0 });
+                skills.Add(new { fileName, name = fileName, description = "解析失败", command = "", mode = "command", parameterCount = 0, skillType = "json" });
+            }
+        }
+
+        // SKILL.md 目录格式 Skill
+        foreach (var subDir in Directory.GetDirectories(dir))
+        {
+            var skillMdPath = Path.Combine(subDir, "SKILL.md");
+            if (!File.Exists(skillMdPath)) continue;
+
+            try
+            {
+                var mdContent = await File.ReadAllTextAsync(skillMdPath);
+                var parsed = VirgoBot.Functions.SkillMdParser.Parse(mdContent);
+                if (parsed == null) continue;
+
+                var dirName = Path.GetFileName(subDir);
+                skills.Add(new
+                {
+                    fileName = dirName + "/SKILL.md",
+                    name = parsed.Name,
+                    description = parsed.Description,
+                    command = "",
+                    mode = "skill.md",
+                    parameterCount = 0,
+                    skillType = "skill.md"
+                });
+            }
+            catch
+            {
+                // skip
             }
         }
 
@@ -145,22 +179,268 @@ public class SkillApiHandler
     public async Task HandleDeleteSkillRequest(HttpListenerContext ctx)
     {
         var name = ctx.Request.Url!.AbsolutePath.Replace("/api/skills/", "");
-        var filePath = Path.Combine(AppConstants.SkillsDirectory, $"{name}.json");
+        var dir = AppConstants.SkillsDirectory;
 
-        if (!File.Exists(filePath))
+        // 先检查 JSON 文件
+        var filePath = Path.Combine(dir, $"{name}.json");
+        if (File.Exists(filePath))
         {
-            await SendErrorResponse(ctx, 404, "Skill not found");
+            File.Delete(filePath);
+            ColorLog.Success("SKILL", $"Skill 已删除: {name}.json");
+            await SendJsonResponse(ctx, new { success = true, message = "Skill deleted" });
             return;
         }
 
-        File.Delete(filePath);
-        ColorLog.Success("SKILL", $"Skill 已删除: {name}.json");
-        await SendJsonResponse(ctx, new { success = true, message = "Skill deleted" });
-    }
-}
+        // 再检查 SKILL.md 目录
+        var skillDir = Path.Combine(dir, name);
+        if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
+        {
+            Directory.Delete(skillDir, recursive: true);
+            ColorLog.Success("SKILL", $"Skill 目录已删除: {name}");
+            await SendJsonResponse(ctx, new { success = true, message = "Skill deleted" });
+            return;
+        }
 
-public record SkillRequest
-{
-    public string? Name { get; init; }
-    public string? Content { get; init; }
+        await SendErrorResponse(ctx, 404, "Skill not found");
+    }
+
+    /// <summary>
+    /// 处理 Skill 压缩包导入（multipart/form-data 上传 .zip 文件）
+    /// </summary>
+    public async Task HandleImportSkillZipRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            var contentType = ctx.Request.ContentType ?? "";
+
+            byte[] zipBytes;
+
+            if (contentType.StartsWith("multipart/form-data", StringComparison.OrdinalIgnoreCase))
+            {
+                // 从 multipart 表单中提取文件内容
+                zipBytes = await ExtractZipFromMultipart(ctx);
+            }
+            else
+            {
+                // 直接读取 body 作为 zip 内容
+                using var ms = new MemoryStream();
+                await ctx.Request.InputStream.CopyToAsync(ms);
+                zipBytes = ms.ToArray();
+            }
+
+            if (zipBytes.Length == 0)
+            {
+                await SendErrorResponse(ctx, 400, "Empty file");
+                return;
+            }
+
+            var result = await ImportSkillZip(zipBytes);
+            if (result.Success)
+            {
+                ColorLog.Success("SKILL", $"Skill 压缩包导入成功: {result.SkillName}");
+                await SendJsonResponse(ctx, new { success = true, message = "Skill imported", skillName = result.SkillName });
+            }
+            else
+            {
+                await SendErrorResponse(ctx, 400, result.Error ?? "Import failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            await SendErrorResponse(ctx, 500, ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 处理从 URL 下载 Skill 压缩包
+    /// </summary>
+    public async Task HandleImportSkillZipFromUrlRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            var body = await ReadRequestBody<ImportUrlRequest>(ctx);
+            if (body == null || string.IsNullOrWhiteSpace(body.Url))
+            {
+                await SendErrorResponse(ctx, 400, "URL is required");
+                return;
+            }
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            byte[] zipBytes;
+            try
+            {
+                zipBytes = await http.GetByteArrayAsync(body.Url);
+            }
+            catch (Exception ex)
+            {
+                await SendErrorResponse(ctx, 400, $"Failed to download: {ex.Message}");
+                return;
+            }
+
+            var result = await ImportSkillZip(zipBytes);
+            if (result.Success)
+            {
+                ColorLog.Success("SKILL", $"Skill 压缩包从 URL 导入成功: {result.SkillName}");
+                await SendJsonResponse(ctx, new { success = true, message = "Skill imported", skillName = result.SkillName });
+            }
+            else
+            {
+                await SendErrorResponse(ctx, 400, result.Error ?? "Import failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            await SendErrorResponse(ctx, 500, ex.Message);
+        }
+    }
+
+    private static async Task<byte[]> ExtractZipFromMultipart(HttpListenerContext ctx)
+    {
+        // 简单的 multipart 解析：找到第一个文件部分
+        using var ms = new MemoryStream();
+        await ctx.Request.InputStream.CopyToAsync(ms);
+        var rawBytes = ms.ToArray();
+
+        // 提取 boundary
+        var contentType = ctx.Request.ContentType ?? "";
+        var boundaryIndex = contentType.IndexOf("boundary=", StringComparison.OrdinalIgnoreCase);
+        if (boundaryIndex < 0) return rawBytes; // fallback
+
+        var boundary = "--" + contentType[(boundaryIndex + 9)..].Trim();
+        var boundaryBytes = System.Text.Encoding.ASCII.GetBytes(boundary);
+
+        // 找到第一个 part 的数据起始位置（跳过 headers）
+        var headerEnd = FindSequence(rawBytes, System.Text.Encoding.ASCII.GetBytes("\r\n\r\n"), 0);
+        if (headerEnd < 0) return rawBytes;
+
+        var dataStart = headerEnd + 4;
+
+        // 找到结束 boundary
+        var endBoundaryBytes = System.Text.Encoding.ASCII.GetBytes("\r\n" + boundary);
+        var dataEnd = FindSequence(rawBytes, endBoundaryBytes, dataStart);
+        if (dataEnd < 0) dataEnd = rawBytes.Length;
+
+        var result = new byte[dataEnd - dataStart];
+        Array.Copy(rawBytes, dataStart, result, 0, result.Length);
+        return result;
+    }
+
+    private static int FindSequence(byte[] source, byte[] pattern, int startIndex)
+    {
+        for (var i = startIndex; i <= source.Length - pattern.Length; i++)
+        {
+            var found = true;
+            for (var j = 0; j < pattern.Length; j++)
+            {
+                if (source[i + j] != pattern[j]) { found = false; break; }
+            }
+            if (found) return i;
+        }
+        return -1;
+    }
+
+    private static async Task<(bool Success, string? SkillName, string? Error)> ImportSkillZip(byte[] zipBytes)
+    {
+        try
+        {
+            using var zipStream = new MemoryStream(zipBytes);
+            using var archive = new ZipArchive(zipStream, ZipArchiveMode.Read);
+
+            // 检测 zip 内部结构：找到 SKILL.md
+            ZipArchiveEntry? skillMdEntry = null;
+            string? skillDirPrefix = null;
+
+            foreach (var entry in archive.Entries)
+            {
+                var name = entry.FullName.Replace('\\', '/');
+                if (name.EndsWith("SKILL.md", StringComparison.OrdinalIgnoreCase))
+                {
+                    skillMdEntry = entry;
+                    // 提取目录前缀（如 "my-skill/SKILL.md" -> "my-skill/"）
+                    var slashIdx = name.LastIndexOf('/');
+                    skillDirPrefix = slashIdx >= 0 ? name[..(slashIdx + 1)] : "";
+                    break;
+                }
+            }
+
+            if (skillMdEntry == null)
+            {
+                // 没有 SKILL.md，尝试作为 JSON skill 导入
+                var jsonEntry = archive.Entries.FirstOrDefault(e =>
+                    e.FullName.EndsWith(".json", StringComparison.OrdinalIgnoreCase) &&
+                    !e.FullName.StartsWith("_"));
+
+                if (jsonEntry == null)
+                    return (false, null, "ZIP 中未找到 SKILL.md 或 .json 文件");
+
+                using var jsonStream = jsonEntry.Open();
+                using var reader = new StreamReader(jsonStream);
+                var jsonContent = await reader.ReadToEndAsync();
+
+                using var doc = JsonDocument.Parse(jsonContent);
+                var skillName = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() : null;
+                if (string.IsNullOrWhiteSpace(skillName))
+                    return (false, null, "JSON Skill 缺少 name 字段");
+
+                var jsonPath = Path.Combine(AppConstants.SkillsDirectory, $"{skillName}.json");
+                await File.WriteAllTextAsync(jsonPath, jsonContent);
+                return (true, skillName, null);
+            }
+
+            // 读取 SKILL.md 内容，解析 name
+            using var mdStream = skillMdEntry.Open();
+            using var mdReader = new StreamReader(mdStream);
+            var mdContent = await mdReader.ReadToEndAsync();
+
+            var parsed = VirgoBot.Functions.SkillMdParser.Parse(mdContent);
+            if (parsed == null)
+                return (false, null, "SKILL.md 缺少有效的 frontmatter (name/description)");
+
+            // 使用 SKILL.md 中的 name 作为目录名
+            var targetDir = Path.Combine(AppConstants.SkillsDirectory, parsed.Name);
+            if (Directory.Exists(targetDir))
+                Directory.Delete(targetDir, recursive: true);
+            Directory.CreateDirectory(targetDir);
+
+            // 解压所有文件到目标目录
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.Length == 0 && entry.FullName.EndsWith("/")) continue; // 跳过目录条目
+
+                var entryPath = entry.FullName.Replace('\\', '/');
+
+                // 去掉公共前缀
+                var relativePath = skillDirPrefix != null && entryPath.StartsWith(skillDirPrefix)
+                    ? entryPath[skillDirPrefix.Length..]
+                    : entryPath;
+
+                if (string.IsNullOrEmpty(relativePath)) continue;
+
+                var destPath = Path.Combine(targetDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                var destDirPath = Path.GetDirectoryName(destPath)!;
+                Directory.CreateDirectory(destDirPath);
+
+                using var entryStream = entry.Open();
+                using var destStream = File.Create(destPath);
+                await entryStream.CopyToAsync(destStream);
+            }
+
+            return (true, parsed.Name, null);
+        }
+        catch (InvalidDataException)
+        {
+            return (false, null, "无效的 ZIP 文件");
+        }
+    }
+
+    public record SkillRequest
+    {
+        public string? Name { get; init; }
+        public string? Content { get; init; }
+    }
+
+    public record ImportUrlRequest
+    {
+        public string? Url { get; init; }
+    }
 }

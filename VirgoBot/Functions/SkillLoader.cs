@@ -21,33 +21,84 @@ public static class SkillLoader
         var dir = AppConstants.SkillsDirectory;
         Directory.CreateDirectory(dir);
 
-        if (!Directory.GetFiles(dir, "*.json").Any())
+        if (!Directory.GetFiles(dir, "*.json").Any() && !Directory.GetDirectories(dir).Any(d => File.Exists(Path.Combine(d, "SKILL.md"))))
             CreateExampleSkill(dir);
 
-        var files = Directory.GetFiles(dir, "*.json");
         var loaded = new List<FunctionDefinition>();
 
-        foreach (var file in files)
+        // 加载 JSON 格式 Skill
+        foreach (var file in Directory.GetFiles(dir, "*.json"))
         {
             if (Path.GetFileName(file).StartsWith("_"))
                 continue;
 
-            FunctionDefinition? def = null;
             try
             {
-                def = ParseSkillFile(file);
+                var def = ParseSkillFile(file);
+                if (def != null) loaded.Add(def);
             }
             catch (Exception ex)
             {
                 ColorLog.Warning("SkillLoader", $"加载 Skill 失败: {Path.GetFileName(file)} - {ex.Message}");
             }
+        }
 
-            if (def != null)
-                loaded.Add(def);
+        // 加载 OpenClaw SKILL.md 格式 Skill（目录格式）
+        foreach (var subDir in Directory.GetDirectories(dir))
+        {
+            var skillMdPath = Path.Combine(subDir, "SKILL.md");
+            if (!File.Exists(skillMdPath))
+                continue;
+
+            try
+            {
+                var def = ParseSkillMdDirectory(subDir, skillMdPath);
+                if (def != null) loaded.Add(def);
+            }
+            catch (Exception ex)
+            {
+                ColorLog.Warning("SkillLoader", $"加载 SKILL.md 失败: {Path.GetFileName(subDir)} - {ex.Message}");
+            }
         }
 
         ColorLog.Warning("SkillLoader", $"已加载 {loaded.Count} 个外部 Skill");
         return loaded;
+    }
+
+    private static FunctionDefinition? ParseSkillMdDirectory(string skillDir, string skillMdPath)
+    {
+        var content = File.ReadAllText(skillMdPath);
+        var parsed = SkillMdParser.Parse(content);
+        if (parsed == null)
+            throw new InvalidOperationException("SKILL.md 缺少有效的 frontmatter (name/description)");
+
+        var skillDirName = Path.GetFileName(skillDir);
+
+        // 构建注入到 LLM 的 description：包含 SKILL.md 正文内容
+        var fullDescription = string.IsNullOrWhiteSpace(parsed.Body)
+            ? parsed.Description
+            : $"{parsed.Description}\n\n---\n{parsed.Body}";
+
+        // 无参数 schema，由 LLM 根据 SKILL.md 内容自行决定如何使用
+        var inputSchema = new Dictionary<string, object>
+        {
+            ["type"] = "object",
+            ["properties"] = new Dictionary<string, object>
+            {
+                ["input"] = new Dictionary<string, string>
+                {
+                    ["type"] = "string",
+                    ["description"] = "传递给 Skill 的输入内容"
+                }
+            }
+        };
+
+        return new FunctionDefinition(parsed.Name, fullDescription, inputSchema, input =>
+        {
+            var userInput = input.TryGetProperty("input", out var inp) ? inp.GetString() ?? "" : "";
+            // SKILL.md 格式的 Skill 是纯提示词驱动，返回确认信息
+            return Task.FromResult($"[Skill '{parsed.Name}' 已激活] 输入: {userInput}");
+        });
     }
 
     private static FunctionDefinition ParseSkillFile(string filePath)
