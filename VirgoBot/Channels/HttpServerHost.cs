@@ -43,7 +43,7 @@ public class HttpServerHost
         _memoryService = memoryService;
         _logService = logService;
         _iLinkLoginService = new ILinkLoginService();
-        _taskService = new ScheduledTaskService(gateway.LlmService);
+        _taskService = gateway.ScheduledTaskService;
 
         _contactApiHandler = new ContactApiHandler(gateway);
         _configApiHandler = new ConfigApiHandler(gateway, memoryService);

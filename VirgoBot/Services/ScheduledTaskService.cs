@@ -27,6 +27,11 @@ public class ScheduledTaskService
         StartAllEnabledTasks();
     }
 
+    public void SetLlmService(LLMService llmService)
+    {
+        _llmService = llmService;
+    }
+
     private void LoadTasks()
     {
         if (!File.Exists(_tasksFilePath))
@@ -178,11 +183,33 @@ public class ScheduledTaskService
     {
         StopTask(task.Id);
 
+        if (task.ScheduleType == "once")
+        {
+            var delay = CalculateOnceDelay(task);
+            if (delay < 0) return; // 时间已过
+
+            // 一次性任务：只触发一次，执行后自动禁用
+            var timer = new Timer(async _ =>
+            {
+                await ExecuteTask(task);
+                lock (_lock)
+                {
+                    task.Enabled = false;
+                    StopTask(task.Id);
+                    SaveTasks();
+                }
+                ColorLog.Info("TASK", $"一次性任务已完成并自动关闭: {task.Name}");
+            }, null, (long)delay, Timeout.Infinite);
+            _timers[task.Id] = timer;
+            ColorLog.Info("TASK", $"一次性任务已调度: {task.Name} (延迟: {delay}ms)");
+            return;
+        }
+
         var interval = CalculateInterval(task);
         if (interval <= 0) return;
 
-        var timer = new Timer(async _ => await ExecuteTask(task), null, interval, interval);
-        _timers[task.Id] = timer;
+        var repeatingTimer = new Timer(async _ => await ExecuteTask(task), null, interval, interval);
+        _timers[task.Id] = repeatingTimer;
 
         ColorLog.Info("TASK", $"定时任务已启动: {task.Name} (间隔: {interval}ms)");
     }
@@ -202,8 +229,22 @@ public class ScheduledTaskService
         {
             "interval" => task.IntervalMinutes * 60 * 1000,
             "daily" => CalculateDailyInterval(task),
-            _ => 60 * 60 * 1000 // default 1 hour
+            _ => 60 * 60 * 1000
         };
+    }
+
+    private double CalculateOnceDelay(ScheduledTask task)
+    {
+        if (task.OnceAt.HasValue)
+        {
+            var delay = (task.OnceAt.Value.ToUniversalTime() - DateTime.UtcNow).TotalMilliseconds;
+            return delay;
+        }
+        if (task.OnceDelayMinutes.HasValue)
+        {
+            return task.OnceDelayMinutes.Value * 60.0 * 1000;
+        }
+        return -1;
     }
 
     private int CalculateDailyInterval(ScheduledTask task)
@@ -222,6 +263,14 @@ public class ScheduledTaskService
 
     private void CalculateNextRunTime(ScheduledTask task)
     {
+        if (task.ScheduleType == "once")
+        {
+            if (task.OnceAt.HasValue)
+                task.NextRunTime = task.OnceAt.Value.ToUniversalTime();
+            else if (task.OnceDelayMinutes.HasValue)
+                task.NextRunTime = DateTime.UtcNow.AddMinutes(task.OnceDelayMinutes.Value);
+            return;
+        }
         var interval = CalculateInterval(task);
         task.NextRunTime = DateTime.UtcNow.AddMilliseconds(interval);
     }

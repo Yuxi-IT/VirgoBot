@@ -20,7 +20,7 @@ public class ScheduledTask
     public string TaskType { get; set; } = "http"; // "http", "shell", or "text"
 
     [JsonPropertyName("scheduleType")]
-    public string ScheduleType { get; set; } = "interval"; // "interval" or "cron" or "daily"
+    public string ScheduleType { get; set; } = "interval"; // "interval", "daily", "once"
 
     [JsonPropertyName("intervalMinutes")]
     public int IntervalMinutes { get; set; } = 60;
@@ -30,6 +30,14 @@ public class ScheduledTask
 
     [JsonPropertyName("cronExpression")]
     public string CronExpression { get; set; } = "";
+
+    // 一次性任务：延迟多少分钟后执行（与 onceAt 二选一）
+    [JsonPropertyName("onceDelayMinutes")]
+    public int? OnceDelayMinutes { get; set; }
+
+    // 一次性任务：指定执行时间（ISO 8601）
+    [JsonPropertyName("onceAt")]
+    public DateTime? OnceAt { get; set; }
 
     [JsonPropertyName("taskRequirement")]
     public string TaskRequirement { get; set; } = "";

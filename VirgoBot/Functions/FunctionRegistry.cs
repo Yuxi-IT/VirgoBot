@@ -13,7 +13,7 @@ public class FunctionRegistry
     private readonly List<object> _toolSchemas = new();
     private readonly Config _config;
 
-    public FunctionRegistry(Config config, MemoryService memoryService)
+    public FunctionRegistry(Config config, MemoryService memoryService, ScheduledTaskService scheduledTaskService)
     {
         _config = config;
         RegisterAll(SystemFunctions.Register());
@@ -21,6 +21,7 @@ public class FunctionRegistry
         RegisterAll(FileFunctions.Register());
         RegisterAll(SoulFunctions.Register(memoryService));
         RegisterAll(SkillManagementFunctions.Register());
+        RegisterAll(ScheduledTaskFunctions.Register(scheduledTaskService));
         RegisterAll(SkillLoader.LoadAll());
     }
 

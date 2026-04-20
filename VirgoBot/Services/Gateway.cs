@@ -32,6 +32,7 @@ public class Gateway : IDisposable
     public ILinkMessageHandler? ILinkHandler { get; private set; }
     public StickerService StickerService { get; private set; } = null!;
     public ContactService ContactService { get; private set; } = null!;
+    public ScheduledTaskService ScheduledTaskService { get; private set; } = null!;
 
     public bool IsRunning { get; private set; }
 
@@ -90,10 +91,13 @@ public class Gateway : IDisposable
         _httpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", Config.ApiKey);
 
-        FunctionRegistry = new FunctionRegistry(Config, _memoryService);
+        ScheduledTaskService = new ScheduledTaskService();
+
+        FunctionRegistry = new FunctionRegistry(Config, _memoryService, ScheduledTaskService);
         StickerService = new StickerService("stickers");
         ContactService = new ContactService();
         LlmService = new LLMService(_httpClient, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
+        ScheduledTaskService.SetLlmService(LlmService);
 
         if (Config.Channel.Email.Enabled)
         {
