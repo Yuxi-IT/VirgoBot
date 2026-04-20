@@ -341,24 +341,7 @@ public class HttpServerHost
                 {
                     var type = typeEl.GetString();
 
-                    if (type == "newMessage")
-                    {
-                        var username = req.GetProperty("username").GetString();
-                        var effectiveUsername = username ?? "unknown";
-                        var queueLength = req.GetProperty("queueLength").GetInt32();
-                        ColorLog.Info("NEW-MSG", $"来自 {username}, 队列: {queueLength}");
-
-                        var prompt = $"系统提示：用户 {username} 发来了新消息，请使用 switch_douyin_chat 函数回复";
-                        ColorLog.Info("→AI", prompt);
-                        var reply = await _gateway.LlmService.AskAsync(GetStableHashCode(effectiveUsername), prompt, null, null, async (targetUser) =>
-                        {
-                            var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username = targetUser }));
-                            await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
-                            ColorLog.Success("SWITCH", $"切换到 {targetUser}");
-                        });
-                        ColorLog.Success("AI→", reply);
-                    }
-                    else if (type == "message")
+                    if (type == "message")
                     {
                         var message = req.GetProperty("message").GetString();
                         var userId = req.GetProperty("userId").GetString();

@@ -70,7 +70,7 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
     const interval = setInterval(async () => {
       try {
         const res = await api.get<{ success: boolean; data: StatusData }>(
-          `/api/ilink/login/status?qrcode=${encodeURIComponent(qrCodeValue)}`
+          `/api/ilink/login/status?qrId=${encodeURIComponent(qrCodeValue)}`
         );
         if (res.success && res.data) {
           setStatus(res.data.status);

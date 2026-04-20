@@ -15,7 +15,7 @@ public class ScheduledTaskService
     private readonly Dictionary<string, Timer> _timers = new();
     private readonly HttpClient _httpClient = new();
     private readonly object _lock = new();
-    private readonly LLMService? _llmService;
+    private LLMService? _llmService;
 
     public ScheduledTaskService(LLMService? llmService = null)
     {
