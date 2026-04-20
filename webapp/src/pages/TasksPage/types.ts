@@ -4,10 +4,12 @@ export interface ScheduledTask {
   description: string;
   enabled: boolean;
   taskType: 'http' | 'shell' | 'text';
-  scheduleType: 'interval' | 'daily' | 'cron';
+  scheduleType: 'interval' | 'daily' | 'once';
   intervalMinutes: number;
   dailyTime: string;
   cronExpression: string;
+  onceDelayMinutes?: number;
+  onceAt?: string;
   taskRequirement: string;
   httpMethod: string;
   httpUrl: string;

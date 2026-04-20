@@ -21,9 +21,12 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
   const [formDescription, setFormDescription] = useState('');
   const [formEnabled, setFormEnabled] = useState(true);
   const [formTaskType, setFormTaskType] = useState<'http' | 'shell' | 'text'>('http');
-  const [formScheduleType, setFormScheduleType] = useState<'interval' | 'daily'>('interval');
+  const [formScheduleType, setFormScheduleType] = useState<'interval' | 'daily' | 'once'>('interval');
   const [formIntervalMinutes, setFormIntervalMinutes] = useState(60);
   const [formDailyTime, setFormDailyTime] = useState('09:00');
+  const [formOnceMode, setFormOnceMode] = useState<'delay' | 'at'>('delay');
+  const [formOnceDelayMinutes, setFormOnceDelayMinutes] = useState(30);
+  const [formOnceAt, setFormOnceAt] = useState('');
   const [formTaskRequirement, setFormTaskRequirement] = useState('');
   const [formHttpMethod, setFormHttpMethod] = useState('GET');
   const [formHttpUrl, setFormHttpUrl] = useState('');
@@ -48,6 +51,9 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormScheduleType('interval');
     setFormIntervalMinutes(60);
     setFormDailyTime('09:00');
+    setFormOnceMode('delay');
+    setFormOnceDelayMinutes(30);
+    setFormOnceAt('');
     setFormTaskRequirement('');
     setFormHttpMethod('GET');
     setFormHttpUrl('');
@@ -65,6 +71,16 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormScheduleType(task.scheduleType === 'cron' ? 'interval' : task.scheduleType);
     setFormIntervalMinutes(task.intervalMinutes);
     setFormDailyTime(task.dailyTime);
+    if (task.scheduleType === 'once') {
+      if (task.onceAt) {
+        setFormOnceMode('at');
+        // 转为 datetime-local 格式 (YYYY-MM-DDTHH:mm)
+        setFormOnceAt(new Date(task.onceAt).toISOString().slice(0, 16));
+      } else {
+        setFormOnceMode('delay');
+        setFormOnceDelayMinutes(task.onceDelayMinutes ?? 30);
+      }
+    }
     setFormTaskRequirement(task.taskRequirement);
     setFormHttpMethod(task.httpMethod);
     setFormHttpUrl(task.httpUrl);
@@ -131,6 +147,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
       shellCommand: formShellCommand,
       textInstruction: formTextInstruction,
     };
+
+    if (formScheduleType === 'once') {
+      if (formOnceMode === 'delay') {
+        taskData.onceDelayMinutes = formOnceDelayMinutes;
+      } else {
+        taskData.onceAt = new Date(formOnceAt).toISOString();
+      }
+    }
 
     try {
       if (editingTask) {
@@ -235,6 +259,13 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                     >
                       {t('tasks.daily')}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant={formScheduleType === 'once' ? 'primary' : 'secondary'}
+                      onPress={() => setFormScheduleType('once')}
+                    >
+                      一次性
+                    </Button>
                   </div>
                 </div>
 
@@ -250,6 +281,34 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                     <Label>{t('tasks.dailyTime')}</Label>
                     <Input type="time" />
                   </TextField>
+                )}
+
+                {formScheduleType === 'once' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label>执行时机</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" variant={formOnceMode === 'delay' ? 'primary' : 'secondary'} onPress={() => setFormOnceMode('delay')}>
+                          延迟执行
+                        </Button>
+                        <Button size="sm" variant={formOnceMode === 'at' ? 'primary' : 'secondary'} onPress={() => setFormOnceMode('at')}>
+                          指定时间
+                        </Button>
+                      </div>
+                    </div>
+                    {formOnceMode === 'delay' ? (
+                      <TextField value={String(formOnceDelayMinutes)} onChange={v => setFormOnceDelayMinutes(Number(v) || 1)}>
+                        <Label>延迟分钟数</Label>
+                        <Input type="number" min="1" placeholder="30" />
+                      </TextField>
+                    ) : (
+                      <TextField value={formOnceAt} onChange={setFormOnceAt}>
+                        <Label>执行时间</Label>
+                        <Input type="datetime-local" />
+                      </TextField>
+                    )}
+                    <p className="text-xs text-gray-400">一次性任务执行完成后会自动关闭</p>
+                  </div>
                 )}
 
                 {formTaskType === 'http' && (
