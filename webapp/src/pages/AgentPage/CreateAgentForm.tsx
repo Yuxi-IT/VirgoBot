@@ -14,6 +14,8 @@ function CreateAgentForm({ visible, onCreated, onCancel }: CreateAgentFormProps)
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [creating, setCreating] = useState(false);
+  const [characterName, setCharacterName] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   if (!visible) return null;
 
@@ -25,11 +27,38 @@ function CreateAgentForm({ visible, onCreated, onCancel }: CreateAgentFormProps)
       toast.success(t('agent.createSuccess'));
       setName('');
       setContent('');
+      setCharacterName('');
       onCreated();
     } catch {
       toast.danger(t('settings.saveFailed'));
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!characterName.trim()) return;
+    try {
+      setGenerating(true);
+      const agentName = name.trim() || characterName.trim();
+      await api.post('/api/agents/generate', {
+        characterName: characterName.trim(),
+        agentName,
+      });
+      toast.success(t('agent.generateSuccess'));
+      setName('');
+      setContent('');
+      setCharacterName('');
+      onCreated();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('409') || msg.toLowerCase().includes('already exists')) {
+        toast.danger(t('agent.alreadyExists'));
+      } else {
+        toast.danger(t('agent.generateFailed'));
+      }
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -44,6 +73,28 @@ function CreateAgentForm({ visible, onCreated, onCancel }: CreateAgentFormProps)
             <Label>{t('agent.agentName')}</Label>
             <Input placeholder={t('agent.namePlaceholder')} />
           </TextField>
+
+          <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+            <p className="text-sm font-medium">{t('agent.aiGenerate')}</p>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <TextField value={characterName} onChange={setCharacterName}>
+                  <Label>{t('agent.characterName')}</Label>
+                  <Input placeholder={t('agent.characterNamePlaceholder')} />
+                </TextField>
+              </div>
+              <Button
+                onPress={handleGenerate}
+                isDisabled={generating || !characterName.trim()}
+                variant="secondary"
+              >
+                {generating ? <Spinner size="sm" className="mr-2" /> : null}
+                {generating ? t('agent.generating') : t('agent.generateBtn')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('agent.aiGenerateHint')}</p>
+          </div>
+
           <div>
             <label className="text-sm font-medium mb-1 block">{t('agent.agentContent')}</label>
             <TextArea
@@ -62,7 +113,7 @@ function CreateAgentForm({ visible, onCreated, onCancel }: CreateAgentFormProps)
               {creating ? <Spinner size="sm" className="mr-2" /> : null}
               {t('agent.createAgent')}
             </Button>
-            <Button variant="secondary" onPress={() => { setName(''); setContent(''); onCancel(); }}>
+            <Button variant="secondary" onPress={() => { setName(''); setContent(''); setCharacterName(''); onCancel(); }}>
               {t('common.cancel')}
             </Button>
           </div>

@@ -232,6 +232,10 @@ public class HttpServerHost
                     {
                         await _agentApiHandler.HandleCreateAgentRequest(ctx);
                     }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/agents/generate" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _agentApiHandler.HandleGenerateAgentRequest(ctx);
+                    }
                     else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "GET")
                     {
                         await _agentApiHandler.HandleGetAgentRequest(ctx);
