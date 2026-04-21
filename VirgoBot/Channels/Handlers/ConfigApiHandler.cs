@@ -68,10 +68,6 @@ public class ConfigApiHandler
                 {
                     enabled = config.Channel.ILink.Enabled,
                     token = MaskSecret(config.Channel.ILink.Token),
-                    webSocketUrl = config.Channel.ILink.WebSocketUrl,
-                    sendUrl = config.Channel.ILink.SendUrl,
-                    webhookPath = config.Channel.ILink.WebhookPath,
-                    defaultUserId = config.Channel.ILink.DefaultUserId
                 }
             }
         };

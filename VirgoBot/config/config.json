@@ -1,47 +1,39 @@
 {
-  "ApiKey": "YOUR_API_KEY",
-  "BaseUrl": "https://localhost/",
-  "Model": "gpt-4.5",
-  "MemoryFile": "system_memory.md",
-  "SoulFile": "soul.md",
-  "RuleFile": "RULE.md",
-  "CurrentSession": "",
-  "Server": {
-    "ListenUrl": "http://+:5000/",
-    "MaxTokens": 8192,
-    "MessageLimit": 20
+  "apiKey": "YOUR_API_KEY",
+  "baseUrl": "https://localhost/",
+  "model": "gpt-4.5",
+  "memoryFile": "system_memory.md",
+  "soulFile": "soul.md",
+  "ruleFile": "RULE.md",
+  "currentSession": "",
+  "server": {
+    "listenUrl": "http://+:5000/",
+    "maxTokens": 8192,
+    "messageLimit": 20
   },
-  "Channel": {
-    "ILink": {
-      "Enabled": false,
-      "Token": "YOUR_ILINK_TOKEN",
-      "WebSocketUrl": "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
-      "SendUrl": "http://localhost/bot/v1/message/send",
-      "WebhookPath": "/ilink/webhook",
-      "DefaultUserId": "ilink"
+  "channel": {
+    "iLink": {
+      "enabled": false,
+      "token": ""
     },
-    "Telegram": {
-      "Enabled": false,
-      "BotToken": "YOUR_BOT_TOKEN",
-      "AllowedUsers": []
+    "telegram": {
+      "enabled": false,
+      "botToken": "YOUR_BOT_TOKEN",
+      "allowedUsers": []
     },
-    "Email": {
-      "Enabled": false,
-      "ImapHost": "imap.example.com",
-      "ImapPort": 993,
-      "SmtpHost": "smtp.example.com",
-      "SmtpPort": 587,
-      "Address": "your@email.com",
-      "Password": "your_password",
-      "Notification": {
-        "NotifyToTelegram": false,
-        "NotifyToILink": false,
-        "NotifyToWebSocket": false
+    "email": {
+      "enabled": false,
+      "imapHost": "imap.example.com",
+      "imapPort": 993,
+      "smtpHost": "smtp.example.com",
+      "smtpPort": 587,
+      "address": "your@email.com",
+      "password": "your_password",
+      "notification": {
+        "notifyToTelegram": false,
+        "notifyToILink": false,
+        "notifyToWebSocket": false
       }
     }
-  },
-  "BotToken": "",
-  "AllowedUsers": [],
-  "Email": null,
-  "ILink": null
+  }
 }

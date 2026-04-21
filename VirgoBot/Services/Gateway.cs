@@ -114,7 +114,7 @@ public class Gateway : IDisposable
 
         if (Config.Channel.ILink.Enabled)
         {
-            ILinkBridge = new ILinkBridgeService(Config.Channel.ILink, Config.Server.MessageSplitDelimiters);
+            ILinkBridge = new ILinkBridgeService(Config.Channel.ILink.Token, Config.Server.MessageSplitDelimiters);
             FunctionRegistry.SetILinkBridgeService(ILinkBridge);
         }
 

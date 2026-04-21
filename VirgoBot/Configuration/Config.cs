@@ -67,8 +67,4 @@ public class ILinkChannelConfig
 {
     public bool Enabled { get; set; } = false;
     public string Token { get; set; } = "";
-    public string WebSocketUrl { get; set; } = "";
-    public string SendUrl { get; set; } = "";
-    public string WebhookPath { get; set; } = "/ilink/webhook";
-    public string DefaultUserId { get; set; } = "ilink";
 }

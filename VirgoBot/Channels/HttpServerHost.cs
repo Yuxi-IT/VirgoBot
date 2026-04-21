@@ -7,8 +7,6 @@ using System.Text.Json;
 using VirgoBot.Channels.Handlers;
 using VirgoBot.Configuration;
 using VirgoBot.Contracts;
-using VirgoBot.Functions;
-using VirgoBot.Integrations.ILink;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
 
@@ -384,7 +382,6 @@ public class HttpServerHost
         if (method == "OPTIONS") { ctx.Response.StatusCode = 200; return; }
 
         if (path == "/chat" && method == "POST") { await HandleChatRequest(ctx); return; }
-        if (_gateway.Config.Channel.ILink.Enabled && path == _gateway.Config.Channel.ILink.WebhookPath && method == "POST") { await HandleILinkWebhook(ctx); return; }
         if (path?.StartsWith("/sticker/") == true && method == "GET") { await HandleStickerRequest(ctx); return; }
         if (path == "/api/status" && method == "GET") { await _statusApiHandler.HandleStatusRequest(ctx); return; }
         if (path == "/api/messages/users" && method == "GET") { await _statusApiHandler.HandleGetUsersRequest(ctx); return; }
@@ -425,9 +422,8 @@ public class HttpServerHost
         if (path?.StartsWith("/api/agents/") == true && method == "PUT") { await _agentApiHandler.HandleUpdateAgentRequest(ctx); return; }
         if (path?.StartsWith("/api/agents/") == true && method == "DELETE") { await _agentApiHandler.HandleDeleteAgentRequest(ctx); return; }
         if (path == "/api/config/agent" && method == "PUT") { await _agentApiHandler.HandleSwitchAgentRequest(ctx); return; }
-        if (path == "/api/ilink/login/qrcode" && method == "POST") { await _channelApiHandler.HandleCreateILinkQrCodeRequest(ctx); return; }
-        if (path == "/api/ilink/login/status" && method == "GET") { await _channelApiHandler.HandleQueryILinkLoginStatusRequest(ctx); return; }
-        if (path == "/api/ilink/login/save" && method == "POST") { await _channelApiHandler.HandleSaveILinkCredentialsRequest(ctx); return; }
+        if (path == "/api/ilink/login/start" && method == "POST") { await _channelApiHandler.HandleStartILinkLoginRequest(ctx); return; }
+        if (path == "/api/ilink/login/status" && method == "GET") { await _channelApiHandler.HandleGetILinkLoginStatusRequest(ctx); return; }
         if (path == "/api/soul" && method == "GET") { await _agentApiHandler.HandleGetSoulEntriesRequest(ctx); return; }
         if (path == "/api/soul" && method == "POST") { await _agentApiHandler.HandleAddSoulEntryRequest(ctx); return; }
         if (path?.StartsWith("/api/soul/") == true && method == "PUT") { await _agentApiHandler.HandleUpdateSoulEntryRequest(ctx); return; }
@@ -460,19 +456,6 @@ public class HttpServerHost
         ctx.Response.ContentType = "text/plain; charset=utf-8";
         ctx.Response.ContentLength64 = response.Length;
         await ctx.Response.OutputStream.WriteAsync(response);
-    }
-
-    private async Task HandleILinkWebhook(HttpListenerContext ctx)
-    {
-        using var reader = new StreamReader(ctx.Request.InputStream);
-        var body = await reader.ReadToEndAsync();
-
-        ColorLog.Info("ILINK", $"Webhook 收到数据: {body}");
-        ColorLog.Warning("ILINK", "Webhook 模式暂不支持，请使用轮询模式");
-
-        ctx.Response.StatusCode = 200;
-        var ok = Encoding.UTF8.GetBytes("ok");
-        await ctx.Response.OutputStream.WriteAsync(ok);
     }
 
     private async Task HandleStickerRequest(HttpListenerContext ctx)

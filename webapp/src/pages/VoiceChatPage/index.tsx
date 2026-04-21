@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Button, Card, Spinner, toast } from '@heroui/react';
+import { Button, Card, Spinner, toast, TextField, Input } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api, BASE_URL } from '../../services/api';
@@ -37,11 +37,20 @@ function VoiceChatPage() {
   const [transcript, setTranscript] = useState('');
   const [botResponse, setBotResponse] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [micUnavailable, setMicUnavailable] = useState(false);
+  const [textInput, setTextInput] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Check mic API availability (requires HTTPS on mobile)
+  useEffect(() => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicUnavailable(true);
+    }
+  }, []);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -84,20 +93,18 @@ function VoiceChatPage() {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 16000,
-        }
-      });
+      // iOS Safari 不支持 sampleRate 约束，只请求基本音频权限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // Try to use audio/webm;codecs=opus, fallback to default
+      // Try to use audio/webm;codecs=opus, fallback to mp4 (iOS), then default
       let mimeType = 'audio/webm;codecs=opus';
       if (!MediaRecorder.isTypeSupported(mimeType)) {
         mimeType = 'audio/webm';
         if (!MediaRecorder.isTypeSupported(mimeType)) {
-          mimeType = ''; // Use default
+          mimeType = 'audio/mp4';
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = ''; // Use default
+          }
         }
       }
 
@@ -127,7 +134,14 @@ function VoiceChatPage() {
       setBotResponse('');
     } catch (err) {
       console.error('Failed to start recording:', err);
-      toast.danger(t('voiceChat.micError'));
+      const error = err as Error;
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.danger(t('voiceChat.micPermissionDenied'));
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.danger(t('voiceChat.micNotFound'));
+      } else {
+        toast.danger(t('voiceChat.micError'));
+      }
     }
   };
 
@@ -136,6 +150,25 @@ function VoiceChatPage() {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsProcessing(true);
+    }
+  };
+
+  const sendTextMessage = () => {
+    const text = textInput.trim();
+    if (!text) return;
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      setTranscript(text);
+      setBotResponse('');
+      setIsProcessing(true);
+      setTextInput('');
+      wsRef.current.send(JSON.stringify({
+        type: 'message',
+        message: text,
+        userId: 'voice-user',
+      }));
+    } else {
+      toast.danger(t('voiceChat.wsNotConnected'));
     }
   };
 
@@ -262,14 +295,18 @@ function VoiceChatPage() {
           <div className="flex flex-col items-center space-y-6">
             {/* Recording Button */}
             <div className="flex flex-col items-center space-y-4">
-              {!isRecording && !isProcessing && (
+              {micUnavailable ? (
+                <div className="w-32 h-32 rounded-full flex items-center justify-center bg-gray-100 text-center p-2">
+                  <p className="text-xs text-gray-500">{t('voiceChat.httpsRequired')}</p>
+                </div>
+              ) : !isRecording && !isProcessing ? (
                 <Button
                   onPress={startRecording}
                   className="w-32 h-32 rounded-full"
                 >
                   <Microphone className="w-12 h-12" />
                 </Button>
-              )}
+              ) : null}
 
               {isRecording && (
                 <Button
@@ -325,6 +362,33 @@ function VoiceChatPage() {
           </div>
         </Card>
 
+        <Card className="p-4 mb-6">
+          <div className="flex gap-2">
+            <TextField
+              value={textInput}
+              onChange={setTextInput}
+              className="flex-1"
+              aria-label={t('voiceChat.textInputPlaceholder')}
+            >
+              <Input
+                placeholder={t('voiceChat.textInputPlaceholder')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendTextMessage();
+                  }
+                }}
+              />
+            </TextField>
+            <Button
+              onPress={sendTextMessage}
+              isDisabled={!textInput.trim() || isProcessing}
+            >
+              {t('voiceChat.send')}
+            </Button>
+          </div>
+        </Card>
+
         {/* Transcript and Response */}
         {(transcript || botResponse) && (
           <div className="space-y-4">
@@ -355,7 +419,6 @@ function VoiceChatPage() {
             <li>{t('voiceChat.step1')}</li>
             <li>{t('voiceChat.step2')}</li>
             <li>{t('voiceChat.step3')}</li>
-            <li>{t('voiceChat.step4')}</li>
           </ol>
         </Card>
       </div>

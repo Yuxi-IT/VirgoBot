@@ -85,7 +85,7 @@ public class EmailNotificationDispatcher
 
     private async Task SendILinkNotificationAsync(EmailMessage email, string aiResponse, CancellationToken cancellationToken)
     {
-        if (_iLinkBridge is null || !_iLinkBridge.IsEnabled)
+        if (_iLinkBridge is null)
         {
             return;
         }

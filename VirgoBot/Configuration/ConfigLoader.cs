@@ -6,6 +6,12 @@ namespace VirgoBot.Configuration;
 
 public static class ConfigLoader
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     public static Config Load()
     {
         var configDir = AppConstants.ConfigDirectory;
@@ -41,24 +47,20 @@ public static class ConfigLoader
                     ILink = new ILinkChannelConfig
                     {
                         Enabled = false,
-                        Token = "YOUR_ILINK_TOKEN",
-                        WebSocketUrl = "wss://localhost/bot/v1/ws?token=YOUR_ILINK_TOKEN",
-                        SendUrl = "http://localhost/bot/v1/message/send",
-                        WebhookPath = "/ilink/webhook",
-                        DefaultUserId = "ilink"
+                        Token = ""
                     }
                 }
             };
-            File.WriteAllText(configPath, JsonSerializer.Serialize(defaultConfig, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(configPath, JsonSerializer.Serialize(defaultConfig, JsonOptions));
             ColorLog.Info("CONFIG", $"已创建默认配置文件: {configPath}");
         }
 
-        var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath))
+        var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath), JsonOptions)
             ?? throw new InvalidOperationException($"无法解析配置文件: {configPath}");
 
         if (config.Channel.Telegram.AllowedUsers.Length == 0)
-        {
-            throw new InvalidOperationException("配置错误: Channel.Telegram.AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
+        { 
+            //throw new InvalidOperationException("配置错误: Channel.Telegram.AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
         }
 
         return config;
@@ -119,7 +121,7 @@ public static class ConfigLoader
     public static void Save(Config config)
     {
         var configPath = Path.Combine(AppConstants.ConfigDirectory, AppConstants.ConfigFileName);
-        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(config, JsonOptions);
         File.WriteAllText(configPath, json);
         ColorLog.Success("CONFIG", "配置已保存");
     }

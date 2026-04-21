@@ -1,9 +1,8 @@
+using OpenILink.SDK;
 using VirgoBot.Configuration;
-using VirgoBot.Functions;
 using VirgoBot.Integrations.ILink;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
-using ILink4NET.Models;
 
 namespace VirgoBot.Channels;
 
@@ -29,17 +28,17 @@ public class ILinkMessageHandler
         _cancellationToken = cancellationToken;
     }
 
-    public async Task HandleIncomingMessageAsync(IncomingMessage incoming)
+    public async Task HandleIncomingMessageAsync(WeixinMessage incoming)
     {
-        var content = incoming.Text?.Trim();
+        var content = incoming.ExtractText()?.Trim();
         if (string.IsNullOrWhiteSpace(content))
         {
             return;
         }
 
-        ColorLog.Info("ILINK-IN", $"[@{incoming.UserId}] {content}");
+        ColorLog.Info("ILINK-IN", $"[@{incoming.FromUserId}] {content}");
 
-        var reply = await _llmService.AskAsync(HashHelper.GetStableHashCode(incoming.UserId), content);
+        var reply = await _llmService.AskAsync(HashHelper.GetStableHashCode(incoming.FromUserId), content);
 
         if (string.IsNullOrWhiteSpace(reply))
         {

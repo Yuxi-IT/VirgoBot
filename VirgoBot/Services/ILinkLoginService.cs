@@ -1,73 +1,96 @@
-using ILink4NET.Client;
-using ILink4NET.Models;
+using OpenILink.SDK;
 
 namespace VirgoBot.Services;
 
 public class ILinkLoginService : IDisposable
 {
-    private readonly HttpClient _httpClient;
-    private ILinkBotClient? _botClient;
+    private OpenILinkClient? _client;
+    private string? _qrUrl;
+    private string _status = "";
+    private string? _token;
+    private readonly SemaphoreSlim _lock = new(1, 1);
 
-    public ILinkLoginService()
+    public async Task<LoginStartResponse> StartLoginAsync()
     {
-        _httpClient = new HttpClient();
-    }
-
-    public async Task<LoginQrCodeResponse> CreateQrCodeAsync()
-    {
-        _botClient = ILinkBotClient.CreateDefault(_httpClient);
-        var qrCode = await _botClient.Login.CreateQrCodeAsync();
-        return new LoginQrCodeResponse
+        await _lock.WaitAsync();
+        try
         {
-            QrCode = qrCode.QrCode,
-            QrCodeImageUri = qrCode.QrCodeImageUri.ToString()
-        };
-    }
+            _qrUrl = null;
+            _status = "waiting";
+            _token = null;
 
-    public async Task<QrCodeStatusResponse> QueryStatusAsync(string qrCode)
-    {
-        if (_botClient == null)
-        {
-            throw new InvalidOperationException("请先调用 CreateQrCodeAsync 创建二维码");
-        }
+            _client = OpenILinkClient.Create("");
 
-        var result = await _botClient.Login.QueryQrCodeStatusAsync(qrCode);
-        return new QrCodeStatusResponse
-        {
-            Status = result.Status.ToString(),
-            Credentials = result.Credentials != null ? new CredentialsDto
+            _ = Task.Run(async () =>
             {
-                BotToken = result.Credentials.BotToken,
-                ILinkBotId = result.Credentials.ILinkBotId,
-                ILinkUserId = result.Credentials.ILinkUserId,
-                ApiBaseUri = result.Credentials.ApiBaseUri.ToString()
-            } : null
+                try
+                {
+                    var result = await _client.LoginWithQrAsync(
+                        onQrCode: url =>
+                        {
+                            _qrUrl = url;
+                            _status = "waiting";
+                        },
+                        onScanned: () =>
+                        {
+                            _status = "scanned";
+                        });
+
+                    _token = result.BotToken;
+                    _status = "confirmed";
+                }
+                catch (TimeoutException)
+                {
+                    _status = "expired";
+                }
+                catch (Exception)
+                {
+                    _status = "expired";
+                }
+            });
+
+            var timeout = DateTime.UtcNow.AddSeconds(10);
+            while (_qrUrl == null && DateTime.UtcNow < timeout)
+            {
+                await Task.Delay(100);
+            }
+
+            return new LoginStartResponse
+            {
+                QrCodeUrl = _qrUrl ?? "",
+                Status = _status
+            };
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public LoginStatusResponse GetStatus()
+    {
+        return new LoginStatusResponse
+        {
+            Status = _status,
+            Token = _status == "confirmed" ? _token : null
         };
     }
 
     public void Dispose()
     {
-        _httpClient?.Dispose();
+        _client?.Dispose();
+        _lock.Dispose();
     }
 }
 
-public class LoginQrCodeResponse
+public class LoginStartResponse
 {
-    public string QrCode { get; set; } = "";
-    public string QrCodeImageUri { get; set; } = "";
+    public string QrCodeUrl { get; set; } = "";
+    public string Status { get; set; } = "";
 }
 
-public class QrCodeStatusResponse
+public class LoginStatusResponse
 {
     public string Status { get; set; } = "";
-    public CredentialsDto? Credentials { get; set; }
+    public string? Token { get; set; }
 }
-
-public class CredentialsDto
-{
-    public string BotToken { get; set; } = "";
-    public string ILinkBotId { get; set; } = "";
-    public string ILinkUserId { get; set; } = "";
-    public string ApiBaseUri { get; set; } = "";
-}
-

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Spinner } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
@@ -9,113 +9,98 @@ interface ILinkLoginModalProps {
   onSuccess: () => void;
 }
 
-interface QrCodeData {
-  qrCode: string;
-  qrCodeImageUri: string;
+interface LoginStartData {
+  qrCodeUrl: string;
+  status: string;
 }
 
-interface StatusData {
+interface LoginStatusData {
   status: string;
-  credentials?: {
-    botToken: string;
-    iLinkBotId: string;
-    iLinkUserId: string;
-    apiBaseUri: string;
-  };
+  token?: string;
 }
 
 function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalProps) {
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
-  const [qrCode, setQrCode] = useState<QrCodeData | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('');
-  const [polling, setPolling] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      createQrCode();
+      startLogin();
     } else {
-      setQrCode(null);
-      setStatus('');
-      setPolling(false);
+      cleanup();
     }
+    return cleanup;
   }, [isOpen]);
 
-  const createQrCode = async () => {
+  const cleanup = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setQrUrl(null);
+    setStatus('');
+  };
+
+  const startLogin = async () => {
     setLoading(true);
     try {
-      const res = await api.post<{ success: boolean; data: QrCodeData }>('/api/ilink/login/qrcode', {});
+      const res = await api.post<{ success: boolean; data: LoginStartData }>('/api/ilink/login/start', {});
       if (res.success && res.data) {
-        setQrCode(res.data);
-        setStatus('Wait');
-        // 直接在新窗口打开 QR 码页面
-        window.open(res.data.qrCodeImageUri, '_blank', 'width=600,height=700');
-        startPolling(res.data.qrCode);
+        setQrUrl(res.data.qrCodeUrl);
+        setStatus('waiting');
+        if (res.data.qrCodeUrl) {
+          window.open(res.data.qrCodeUrl, '_blank', 'width=600,height=700');
+        }
+        startPolling();
       }
     } catch (error) {
-      console.error('Failed to create QR code:', error);
+      console.error('Failed to start iLink login:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const openQrCodeInNewWindow = () => {
-    if (qrCode?.qrCodeImageUri) {
-      window.open(qrCode.qrCodeImageUri, '_blank', 'width=600,height=700');
+  const openQrWindow = () => {
+    if (qrUrl) {
+      window.open(qrUrl, '_blank', 'width=600,height=700');
     }
   };
 
-  const startPolling = (qrCodeValue: string) => {
-    setPolling(true);
-    const interval = setInterval(async () => {
+  const startPolling = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    intervalRef.current = setInterval(async () => {
       try {
-        const res = await api.get<{ success: boolean; data: StatusData }>(
-          `/api/ilink/login/status?qrId=${encodeURIComponent(qrCodeValue)}`
-        );
+        const res = await api.get<{ success: boolean; data: LoginStatusData }>('/api/ilink/login/status');
         if (res.success && res.data) {
           setStatus(res.data.status);
 
-          if (res.data.status === 'Confirmed' && res.data.credentials) {
-            clearInterval(interval);
-            setPolling(false);
-            await saveCredentials(res.data.credentials);
-          } else if (res.data.status === 'Expired') {
-            clearInterval(interval);
-            setPolling(false);
+          if (res.data.status === 'confirmed') {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            intervalRef.current = null;
+            onSuccess();
+            onOpenChange(false);
+          } else if (res.data.status === 'expired') {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            intervalRef.current = null;
           }
         }
       } catch (error) {
-        console.error('Failed to query status:', error);
+        console.error('Failed to query login status:', error);
       }
     }, 2000);
-
-    return () => clearInterval(interval);
-  };
-
-  const saveCredentials = async (credentials: StatusData['credentials']) => {
-    if (!credentials) return;
-
-    try {
-      await api.post('/api/ilink/login/save', credentials);
-      onSuccess();
-      onOpenChange(false);
-    } catch (error) {
-      console.error('Failed to save credentials:', error);
-    }
   };
 
   const getStatusText = () => {
     switch (status) {
-      case 'Wait':
-        return t('channel.ilinkLoginWait');
-      case 'Scanned':
-        return t('channel.ilinkLoginScanned');
-      case 'Confirmed':
-        return t('channel.ilinkLoginConfirmed');
-      case 'Expired':
-        return t('channel.ilinkLoginExpired');
-      default:
-        return '';
+      case 'waiting': return t('channel.ilinkLoginWait');
+      case 'scanned': return t('channel.ilinkLoginScanned');
+      case 'confirmed': return t('channel.ilinkLoginConfirmed');
+      case 'expired': return t('channel.ilinkLoginExpired');
+      default: return '';
     }
   };
 
@@ -131,14 +116,16 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', padding: '2rem' }}>
               {loading && <Spinner size="lg" />}
 
-              {qrCode && status !== 'Expired' && (
+              {qrUrl && status !== 'expired' && (
                 <>
                   <div style={{ textAlign: 'center', fontSize: '1.1rem' }}>
                     <p>{getStatusText()}</p>
-                    {polling && <Spinner size="sm" style={{ marginTop: '0.5rem' }} />}
+                    {(status === 'waiting' || status === 'scanned') && (
+                      <Spinner size="sm" style={{ marginTop: '0.5rem' }} />
+                    )}
                   </div>
                   <div style={{ marginTop: '1rem' }}>
-                    <Button onPress={openQrCodeInNewWindow}>
+                    <Button onPress={openQrWindow}>
                       {t('channel.ilinkLoginReopen')}
                     </Button>
                   </div>
@@ -148,10 +135,10 @@ function ILinkLoginModal({ isOpen, onOpenChange, onSuccess }: ILinkLoginModalPro
                 </>
               )}
 
-              {status === 'Expired' && (
+              {status === 'expired' && (
                 <div style={{ textAlign: 'center' }}>
                   <p style={{ marginBottom: '1rem' }}>{getStatusText()}</p>
-                  <Button onPress={createQrCode}>
+                  <Button onPress={startLogin}>
                     {t('channel.ilinkLoginRefresh')}
                   </Button>
                 </div>
