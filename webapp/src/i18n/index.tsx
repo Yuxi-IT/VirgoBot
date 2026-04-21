@@ -3,7 +3,7 @@ import en from './locales/en';
 import zh from './locales/zh';
 
 type Locale = 'en' | 'zh';
-type Messages = Record<string, string | Record<string, string>>;
+type Messages = Record<string, any>;
 
 const messages: Record<Locale, Messages> = { en, zh };
 

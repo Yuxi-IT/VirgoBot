@@ -6,7 +6,7 @@ function DefaultLayout({ children, header, className }: { children: React.ReactN
                 {header}
             </div>
             )}
-            <div className="sm:pb-0 pb-[58px]">
+            <div className="sm:pb-0 pb-[40px]">
                 {children}
             </div>    
         </div>

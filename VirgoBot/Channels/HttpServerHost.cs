@@ -1,5 +1,7 @@
 using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using VirgoBot.Channels.Handlers;
@@ -31,7 +33,10 @@ public class HttpServerHost
     private readonly ScheduledTaskService _taskService;
     private readonly VoiceApiHandler _voiceApiHandler;
 
-    private static readonly DateTime StartTime = DateTime.UtcNow;
+    // Public-facing port (TcpListener on 0.0.0.0) — no admin/URL ACL needed
+    private const int PublicPort = 8765;
+    // Internal HttpListener port (127.0.0.1 only)
+    private const int InternalPort = 8766;
 
     public HttpServerHost(
         Gateway gateway,
@@ -59,345 +64,386 @@ public class HttpServerHost
 
     public async Task StartAsync()
     {
-        var listener = new HttpListener();
-        listener.Prefixes.Add(_gateway.Config.Server.ListenUrl);
-        listener.Start();
+        // Start internal HttpListener on localhost only (no URL ACL needed for 127.0.0.1)
+        var internalListener = new HttpListener();
+        internalListener.Prefixes.Add($"http://127.0.0.1:{InternalPort}/");
+        internalListener.Start();
+
+        // Accept and dispatch internal HTTP requests
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                var ctx = await internalListener.GetContextAsync();
+                _ = Task.Run(async () =>
+                {
+                    try { await DispatchRequest(ctx); }
+                    catch (Exception ex)
+                    {
+                        ColorLog.Error("HTTP", $"请求处理失败: {ex.Message}");
+                        try { await HttpResponseHelper.SendErrorResponse(ctx, 500, ex.Message); } catch { ctx.Response.StatusCode = 500; }
+                    }
+                    finally { ctx.Response.Close(); }
+                });
+            }
+        });
+
+        // Public TcpListener on 0.0.0.0 — no admin privileges required
+        var tcpListener = new TcpListener(IPAddress.Any, PublicPort);
+        tcpListener.Start();
+        ColorLog.Success("HTTP", $"HTTP 服务已启动 — 端口 {PublicPort} (公网可访问)");
 
         while (true)
         {
-            var ctx = await listener.GetContextAsync();
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    if (ctx.Request.IsWebSocketRequest)
-                    {
-                        await HandleWebSocketConnection(ctx);
-                        return;
-                    }
-
-                    ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*");
-                    ctx.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-                    ctx.Response.Headers.Add("Access-Control-Allow-Headers", "*");
-
-                    if (ctx.Request.HttpMethod == "OPTIONS")
-                    {
-                        ctx.Response.StatusCode = 200;
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/chat" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await HandleChatRequest(ctx);
-                    }
-                    else if (_gateway.Config.Channel.ILink.Enabled &&
-                             ctx.Request.Url?.AbsolutePath == _gateway.Config.Channel.ILink.WebhookPath &&
-                             ctx.Request.HttpMethod == "POST")
-                    {
-                        await HandleILinkWebhook(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/sticker/") == true && ctx.Request.HttpMethod == "GET")
-                    {
-                        await HandleStickerRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/status" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _statusApiHandler.HandleStatusRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/messages/users" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _statusApiHandler.HandleGetUsersRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/messages" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _statusApiHandler.HandleGetMessagesRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/contacts" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _contactApiHandler.HandleGetContactsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/contacts" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _contactApiHandler.HandleAddContactRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/contacts/") == true && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _contactApiHandler.HandleUpdateContactRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/contacts/") == true && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _contactApiHandler.HandleDeleteContactRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _configApiHandler.HandleGetConfigRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _configApiHandler.HandleUpdateConfigRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/system-memory" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _configApiHandler.HandleGetSystemMemoryRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/system-memory" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _configApiHandler.HandleUpdateSystemMemoryRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/soul" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _configApiHandler.HandleGetSoulRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/soul" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _configApiHandler.HandleUpdateSoulRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/rule" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _configApiHandler.HandleGetRuleRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/rule" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _configApiHandler.HandleUpdateRuleRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/logs" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _statusApiHandler.HandleGetLogsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/logs" && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _statusApiHandler.HandleClearLogsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _skillApiHandler.HandleGetSkillsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _skillApiHandler.HandleCreateSkillRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills/import" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _skillApiHandler.HandleImportSkillZipRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/skills/import-url" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _skillApiHandler.HandleImportSkillZipFromUrlRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _skillApiHandler.HandleGetSkillRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _skillApiHandler.HandleUpdateSkillRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/skills/") == true && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _skillApiHandler.HandleDeleteSkillRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/tasks" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _taskApiHandler.HandleGetTasksRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/tasks" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _taskApiHandler.HandleCreateTaskRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.Url?.AbsolutePath.EndsWith("/toggle") == true && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _taskApiHandler.HandleToggleTaskRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _taskApiHandler.HandleGetTaskRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _taskApiHandler.HandleUpdateTaskRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/tasks/") == true && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _taskApiHandler.HandleDeleteTaskRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/gateway/restart" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _statusApiHandler.HandleGatewayRestartRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/gateway/status" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _statusApiHandler.HandleGatewayStatusRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/agents" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _agentApiHandler.HandleGetAgentsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/agents" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _agentApiHandler.HandleCreateAgentRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/agents/generate" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _agentApiHandler.HandleGenerateAgentRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _agentApiHandler.HandleGetAgentRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _agentApiHandler.HandleUpdateAgentRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/agents/") == true && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _agentApiHandler.HandleDeleteAgentRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/agent" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _agentApiHandler.HandleSwitchAgentRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/qrcode" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _channelApiHandler.HandleCreateILinkQrCodeRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/status" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _channelApiHandler.HandleQueryILinkLoginStatusRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/ilink/login/save" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _channelApiHandler.HandleSaveILinkCredentialsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/soul" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _agentApiHandler.HandleGetSoulEntriesRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/soul" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _agentApiHandler.HandleAddSoulEntryRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/soul/") == true && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _agentApiHandler.HandleUpdateSoulEntryRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/soul/") == true && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _agentApiHandler.HandleDeleteSoulEntryRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/channels" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _channelApiHandler.HandleGetChannelsConfigRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/config/channels" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _channelApiHandler.HandleUpdateChannelsConfigRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/sessions" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _sessionApiHandler.HandleGetSessionsRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/sessions" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _sessionApiHandler.HandleCreateSessionRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/sessions/switch" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _sessionApiHandler.HandleSwitchSessionRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/sessions/") == true && ctx.Request.HttpMethod == "DELETE")
-                    {
-                        await _sessionApiHandler.HandleDeleteSessionRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/config" && ctx.Request.HttpMethod == "GET")
-                    {
-                        await _voiceApiHandler.HandleGetConfigRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/config" && ctx.Request.HttpMethod == "PUT")
-                    {
-                        await _voiceApiHandler.HandleUpdateConfigRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/asr" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _voiceApiHandler.HandleAsrRequest(ctx);
-                    }
-                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/tts" && ctx.Request.HttpMethod == "POST")
-                    {
-                        await _voiceApiHandler.HandleTtsRequest(ctx);
-                    }
-                    else
-                    {
-                        ctx.Response.StatusCode = 404;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ColorLog.Error("HTTP", $"请求处理失败: {ex.Message}");
-                    try { await HttpResponseHelper.SendErrorResponse(ctx, 500, ex.Message); } catch { ctx.Response.StatusCode = 500; }
-                }
-                finally { ctx.Response.Close(); }
-            });
+            var client = await tcpListener.AcceptTcpClientAsync();
+            _ = Task.Run(() => HandleTcpClient(client));
         }
     }
 
-    private async Task HandleWebSocketConnection(HttpListenerContext ctx)
+    private async Task HandleTcpClient(TcpClient client)
     {
-        var wsCtx = await ctx.AcceptWebSocketAsync(null);
-        var ws = wsCtx.WebSocket;
+        try
+        {
+            client.NoDelay = true;
+            using var stream = client.GetStream();
+
+            // Read the HTTP request headers into a buffer
+            var headerBytes = await ReadHttpHeadersAsync(stream);
+            if (headerBytes == null) return;
+
+            var headerText = Encoding.UTF8.GetString(headerBytes);
+
+            // Check if this is a WebSocket upgrade request
+            if (headerText.Contains("Upgrade: websocket", StringComparison.OrdinalIgnoreCase) ||
+                headerText.Contains("Upgrade:websocket", StringComparison.OrdinalIgnoreCase))
+            {
+                await HandleRawWebSocket(client, stream, headerText, headerBytes);
+                return;
+            }
+
+            // Regular HTTP — proxy to internal HttpListener
+            await ProxyToInternalListener(client, stream, headerBytes);
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("TCP", $"客户端处理失败: {ex.Message}");
+        }
+        finally
+        {
+            client.Close();
+        }
+    }
+
+    /// <summary>
+    /// Reads HTTP headers until \r\n\r\n, returns the full header bytes (including the blank line).
+    /// </summary>
+    private static async Task<byte[]?> ReadHttpHeadersAsync(NetworkStream stream)
+    {
+        var buf = new List<byte>(4096);
+        var tmp = new byte[1];
+        while (true)
+        {
+            int n;
+            try { n = await stream.ReadAsync(tmp, 0, 1); }
+            catch { return null; }
+            if (n == 0) return null;
+            buf.Add(tmp[0]);
+            if (buf.Count >= 4 &&
+                buf[^4] == '\r' && buf[^3] == '\n' &&
+                buf[^2] == '\r' && buf[^1] == '\n')
+                return buf.ToArray();
+            if (buf.Count > 65536) return null; // safety limit
+        }
+    }
+
+    private async Task ProxyToInternalListener(TcpClient client, NetworkStream clientStream, byte[] headerBytes)
+    {
+        try
+        {
+            // Parse Content-Length from headers to know if there's a body
+            var headerText = Encoding.UTF8.GetString(headerBytes);
+            var contentLength = 0;
+            var lines = headerText.Split(new[] { "\r\n" }, StringSplitOptions.None);
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var parts = line.Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[1].Trim(), out var len))
+                        contentLength = len;
+                }
+            }
+
+            // Read body if present
+            byte[]? bodyBytes = null;
+            if (contentLength > 0)
+            {
+                bodyBytes = new byte[contentLength];
+                var totalRead = 0;
+                while (totalRead < contentLength)
+                {
+                    var n = await clientStream.ReadAsync(bodyBytes, totalRead, contentLength - totalRead);
+                    if (n == 0) break;
+                    totalRead += n;
+                }
+            }
+
+            // Forward to internal HttpListener
+            using var httpClient = new HttpClient();
+            var requestLine = lines[0].Split(' ');
+            if (requestLine.Length < 3) return;
+
+            var method = requestLine[0];
+            var path = requestLine[1];
+            var url = $"http://127.0.0.1:{InternalPort}{path}";
+
+            HttpResponseMessage response;
+            if (method == "GET" || method == "DELETE")
+            {
+                var request = new HttpRequestMessage(new HttpMethod(method), url);
+                response = await httpClient.SendAsync(request);
+            }
+            else if (method == "POST" || method == "PUT")
+            {
+                var content = bodyBytes != null ? new ByteArrayContent(bodyBytes) : new ByteArrayContent(Array.Empty<byte>());
+                // Copy Content-Type header if present
+                foreach (var line in lines)
+                {
+                    if (line.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var parts = line.Split(new[] { ':' }, 2);
+                        if (parts.Length == 2)
+                            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(parts[1].Trim());
+                    }
+                }
+                response = method == "POST"
+                    ? await httpClient.PostAsync(url, content)
+                    : await httpClient.PutAsync(url, content);
+            }
+            else if (method == "OPTIONS")
+            {
+                var request = new HttpRequestMessage(HttpMethod.Options, url);
+                response = await httpClient.SendAsync(request);
+            }
+            else
+            {
+                return; // Unsupported method
+            }
+
+            // Send response back to client
+            var statusLine = $"HTTP/1.1 {(int)response.StatusCode} {response.ReasonPhrase}\r\n";
+            await clientStream.WriteAsync(Encoding.UTF8.GetBytes(statusLine));
+
+            // Write response headers
+            foreach (var header in response.Headers)
+            {
+                foreach (var value in header.Value)
+                    await clientStream.WriteAsync(Encoding.UTF8.GetBytes($"{header.Key}: {value}\r\n"));
+            }
+            foreach (var header in response.Content.Headers)
+            {
+                foreach (var value in header.Value)
+                    await clientStream.WriteAsync(Encoding.UTF8.GetBytes($"{header.Key}: {value}\r\n"));
+            }
+            await clientStream.WriteAsync(Encoding.UTF8.GetBytes("\r\n"));
+
+            // Write response body
+            var responseBody = await response.Content.ReadAsByteArrayAsync();
+            if (responseBody.Length > 0)
+                await clientStream.WriteAsync(responseBody);
+
+            await clientStream.FlushAsync();
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("PROXY", $"代理失败: {ex.Message}");
+        }
+    }
+
+    private async Task HandleRawWebSocket(TcpClient client, NetworkStream stream, string headerText, byte[] headerBytes)
+    {
+        // Perform WebSocket handshake manually
+        var key = "";
+        foreach (var line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.None))
+        {
+            if (line.StartsWith("Sec-WebSocket-Key:", StringComparison.OrdinalIgnoreCase))
+            {
+                key = line.Split(new[] { ':' }, 2)[1].Trim();
+                break;
+            }
+        }
+
+        if (string.IsNullOrEmpty(key))
+        {
+            ColorLog.Error("WS", "WebSocket 握手失败: 缺少 Sec-WebSocket-Key");
+            return;
+        }
+
+        var acceptKey = Convert.ToBase64String(
+            SHA1.HashData(Encoding.UTF8.GetBytes(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+
+        var handshake = "HTTP/1.1 101 Switching Protocols\r\n" +
+                        "Upgrade: websocket\r\n" +
+                        "Connection: Upgrade\r\n" +
+                        $"Sec-WebSocket-Accept: {acceptKey}\r\n\r\n";
+
+        await stream.WriteAsync(Encoding.UTF8.GetBytes(handshake));
+        await stream.FlushAsync();
+
+        // Wrap in a managed WebSocket
+        var ws = WebSocket.CreateFromStream(stream, new WebSocketCreationOptions
+        {
+            IsServer = true,
+            KeepAliveInterval = TimeSpan.FromSeconds(30)
+        });
+
         _wsManager.Add(ws);
         ColorLog.Success("WS", "客户端已连接");
 
         var buffer = new byte[AppConstants.WebSocketBufferSize];
-        while (ws.State == WebSocketState.Open)
+        try
         {
-            var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            if (result.MessageType == WebSocketMessageType.Close)
+            while (ws.State == WebSocketState.Open)
             {
-                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-                _wsManager.Remove(ws);
-                ColorLog.Info("WS", "客户端已断开");
-            }
-            else if (result.MessageType == WebSocketMessageType.Text)
-            {
-                var msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                var req = JsonSerializer.Deserialize<JsonElement>(msg);
-
-                if (req.TryGetProperty("type", out var typeEl))
+                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    var type = typeEl.GetString();
-
-                    if (type == "message")
-                    {
-                        var message = req.GetProperty("message").GetString();
-                        var userId = req.GetProperty("userId").GetString();
-                        var effectiveUserId = userId ?? "unknown";
-                        ColorLog.Info("→AI", $"[@{userId}] {message}");
-
-                        _gateway.ActivityMonitor?.UpdateActivity();
-                        var reply = await _gateway.LlmService.AskAsync(GetStableHashCode(effectiveUserId), message ?? "");
-                        ColorLog.Success("AI→", reply);
-
-                        var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
-                        await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
-                    }
-                    else if (type == "aiSwitchChat")
-                    {
-                        var username = req.GetProperty("username").GetString();
-                        var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username }));
-                        await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
-                        ColorLog.Success("SWITCH", $"切换到 {username}");
-                    }
+                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
+                    break;
                 }
-                else if (req.TryGetProperty("message", out var msgEl))
+                else if (result.MessageType == WebSocketMessageType.Text)
                 {
-                    var chatReq = JsonSerializer.Deserialize<ChatRequest>(msg);
-                    ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
-
-                    _gateway.ActivityMonitor?.UpdateActivity();
-                    var reply = await _gateway.LlmService.AskAsync(_gateway.Config.Channel.Telegram.AllowedUsers[0], chatReq?.message ?? "");
-
-                    var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
-                    await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                    var msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    await ProcessWebSocketMessage(ws, msg);
                 }
             }
         }
+        catch (Exception ex)
+        {
+            ColorLog.Error("WS", $"WebSocket 错误: {ex.Message}");
+        }
+        finally
+        {
+            _wsManager.Remove(ws);
+            ColorLog.Info("WS", "客户端已断开");
+        }
+    }
+
+    private async Task ProcessWebSocketMessage(WebSocket ws, string msg)
+    {
+        var req = JsonSerializer.Deserialize<JsonElement>(msg);
+
+        if (req.TryGetProperty("type", out var typeEl))
+        {
+            var type = typeEl.GetString();
+
+            if (type == "message")
+            {
+                var message = req.GetProperty("message").GetString();
+                var userId = req.GetProperty("userId").GetString();
+                var effectiveUserId = userId ?? "unknown";
+                ColorLog.Info("→AI", $"[@{userId}] {message}");
+
+                _gateway.ActivityMonitor?.UpdateActivity();
+                var reply = await _gateway.LlmService.AskAsync(GetStableHashCode(effectiveUserId), message ?? "");
+                ColorLog.Success("AI→", reply);
+
+                var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
+                await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+            }
+            else if (type == "aiSwitchChat")
+            {
+                var username = req.GetProperty("username").GetString();
+                var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "switchChat", username }));
+                await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+                ColorLog.Success("SWITCH", $"切换到 {username}");
+            }
+        }
+        else if (req.TryGetProperty("message", out var msgEl))
+        {
+            var chatReq = JsonSerializer.Deserialize<ChatRequest>(msg);
+            ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
+
+            _gateway.ActivityMonitor?.UpdateActivity();
+            var reply = await _gateway.LlmService.AskAsync(_gateway.Config.Channel.Telegram.AllowedUsers[0], chatReq?.message ?? "");
+
+            var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
+            await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+    }
+
+    private async Task DispatchRequest(HttpListenerContext ctx)
+    {
+        ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+        ctx.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        ctx.Response.Headers.Add("Access-Control-Allow-Headers", "*");
+
+        var path = ctx.Request.Url?.AbsolutePath;
+        var method = ctx.Request.HttpMethod;
+
+        if (method == "OPTIONS") { ctx.Response.StatusCode = 200; return; }
+
+        if (path == "/chat" && method == "POST") { await HandleChatRequest(ctx); return; }
+        if (_gateway.Config.Channel.ILink.Enabled && path == _gateway.Config.Channel.ILink.WebhookPath && method == "POST") { await HandleILinkWebhook(ctx); return; }
+        if (path?.StartsWith("/sticker/") == true && method == "GET") { await HandleStickerRequest(ctx); return; }
+        if (path == "/api/status" && method == "GET") { await _statusApiHandler.HandleStatusRequest(ctx); return; }
+        if (path == "/api/messages/users" && method == "GET") { await _statusApiHandler.HandleGetUsersRequest(ctx); return; }
+        if (path == "/api/messages" && method == "GET") { await _statusApiHandler.HandleGetMessagesRequest(ctx); return; }
+        if (path == "/api/contacts" && method == "GET") { await _contactApiHandler.HandleGetContactsRequest(ctx); return; }
+        if (path == "/api/contacts" && method == "POST") { await _contactApiHandler.HandleAddContactRequest(ctx); return; }
+        if (path?.StartsWith("/api/contacts/") == true && method == "PUT") { await _contactApiHandler.HandleUpdateContactRequest(ctx); return; }
+        if (path?.StartsWith("/api/contacts/") == true && method == "DELETE") { await _contactApiHandler.HandleDeleteContactRequest(ctx); return; }
+        if (path == "/api/config" && method == "GET") { await _configApiHandler.HandleGetConfigRequest(ctx); return; }
+        if (path == "/api/config" && method == "PUT") { await _configApiHandler.HandleUpdateConfigRequest(ctx); return; }
+        if (path == "/api/config/system-memory" && method == "GET") { await _configApiHandler.HandleGetSystemMemoryRequest(ctx); return; }
+        if (path == "/api/config/system-memory" && method == "PUT") { await _configApiHandler.HandleUpdateSystemMemoryRequest(ctx); return; }
+        if (path == "/api/config/soul" && method == "GET") { await _configApiHandler.HandleGetSoulRequest(ctx); return; }
+        if (path == "/api/config/soul" && method == "PUT") { await _configApiHandler.HandleUpdateSoulRequest(ctx); return; }
+        if (path == "/api/config/rule" && method == "GET") { await _configApiHandler.HandleGetRuleRequest(ctx); return; }
+        if (path == "/api/config/rule" && method == "PUT") { await _configApiHandler.HandleUpdateRuleRequest(ctx); return; }
+        if (path == "/api/logs" && method == "GET") { await _statusApiHandler.HandleGetLogsRequest(ctx); return; }
+        if (path == "/api/logs" && method == "DELETE") { await _statusApiHandler.HandleClearLogsRequest(ctx); return; }
+        if (path == "/api/skills" && method == "GET") { await _skillApiHandler.HandleGetSkillsRequest(ctx); return; }
+        if (path == "/api/skills" && method == "POST") { await _skillApiHandler.HandleCreateSkillRequest(ctx); return; }
+        if (path == "/api/skills/import" && method == "POST") { await _skillApiHandler.HandleImportSkillZipRequest(ctx); return; }
+        if (path == "/api/skills/import-url" && method == "POST") { await _skillApiHandler.HandleImportSkillZipFromUrlRequest(ctx); return; }
+        if (path?.StartsWith("/api/skills/") == true && method == "GET") { await _skillApiHandler.HandleGetSkillRequest(ctx); return; }
+        if (path?.StartsWith("/api/skills/") == true && method == "PUT") { await _skillApiHandler.HandleUpdateSkillRequest(ctx); return; }
+        if (path?.StartsWith("/api/skills/") == true && method == "DELETE") { await _skillApiHandler.HandleDeleteSkillRequest(ctx); return; }
+        if (path == "/api/tasks" && method == "GET") { await _taskApiHandler.HandleGetTasksRequest(ctx); return; }
+        if (path == "/api/tasks" && method == "POST") { await _taskApiHandler.HandleCreateTaskRequest(ctx); return; }
+        if (path?.StartsWith("/api/tasks/") == true && path.EndsWith("/toggle") && method == "POST") { await _taskApiHandler.HandleToggleTaskRequest(ctx); return; }
+        if (path?.StartsWith("/api/tasks/") == true && method == "GET") { await _taskApiHandler.HandleGetTaskRequest(ctx); return; }
+        if (path?.StartsWith("/api/tasks/") == true && method == "PUT") { await _taskApiHandler.HandleUpdateTaskRequest(ctx); return; }
+        if (path?.StartsWith("/api/tasks/") == true && method == "DELETE") { await _taskApiHandler.HandleDeleteTaskRequest(ctx); return; }
+        if (path == "/api/gateway/restart" && method == "POST") { await _statusApiHandler.HandleGatewayRestartRequest(ctx); return; }
+        if (path == "/api/gateway/status" && method == "GET") { await _statusApiHandler.HandleGatewayStatusRequest(ctx); return; }
+        if (path == "/api/agents" && method == "GET") { await _agentApiHandler.HandleGetAgentsRequest(ctx); return; }
+        if (path == "/api/agents" && method == "POST") { await _agentApiHandler.HandleCreateAgentRequest(ctx); return; }
+        if (path == "/api/agents/generate" && method == "POST") { await _agentApiHandler.HandleGenerateAgentRequest(ctx); return; }
+        if (path?.StartsWith("/api/agents/") == true && method == "GET") { await _agentApiHandler.HandleGetAgentRequest(ctx); return; }
+        if (path?.StartsWith("/api/agents/") == true && method == "PUT") { await _agentApiHandler.HandleUpdateAgentRequest(ctx); return; }
+        if (path?.StartsWith("/api/agents/") == true && method == "DELETE") { await _agentApiHandler.HandleDeleteAgentRequest(ctx); return; }
+        if (path == "/api/config/agent" && method == "PUT") { await _agentApiHandler.HandleSwitchAgentRequest(ctx); return; }
+        if (path == "/api/ilink/login/qrcode" && method == "POST") { await _channelApiHandler.HandleCreateILinkQrCodeRequest(ctx); return; }
+        if (path == "/api/ilink/login/status" && method == "GET") { await _channelApiHandler.HandleQueryILinkLoginStatusRequest(ctx); return; }
+        if (path == "/api/ilink/login/save" && method == "POST") { await _channelApiHandler.HandleSaveILinkCredentialsRequest(ctx); return; }
+        if (path == "/api/soul" && method == "GET") { await _agentApiHandler.HandleGetSoulEntriesRequest(ctx); return; }
+        if (path == "/api/soul" && method == "POST") { await _agentApiHandler.HandleAddSoulEntryRequest(ctx); return; }
+        if (path?.StartsWith("/api/soul/") == true && method == "PUT") { await _agentApiHandler.HandleUpdateSoulEntryRequest(ctx); return; }
+        if (path?.StartsWith("/api/soul/") == true && method == "DELETE") { await _agentApiHandler.HandleDeleteSoulEntryRequest(ctx); return; }
+        if (path == "/api/config/channels" && method == "GET") { await _channelApiHandler.HandleGetChannelsConfigRequest(ctx); return; }
+        if (path == "/api/config/channels" && method == "PUT") { await _channelApiHandler.HandleUpdateChannelsConfigRequest(ctx); return; }
+        if (path == "/api/sessions" && method == "GET") { await _sessionApiHandler.HandleGetSessionsRequest(ctx); return; }
+        if (path == "/api/sessions" && method == "POST") { await _sessionApiHandler.HandleCreateSessionRequest(ctx); return; }
+        if (path == "/api/sessions/switch" && method == "PUT") { await _sessionApiHandler.HandleSwitchSessionRequest(ctx); return; }
+        if (path?.StartsWith("/api/sessions/") == true && method == "DELETE") { await _sessionApiHandler.HandleDeleteSessionRequest(ctx); return; }
+        if (path == "/api/voice/config" && method == "GET") { await _voiceApiHandler.HandleGetConfigRequest(ctx); return; }
+        if (path == "/api/voice/config" && method == "PUT") { await _voiceApiHandler.HandleUpdateConfigRequest(ctx); return; }
+        if (path == "/api/voice/asr" && method == "POST") { await _voiceApiHandler.HandleAsrRequest(ctx); return; }
+        if (path == "/api/voice/tts" && method == "POST") { await _voiceApiHandler.HandleTtsRequest(ctx); return; }
+
+        ctx.Response.StatusCode = 404;
     }
 
     private async Task HandleChatRequest(HttpListenerContext ctx)
@@ -422,7 +468,6 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
 
         ColorLog.Info("ILINK", $"Webhook 收到数据: {body}");
-
         ColorLog.Warning("ILINK", "Webhook 模式暂不支持，请使用轮询模式");
 
         ctx.Response.StatusCode = 200;

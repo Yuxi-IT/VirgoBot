@@ -1,4 +1,4 @@
-export const BASE_URL = `http://${window.location.hostname}:5000`;
+export const BASE_URL = `http://${window.location.hostname}:8765`;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {

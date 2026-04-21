@@ -51,7 +51,7 @@ const Navigation = () => {
       )}
 
       {isSmallScreen && <BottomNav />}
-      <div className={`${isSmallScreen ? '' : 'ml-54'}`}>
+      <div className={`${isSmallScreen ? 'pt-[44px]' : 'ml-54'}`}>
         <AppRoutes/>
       </div>
     </>

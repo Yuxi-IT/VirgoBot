@@ -1,4 +1,4 @@
-import { Card, TextField, Label, Input, Button, Separator } from '@heroui/react';
+import { Card, TextField, Label, Input, Button, Separator, Spinner } from '@heroui/react';
 import { useI18n } from '../../i18n';
 
 interface VoiceTabProps {
@@ -86,9 +86,10 @@ function VoiceTab({
         <div className="flex gap-2 mt-6">
           <Button
             onPress={onSave}
-            isLoading={saving}
-            color="primary"
+            isDisabled={saving}
+            variant="primary"
           >
+            {saving ? <Spinner size="sm" className="mr-2" /> : null}
             {t('settings.save')}
           </Button>
         </div>
