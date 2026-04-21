@@ -25,6 +25,7 @@ public class ConfigApiHandler
             model = config.Model,
             baseUrl = config.BaseUrl,
             apiKey = MaskSecret(config.ApiKey),
+            apiStandard = config.ApiStandard.ToString(),
             memoryFile = config.MemoryFile,
             server = new
             {
@@ -93,6 +94,10 @@ public class ConfigApiHandler
 
             if (!string.IsNullOrWhiteSpace(body.Model)) config.Model = body.Model;
             if (!string.IsNullOrWhiteSpace(body.BaseUrl)) config.BaseUrl = body.BaseUrl;
+            if (!string.IsNullOrWhiteSpace(body.ApiStandard) && Enum.TryParse<ApiStandard>(body.ApiStandard, out var apiStandard))
+            {
+                config.ApiStandard = apiStandard;
+            }
             if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;
             if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
             if (!string.IsNullOrWhiteSpace(body.MessageSplitDelimiters)) config.Server.MessageSplitDelimiters = body.MessageSplitDelimiters;
@@ -195,6 +200,7 @@ public record ConfigUpdateRequest
 {
     public string? Model { get; init; }
     public string? BaseUrl { get; init; }
+    public string? ApiStandard { get; init; }
     public int? MaxTokens { get; init; }
     public int? MessageLimit { get; init; }
     public string? MessageSplitDelimiters { get; init; }
