@@ -186,9 +186,9 @@ public class ScheduledTaskService
         if (task.ScheduleType == "once")
         {
             var delay = CalculateOnceDelay(task);
-            if (delay < 0) return; // 时间已过
+            if (delay < 0) return; 
 
-            // 一次性任务：只触发一次，执行后自动禁用
+            // 一次性任务
             var timer = new Timer(async _ =>
             {
                 await ExecuteTask(task);
@@ -378,7 +378,7 @@ public class ScheduledTaskService
 
         try
         {
-            var response = await _llmService.AskAsync(0, task.TextInstruction);
+            var response = await _llmService.AskAsync(0, $"系统消息：定时任务触发\n内容：{task.TextInstruction}");
             ColorLog.Success("TASK", $"AI 响应: {response.Substring(0, Math.Min(200, response.Length))}");
         }
         catch (Exception ex)
