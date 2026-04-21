@@ -5,6 +5,7 @@ public class Config
     public string ApiKey { get; set; } = "";
     public string BaseUrl { get; set; } = "";
     public string Model { get; set; } = "";
+    public ApiStandard ApiStandard { get; set; } = ApiStandard.OpenAI;
     public string MemoryFile { get; set; } = "system_memory.md";
     public string SoulFile { get; set; } = "soul.md";
     public string RuleFile { get; set; } = "RULE.md";
