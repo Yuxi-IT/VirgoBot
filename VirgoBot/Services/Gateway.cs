@@ -30,7 +30,6 @@ public class Gateway : IDisposable
     public TelegramBotHandler? TelegramHandler { get; private set; }
     public ILinkBridgeService? ILinkBridge { get; private set; }
     public ILinkMessageHandler? ILinkHandler { get; private set; }
-    public StickerService StickerService { get; private set; } = null!;
     public ContactService ContactService { get; private set; } = null!;
     public ScheduledTaskService ScheduledTaskService { get; private set; } = null!;
 
@@ -94,7 +93,6 @@ public class Gateway : IDisposable
         ScheduledTaskService = new ScheduledTaskService();
 
         FunctionRegistry = new FunctionRegistry(Config, _memoryService, ScheduledTaskService);
-        StickerService = new StickerService("stickers");
         ContactService = new ContactService();
         LlmService = new LLMService(_httpClient, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
         ScheduledTaskService.SetLlmService(LlmService);
@@ -109,7 +107,6 @@ public class Gateway : IDisposable
         }
 
         FunctionRegistry.SetShellSessionService(_shellSessionService);
-        FunctionRegistry.SetStickerService(StickerService);
         FunctionRegistry.SetContactService(ContactService);
 
         if (Config.Channel.ILink.Enabled)

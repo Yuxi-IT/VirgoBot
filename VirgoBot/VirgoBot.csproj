@@ -16,12 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="stickers\**\*">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <ItemGroup>
     <None Update="config\RULE.md">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>

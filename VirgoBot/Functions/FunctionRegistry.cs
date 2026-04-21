@@ -28,9 +28,6 @@ public class FunctionRegistry
     public void SetEmailService(EmailService emailService)
         => RegisterAll(EmailFunctions.Register(emailService));
 
-    public void SetStickerService(StickerService stickerService)
-        => RegisterAll(StickerFunctions.Register(stickerService));
-
     public void SetContactService(ContactService contactService)
         => RegisterAll(ContactFunctions.Register(contactService));
 

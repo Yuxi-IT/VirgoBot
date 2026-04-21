@@ -382,7 +382,6 @@ public class HttpServerHost
         if (method == "OPTIONS") { ctx.Response.StatusCode = 200; return; }
 
         if (path == "/chat" && method == "POST") { await HandleChatRequest(ctx); return; }
-        if (path?.StartsWith("/sticker/") == true && method == "GET") { await HandleStickerRequest(ctx); return; }
         if (path == "/api/status" && method == "GET") { await _statusApiHandler.HandleStatusRequest(ctx); return; }
         if (path == "/api/messages/users" && method == "GET") { await _statusApiHandler.HandleGetUsersRequest(ctx); return; }
         if (path == "/api/messages" && method == "GET") { await _statusApiHandler.HandleGetMessagesRequest(ctx); return; }
@@ -456,21 +455,6 @@ public class HttpServerHost
         ctx.Response.ContentType = "text/plain; charset=utf-8";
         ctx.Response.ContentLength64 = response.Length;
         await ctx.Response.OutputStream.WriteAsync(response);
-    }
-
-    private async Task HandleStickerRequest(HttpListenerContext ctx)
-    {
-        var filename = ctx.Request.Url!.AbsolutePath.Replace("/sticker/", "");
-        var path = Path.Combine("stickers", filename);
-
-        if (File.Exists(path))
-        {
-            var ext = Path.GetExtension(filename).ToLower();
-            ctx.Response.ContentType = ext == ".gif" ? "image/gif" : "image/png";
-            var data = await File.ReadAllBytesAsync(path);
-            await ctx.Response.OutputStream.WriteAsync(data);
-        }
-        else ctx.Response.StatusCode = 404;
     }
 
     private static long GetStableHashCode(string str)
