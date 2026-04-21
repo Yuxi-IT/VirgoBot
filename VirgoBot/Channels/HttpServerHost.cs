@@ -29,6 +29,7 @@ public class HttpServerHost
     private readonly StatusApiHandler _statusApiHandler;
     private readonly ScheduledTaskApiHandler _taskApiHandler;
     private readonly ScheduledTaskService _taskService;
+    private readonly VoiceApiHandler _voiceApiHandler;
 
     private static readonly DateTime StartTime = DateTime.UtcNow;
 
@@ -53,6 +54,7 @@ public class HttpServerHost
         _sessionApiHandler = new SessionApiHandler(gateway, memoryService);
         _statusApiHandler = new StatusApiHandler(gateway, memoryService, logService, wsManager);
         _taskApiHandler = new ScheduledTaskApiHandler(_taskService);
+        _voiceApiHandler = new VoiceApiHandler();
     }
 
     public async Task StartAsync()
@@ -303,6 +305,22 @@ public class HttpServerHost
                     else if (ctx.Request.Url?.AbsolutePath.StartsWith("/api/sessions/") == true && ctx.Request.HttpMethod == "DELETE")
                     {
                         await _sessionApiHandler.HandleDeleteSessionRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/config" && ctx.Request.HttpMethod == "GET")
+                    {
+                        await _voiceApiHandler.HandleGetConfigRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/config" && ctx.Request.HttpMethod == "PUT")
+                    {
+                        await _voiceApiHandler.HandleUpdateConfigRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/asr" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _voiceApiHandler.HandleAsrRequest(ctx);
+                    }
+                    else if (ctx.Request.Url?.AbsolutePath == "/api/voice/tts" && ctx.Request.HttpMethod == "POST")
+                    {
+                        await _voiceApiHandler.HandleTtsRequest(ctx);
                     }
                     else
                     {

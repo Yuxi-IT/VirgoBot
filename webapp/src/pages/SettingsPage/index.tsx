@@ -7,7 +7,8 @@ import GeneralTab from './GeneralTab';
 import EmailTab from './EmailTab';
 import SystemMemoryTab from './SystemMemoryTab';
 import RuleTab from './RuleTab';
-import type { ConfigData, ConfigResponse } from './types';
+import VoiceTab from './VoiceTab';
+import type { ConfigData, ConfigResponse, VoiceConfigResponse } from './types';
 
 function SettingsPage() {
   const { t } = useI18n();
@@ -30,8 +31,16 @@ function SettingsPage() {
   const [editImapHost, setEditImapHost] = useState('');
   const [editEmailAddress, setEditEmailAddress] = useState('');
 
+  // Voice config states
+  const [editVoiceApiKey, setEditVoiceApiKey] = useState('');
+  const [editAsrResourceId, setEditAsrResourceId] = useState('volc.bigasr.auc_turbo');
+  const [editTtsResourceId, setEditTtsResourceId] = useState('seed-tts-2.0');
+  const [editVoiceType, setEditVoiceType] = useState('zh_female_vv_uranus_bigtts');
+  const [savingVoice, setSavingVoice] = useState(false);
+
   useEffect(() => {
     loadConfig();
+    loadVoiceConfig();
   }, []);
 
   const loadConfig = async () => {
@@ -56,6 +65,20 @@ function SettingsPage() {
       // silently fail
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadVoiceConfig = async () => {
+    try {
+      const res = await api.get<VoiceConfigResponse>('/api/voice/config');
+      if (res.success && res.data.voice) {
+        setEditVoiceApiKey(res.data.voice.apiKey);
+        setEditAsrResourceId(res.data.voice.asrResourceId);
+        setEditTtsResourceId(res.data.voice.ttsResourceId);
+        setEditVoiceType(res.data.voice.voiceType);
+      }
+    } catch {
+      // silently fail
     }
   };
 
@@ -109,6 +132,26 @@ function SettingsPage() {
     }
   };
 
+  const saveVoiceConfig = async () => {
+    setSavingVoice(true);
+    try {
+      await api.put('/api/voice/config', {
+        voice: {
+          apiKey: editVoiceApiKey,
+          asrResourceId: editAsrResourceId,
+          ttsResourceId: editTtsResourceId,
+          voiceType: editVoiceType,
+        },
+      });
+      toast.success(t('gateway.configSaved'));
+      await loadVoiceConfig();
+    } catch {
+      toast.danger(t('settings.saveFailed'));
+    } finally {
+      setSavingVoice(false);
+    }
+  };
+
   if (loading) {
     return (
       <DefaultLayout>
@@ -141,6 +184,10 @@ function SettingsPage() {
               </Tabs.Tab>
               <Tabs.Tab id="rule">
                 {t('settings.rule')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab id="voice">
+                {t('settings.voice.tab')}
                 <Tabs.Indicator />
               </Tabs.Tab>
             </Tabs.List>
@@ -198,6 +245,21 @@ function SettingsPage() {
 
           <Tabs.Panel id="rule">
             <RuleTab active={activeTab === 'rule'} />
+          </Tabs.Panel>
+
+          <Tabs.Panel id="voice">
+            <VoiceTab
+              editApiKey={editVoiceApiKey}
+              editAsrResourceId={editAsrResourceId}
+              editTtsResourceId={editTtsResourceId}
+              editVoiceType={editVoiceType}
+              onEditApiKey={setEditVoiceApiKey}
+              onEditAsrResourceId={setEditAsrResourceId}
+              onEditTtsResourceId={setEditTtsResourceId}
+              onEditVoiceType={setEditVoiceType}
+              saving={savingVoice}
+              onSave={saveVoiceConfig}
+            />
           </Tabs.Panel>
         </Tabs>
       </div>
