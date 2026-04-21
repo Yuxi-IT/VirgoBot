@@ -20,6 +20,7 @@ function SettingsPage() {
   // Editable field states
   const [editModel, setEditModel] = useState('');
   const [editBaseUrl, setEditBaseUrl] = useState('');
+  const [editApiStandard, setEditApiStandard] = useState('OpenAI');
   const [editMaxTokens, setEditMaxTokens] = useState('');
   const [editMessageLimit, setEditMessageLimit] = useState('');
   const [editMessageSplitDelimiters, setEditMessageSplitDelimiters] = useState('');
@@ -41,6 +42,7 @@ function SettingsPage() {
         setConfig(res.data);
         setEditModel(res.data.model);
         setEditBaseUrl(res.data.baseUrl);
+        setEditApiStandard(res.data.apiStandard ?? 'OpenAI');
         setEditMaxTokens(String(res.data.server.maxTokens));
         setEditMessageLimit(String(res.data.server.messageLimit));
         setEditMessageSplitDelimiters(res.data.server.messageSplitDelimiters);
@@ -63,6 +65,7 @@ function SettingsPage() {
       await api.put('/api/config', {
         model: editModel,
         baseUrl: editBaseUrl,
+        apiStandard: editApiStandard,
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
         messageSplitDelimiters: editMessageSplitDelimiters,
@@ -86,6 +89,7 @@ function SettingsPage() {
       await api.put('/api/config', {
         model: editModel,
         baseUrl: editBaseUrl,
+        apiStandard: editApiStandard,
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
         messageSplitDelimiters: editMessageSplitDelimiters,
@@ -148,6 +152,7 @@ function SettingsPage() {
                 config={config}
                 editModel={editModel}
                 editBaseUrl={editBaseUrl}
+                editApiStandard={editApiStandard}
                 editMaxTokens={editMaxTokens}
                 editMessageLimit={editMessageLimit}
                 editMessageSplitDelimiters={editMessageSplitDelimiters}
@@ -156,6 +161,7 @@ function SettingsPage() {
                 editAutoResponseMaxIdle={editAutoResponseMaxIdle}
                 onEditModel={setEditModel}
                 onEditBaseUrl={setEditBaseUrl}
+                onEditApiStandard={setEditApiStandard}
                 onEditMaxTokens={setEditMaxTokens}
                 onEditMessageLimit={setEditMessageLimit}
                 onEditMessageSplitDelimiters={setEditMessageSplitDelimiters}

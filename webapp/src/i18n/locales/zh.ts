@@ -94,6 +94,8 @@ export default {
     rule: '规则',
     model: '模型',
     baseUrl: '接口地址',
+    apiStandard: 'API 标准',
+    apiStandardHint: '选择与接口地址匹配的 API 标准，默认为 OpenAI',
     listenUrl: '监听地址',
     maxTokens: '最大令牌数',
     messageLimit: '消息限制',

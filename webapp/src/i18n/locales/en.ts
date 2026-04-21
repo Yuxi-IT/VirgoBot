@@ -94,6 +94,8 @@ export default {
     rule: 'Rule',
     model: 'Model',
     baseUrl: 'Base URL',
+    apiStandard: 'API Standard',
+    apiStandardHint: 'Select the API standard matching your endpoint, defaults to OpenAI',
     listenUrl: 'Listen URL',
     maxTokens: 'Max Tokens',
     messageLimit: 'Message Limit',

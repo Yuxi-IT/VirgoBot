@@ -1,4 +1,4 @@
-import { Card, Button, Spinner, TextField, Label, Input, Separator, Chip, Switch } from '@heroui/react';
+import { Card, Button, Spinner, TextField, Label, Input, Separator, Chip, Switch, Select, ListBox } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import type { ConfigData } from './types';
 
@@ -6,6 +6,7 @@ interface GeneralTabProps {
   config: ConfigData;
   editModel: string;
   editBaseUrl: string;
+  editApiStandard: string;
   editMaxTokens: string;
   editMessageLimit: string;
   editMessageSplitDelimiters: string;
@@ -14,6 +15,7 @@ interface GeneralTabProps {
   editAutoResponseMaxIdle: string;
   onEditModel: (v: string) => void;
   onEditBaseUrl: (v: string) => void;
+  onEditApiStandard: (v: string) => void;
   onEditMaxTokens: (v: string) => void;
   onEditMessageLimit: (v: string) => void;
   onEditMessageSplitDelimiters: (v: string) => void;
@@ -27,9 +29,9 @@ interface GeneralTabProps {
 }
 
 function GeneralTab({
-  config, editModel, editBaseUrl, editMaxTokens, editMessageLimit, editMessageSplitDelimiters,
+  config, editModel, editBaseUrl, editApiStandard, editMaxTokens, editMessageLimit, editMessageSplitDelimiters,
   editAutoResponseEnabled, editAutoResponseMinIdle, editAutoResponseMaxIdle,
-  onEditModel, onEditBaseUrl, onEditMaxTokens, onEditMessageLimit, onEditMessageSplitDelimiters,
+  onEditModel, onEditBaseUrl, onEditApiStandard, onEditMaxTokens, onEditMessageLimit, onEditMessageSplitDelimiters,
   onEditAutoResponseEnabled, onEditAutoResponseMinIdle, onEditAutoResponseMaxIdle,
   saving, restarting, onSave, onSaveAndRestart,
 }: GeneralTabProps) {
@@ -50,6 +52,24 @@ function GeneralTab({
             <Label>{t('settings.baseUrl')}</Label>
             <Input />
           </TextField>
+          <div>
+            <Label>{t('settings.apiStandard')}</Label>
+            <div className="mt-2">
+              <Select selectedKey={editApiStandard} onSelectionChange={(key) => onEditApiStandard(String(key))}>
+                <Select.Trigger>
+                  <Select.Value />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="OpenAI" textValue="OpenAI">OpenAI</ListBox.Item>
+                    <ListBox.Item id="Anthropic" textValue="Anthropic">Anthropic</ListBox.Item>
+                    <ListBox.Item id="Gemini" textValue="Gemini">Gemini</ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">{t('settings.apiStandardHint')}</p>
+          </div>
 
           <Separator />
 

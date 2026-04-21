@@ -1,6 +1,7 @@
 export interface ConfigData {
   model: string;
   baseUrl: string;
+  apiStandard: string;
   memoryFile: string;
   server: {
     listenUrl: string;
