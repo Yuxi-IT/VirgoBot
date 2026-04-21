@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using ILink4NET.Client;
+using ILink4NET.Media;
 using ILink4NET.Models;
 using VirgoBot.Configuration;
 using VirgoBot.Utilities;
@@ -135,6 +136,84 @@ public sealed class ILinkBridgeService : IDisposable
             ColorLog.Success("ILINK", paragraph);
             await Task.Delay(300, cancellationToken);
         }
+    }
+
+    public async Task SendImageAsync(string userId, byte[] imageBytes, CancellationToken cancellationToken = default)
+    {
+        if (_botClient == null)
+        {
+            throw new InvalidOperationException("iLink 客户端未初始化");
+        }
+
+        var contextToken = await _botClient.ContextTokens.GetAsync(userId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(contextToken))
+        {
+            throw new InvalidOperationException($"用户 {userId} 的 context_token 不存在，请先让用户发送一条消息");
+        }
+
+        await _botClient.SendImageAsync(userId, contextToken, imageBytes, cancellationToken);
+        ColorLog.Success("ILINK", $"已发送图片给 {userId}");
+    }
+
+    public async Task SendVoiceAsync(string userId, byte[] voiceBytes, CancellationToken cancellationToken = default)
+    {
+        if (_botClient == null)
+        {
+            throw new InvalidOperationException("iLink 客户端未初始化");
+        }
+
+        var contextToken = await _botClient.ContextTokens.GetAsync(userId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(contextToken))
+        {
+            throw new InvalidOperationException($"用户 {userId} 的 context_token 不存在，请先让用户发送一条消息");
+        }
+
+        await _botClient.SendVoiceAsync(userId, contextToken, voiceBytes, cancellationToken);
+        ColorLog.Success("ILINK", $"已发送语音给 {userId}");
+    }
+
+    public async Task SendVideoAsync(string userId, byte[] videoBytes, CancellationToken cancellationToken = default)
+    {
+        if (_botClient == null)
+        {
+            throw new InvalidOperationException("iLink 客户端未初始化");
+        }
+
+        var contextToken = await _botClient.ContextTokens.GetAsync(userId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(contextToken))
+        {
+            throw new InvalidOperationException($"用户 {userId} 的 context_token 不存在，请先让用户发送一条消息");
+        }
+
+        await _botClient.SendVideoAsync(userId, contextToken, videoBytes, cancellationToken);
+        ColorLog.Success("ILINK", $"已发送视频给 {userId}");
+    }
+
+    public async Task SendFileAsync(string userId, byte[] fileBytes, string fileName, CancellationToken cancellationToken = default)
+    {
+        if (_botClient == null)
+        {
+            throw new InvalidOperationException("iLink 客户端未初始化");
+        }
+
+        var contextToken = await _botClient.ContextTokens.GetAsync(userId, cancellationToken);
+        if (string.IsNullOrWhiteSpace(contextToken))
+        {
+            throw new InvalidOperationException($"用户 {userId} 的 context_token 不存在，请先让用户发送一条消息");
+        }
+
+        var fileKey = Guid.NewGuid().ToString("N");
+        var mediaRef = await _botClient.UploadMediaAsync(userId, fileKey, MediaType.File, fileBytes, cancellationToken);
+
+        // 为文件类型添加文件名和大小信息
+        var fileRefWithMeta = new UploadedMediaReference(
+            mediaRef.EncryptQueryParam,
+            mediaRef.AesKey,
+            fileName,
+            fileBytes.Length);
+
+        await _botClient.SendMediaMessageAsync(userId, contextToken, fileRefWithMeta, MediaType.File, cancellationToken);
+        ColorLog.Success("ILINK", $"已发送文件 {fileName} 给 {userId}");
     }
 
     private SessionCredentials? ParseTokenToCredentials(string token)
