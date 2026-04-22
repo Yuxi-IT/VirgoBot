@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 env:
-  VERSION: ${{ github.event.inputs.version || github.ref_name }}
+  RELEASE_TAG: ${{ github.event.inputs.version || github.ref_name }}
 
 jobs:
   build-frontend:
@@ -113,8 +113,8 @@ jobs:
       - name: Create tag (if manual trigger)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          git tag ${{ env.VERSION }}
-          git push origin ${{ env.VERSION }}
+          git tag ${{ env.RELEASE_TAG }}
+          git push origin ${{ env.RELEASE_TAG }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -124,7 +124,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.VERSION }}
+          tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           files: |
             artifacts/*.zip
