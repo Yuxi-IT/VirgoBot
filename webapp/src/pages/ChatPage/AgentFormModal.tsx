@@ -12,7 +12,6 @@ interface Props {
 export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
-  const [characterName, setCharacterName] = useState('');
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
   const { t } = useI18n();
@@ -23,7 +22,7 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
       setCreating(true);
       await api.post('/api/agents', { name: name.trim(), content });
       toast.success('设定已创建');
-      setName(''); setContent(''); setCharacterName('');
+      setName(''); setContent('');
       onCreated();
     } catch {
       toast.danger('创建失败');
@@ -33,13 +32,13 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
   };
 
   const handleGenerate = async () => {
-    if (!characterName.trim()) return;
+    if (!name.trim()) return;
     try {
       setGenerating(true);
-      const agentName = name.trim() || characterName.trim();
-      await api.post('/api/agents/generate', { characterName: characterName.trim(), agentName });
+      const agentName = name.trim() ;
+      await api.post('/api/agents/generate', { characterName: name.trim(), agentName });
       toast.success('AI 生成设定成功');
-      setName(''); setContent(''); setCharacterName('');
+      setName(''); setContent(''); 
       onCreated();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -67,27 +66,6 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
                 <Input placeholder="设定名称" />
               </TextField>
 
-              <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                <p className="text-sm font-medium">{t("agent.generateBtn")}</p>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <TextField value={characterName} onChange={setCharacterName}>
-                      <Label>Name</Label>
-                      <Input placeholder="输入角色名，AI 自动生成设定" />
-                    </TextField>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onPress={handleGenerate}
-                    isDisabled={generating || !characterName.trim()}
-                  >
-                    {generating ? <Spinner size="sm" className="mr-1" /> : null}
-                    {generating ? '生成中...' : '生成'}
-                  </Button>
-                </div>
-              </div>
-
               <div>
                 <label className="text-sm font-medium mb-1 block">设定内容</label>
                 <TextArea
@@ -102,6 +80,14 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onPress={onClose}>取消</Button>
+            <Button
+              variant="secondary"
+              onPress={handleGenerate}
+              isDisabled={generating || !name.trim()}
+            >
+              {generating ? <Spinner size="sm" className="mr-1" /> : null}
+              {generating ? '生成中...' : 'AI生成'}
+            </Button>
             <Button onPress={handleCreate} isDisabled={creating || !name.trim() || !content.trim()}>
               {creating ? <Spinner size="sm" className="mr-1" /> : null}
               创建

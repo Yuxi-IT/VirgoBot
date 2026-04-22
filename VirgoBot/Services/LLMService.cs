@@ -38,7 +38,6 @@ public class LLMService
     }
 
     public async Task<string> AskAsync(
-        long userId,
         string? prompt,
         Action<string>? onProgress = null,
         Func<string, Task>? onSticker = null,
@@ -46,10 +45,10 @@ public class LLMService
     {
         if (!string.IsNullOrWhiteSpace(prompt))
         {
-            _memory.SaveMessage(userId, "user", $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}");
+            _memory.SaveMessage("user", $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}");
         }
 
-        var memoryMessages = _memory.LoadMessages(userId);
+        var memoryMessages = _memory.LoadMessages();
         var messages = BuildOpenAiMessages(memoryMessages);
 
         ColorLog.Info("LLM", $"Messages loaded: {messages.Count}");
@@ -118,7 +117,7 @@ public class LLMService
             toolCalls.ValueKind == JsonValueKind.Array &&
             toolCalls.GetArrayLength() > 0)
         {
-            _memory.SaveMessage(userId, "assistant", BuildAssistantToolCallMemory(assistantText, toolCalls));
+            _memory.SaveMessage("assistant", BuildAssistantToolCallMemory(assistantText, toolCalls));
 
             var toolCallItems = toolCalls.EnumerateArray().Select(tc =>
             {
@@ -173,7 +172,7 @@ public class LLMService
 
             foreach (var r in results)
             {
-                _memory.SaveMessage(userId, "tool", new
+                _memory.SaveMessage("tool", new
                 {
                     tool_call_id = r.Id,
                     content = r.Result
@@ -182,11 +181,11 @@ public class LLMService
 
             ColorLog.Info("TOOL", $"全部 {totalCount} 个工具执行完成, 总耗时 {totalSw.ElapsedMilliseconds}ms");
 
-            return await AskAsync(userId, null, onProgress, onSticker, onSwitchChat);
+            return await AskAsync(null, onProgress, onSticker, onSwitchChat);
         }
 
-        _memory.SaveMessage(userId, "assistant", assistantText);
-        _memory.ClearOldMessages(userId);
+        _memory.SaveMessage("assistant", assistantText);
+        _memory.ClearOldMessages();
         return assistantText;
     }
 

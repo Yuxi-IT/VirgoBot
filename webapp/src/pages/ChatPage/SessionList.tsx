@@ -62,7 +62,7 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
       if (!wasCurrent) {
         await api.put('/api/sessions/switch', { session: session.fileName });
       }
-      const res = await api.get<MessagesResponse>(`/api/messages?userId=0&limit=9999&offset=0`);
+      const res = await api.get<MessagesResponse>(`/api/messages?limit=9999&offset=0`);
       if (!wasCurrent) {
         await api.put('/api/sessions/switch', { session: currentSession });
       }

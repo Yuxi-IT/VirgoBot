@@ -65,7 +65,7 @@ public class ActivityMonitor
                             var totalIdle = DateTime.Now - _lastActivity;
                             var prompt = $"服务提示：用户已经{totalIdle.TotalMinutes:F0}分钟没有给您发消息了";
 
-                            var reply = await _llmService.AskAsync(_userId, prompt);
+                            var reply = await _llmService.AskAsync(prompt);
 
                             try
                             {

@@ -42,7 +42,7 @@ function ChatPage() {
     try {
       if (!silent) setMsgLoading(true);
       const offset = (page - 1) * PAGE_SIZE;
-      const res = await api.get<MessagesResponse>(`/api/messages?userId=0&limit=${PAGE_SIZE}&offset=${offset}`);
+      const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=${offset}`);
       if (res.success) {
         setMessages(res.data.messages);
         setTotal(res.data.total);
@@ -91,7 +91,7 @@ function ChatPage() {
     setSending(true);
     try {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'message', message: text, userId: '0' }));
+        wsRef.current.send(JSON.stringify({ type: 'message', message: text }));
         // Optimistically add user message
         const optimisticMsg: Message = {
           id: Date.now(),

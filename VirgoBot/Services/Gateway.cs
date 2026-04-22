@@ -144,7 +144,7 @@ public class Gateway : IDisposable
 
             if (EmailService != null)
             {
-                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, Config.Channel.Telegram.AllowedUsers[0], LlmService);
+                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, LlmService);
             }
 
             TelegramHandler = new TelegramBotHandler(Config, Bot, LlmService, _memoryService, FunctionRegistry, messageHelper, EmailManager, ActivityMonitor, ILinkBridge, _cts.Token);
@@ -161,7 +161,7 @@ public class Gateway : IDisposable
 
             if (EmailService != null)
             {
-                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, 0, LlmService);
+                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, LlmService);
             }
         }
 

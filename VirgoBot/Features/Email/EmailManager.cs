@@ -7,19 +7,16 @@ public class EmailManager
 {
     private readonly EmailService _emailService;
     private readonly EmailNotificationDispatcher _notificationDispatcher;
-    private readonly long _userId;
     private readonly LLMService _llmService;
     private readonly Dictionary<string, EmailMessage> _pendingEmails = new();
 
     public EmailManager(
         EmailService emailService,
         EmailNotificationDispatcher notificationDispatcher,
-        long userId,
         LLMService llmService)
     {
         _emailService = emailService;
         _notificationDispatcher = notificationDispatcher;
-        _userId = userId;
         _llmService = llmService;
     }
 
@@ -57,7 +54,7 @@ public class EmailManager
         ColorLog.Info("EMAIL", $"新邮件: [{email.From}] {email.Subject}");
         var prompt = $"有新邮件：\n发件人: {email.From}\n主题: {email.Subject}\n内容: {GetPreview(email.Body)}\n\nUID: {email.Uid}\n\n请用你的风格提醒我有新邮件。";
 
-        var aiResponse = await _llmService.AskAsync(_userId, prompt);
+        var aiResponse = await _llmService.AskAsync(prompt);
         await _notificationDispatcher.DispatchNewEmailAsync(email, aiResponse);
     }
 

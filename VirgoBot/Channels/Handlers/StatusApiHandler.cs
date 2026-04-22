@@ -63,37 +63,17 @@ public class StatusApiHandler
         await SendJsonResponse(ctx, data);
     }
 
-    public async Task HandleGetUsersRequest(HttpListenerContext ctx)
-    {
-        var userIds = _memoryService.GetAllUserIds();
-        var users = userIds.Select(uid => new
-        {
-            userId = uid.ToString(),
-            messageCount = _memoryService.GetMessageCount(uid),
-            lastActive = _memoryService.GetLastActiveTime(uid)?.ToString("o") ?? ""
-        }).ToList();
-
-        await SendJsonResponse(ctx, new { success = true, data = users });
-    }
-
     public async Task HandleGetMessagesRequest(HttpListenerContext ctx)
     {
-        var userIdStr = GetQueryParam(ctx, "userId");
         var limitStr = GetQueryParam(ctx, "limit") ?? "50";
         var offsetStr = GetQueryParam(ctx, "offset") ?? "0";
-
-        if (!long.TryParse(userIdStr, out var userId))
-        {
-            await SendErrorResponse(ctx, 400, "Invalid userId");
-            return;
-        }
 
         int.TryParse(limitStr, out var limit);
         int.TryParse(offsetStr, out var offset);
         if (limit <= 0) limit = 50;
         if (offset < 0) offset = 0;
 
-        var (messages, total) = _memoryService.LoadMessagesWithPagination(userId, limit, offset);
+        var (messages, total) = _memoryService.LoadMessagesWithPagination(limit, offset);
 
         var data = new
         {
@@ -104,8 +84,7 @@ public class StatusApiHandler
                 content = m.Content,
                 createdAt = m.CreatedAt.ToString("o")
             }),
-            total,
-            userId = userIdStr
+            total
         };
 
         await SendJsonResponse(ctx, new { success = true, data });

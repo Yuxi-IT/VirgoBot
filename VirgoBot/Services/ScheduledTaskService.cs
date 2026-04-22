@@ -378,7 +378,7 @@ public class ScheduledTaskService
 
         try
         {
-            var response = await _llmService.AskAsync(0, $"系统消息：定时任务触发\n内容：{task.TextInstruction}");
+            var response = await _llmService.AskAsync($"系统消息：定时任务触发\n内容：{task.TextInstruction}");
             ColorLog.Success("TASK", $"AI 响应: {response.Substring(0, Math.Min(200, response.Length))}");
         }
         catch (Exception ex)

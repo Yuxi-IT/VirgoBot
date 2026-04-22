@@ -38,7 +38,7 @@ public class ILinkMessageHandler
 
         ColorLog.Info("ILINK-IN", $"[@{incoming.FromUserId}] {content}");
 
-        var reply = await _llmService.AskAsync(HashHelper.GetStableHashCode(incoming.FromUserId), content);
+        var reply = await _llmService.AskAsync(content);
 
         if (string.IsNullOrWhiteSpace(reply))
         {

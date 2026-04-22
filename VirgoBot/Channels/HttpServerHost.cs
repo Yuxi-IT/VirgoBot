@@ -340,12 +340,10 @@ public class HttpServerHost
             if (type == "message")
             {
                 var message = req.GetProperty("message").GetString();
-                var userId = req.GetProperty("userId").GetString();
-                var effectiveUserId = userId ?? "unknown";
-                ColorLog.Info("→AI", $"[@{userId}] {message}");
+                ColorLog.Info("→AI", $"{message}");
 
                 _gateway.ActivityMonitor?.UpdateActivity();
-                var reply = await _gateway.LlmService.AskAsync(GetStableHashCode(effectiveUserId), message ?? "");
+                var reply = await _gateway.LlmService.AskAsync(message ?? "");
                 ColorLog.Success("AI→", reply);
 
                 var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));
@@ -362,10 +360,10 @@ public class HttpServerHost
         else if (req.TryGetProperty("message", out var msgEl))
         {
             var chatReq = JsonSerializer.Deserialize<ChatRequest>(msg);
-            ColorLog.Info("MSG-WS", $"[@{chatReq?.userId ?? ""}] '{chatReq?.message ?? ""}'");
+            ColorLog.Info("MSG-WS", $"'{chatReq?.message ?? ""}'");
 
             _gateway.ActivityMonitor?.UpdateActivity();
-            var reply = await _gateway.LlmService.AskAsync(_gateway.Config.Channel.Telegram.AllowedUsers[0], chatReq?.message ?? "");
+            var reply = await _gateway.LlmService.AskAsync(chatReq?.message ?? "");
 
             var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "reply", content = reply }));
             await ws.SendAsync(new ArraySegment<byte>(response), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -386,7 +384,6 @@ public class HttpServerHost
         if (path == "/chat" && method == "POST") { await HandleChatRequest(ctx); return; }
         if (path == "/api/status" && method == "GET") { await _statusApiHandler.HandleStatusRequest(ctx); return; }
         if (path == "/api/token-stats" && method == "GET") { await _statusApiHandler.HandleTokenStatsRequest(ctx); return; }
-        if (path == "/api/messages/users" && method == "GET") { await _statusApiHandler.HandleGetUsersRequest(ctx); return; }
         if (path == "/api/messages" && method == "GET") { await _statusApiHandler.HandleGetMessagesRequest(ctx); return; }
         if (path == "/api/contacts" && method == "GET") { await _contactApiHandler.HandleGetContactsRequest(ctx); return; }
         if (path == "/api/contacts" && method == "POST") { await _contactApiHandler.HandleAddContactRequest(ctx); return; }
@@ -438,7 +435,7 @@ public class HttpServerHost
         if (path?.StartsWith("/api/sessions/") == true && method == "DELETE") { await _sessionApiHandler.HandleDeleteSessionRequest(ctx); return; }
         if (path == "/api/sessions/rename" && method == "PUT") { await _sessionApiHandler.HandleRenameSessionRequest(ctx); return; }
         if (path == "/api/sessions/generate-name" && method == "POST") { await _sessionApiHandler.HandleGenerateSessionNameRequest(ctx); return; }
-        if (path?.StartsWith("/api/messages/") == true && path != "/api/messages/users" && method == "DELETE") { await _statusApiHandler.HandleDeleteMessageRequest(ctx); return; }
+        if (path?.StartsWith("/api/messages/") == true && method == "DELETE") { await _statusApiHandler.HandleDeleteMessageRequest(ctx); return; }
         if (path == "/api/voice/config" && method == "GET") { await _voiceApiHandler.HandleGetConfigRequest(ctx); return; }
         if (path == "/api/voice/config" && method == "PUT") { await _voiceApiHandler.HandleUpdateConfigRequest(ctx); return; }
         if (path == "/api/voice/asr" && method == "POST") { await _voiceApiHandler.HandleAsrRequest(ctx); return; }
@@ -459,31 +456,15 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
         var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
-        var reply = await _gateway.LlmService.AskAsync(_gateway.Config.Channel.Telegram.AllowedUsers[0], req?.message ?? "");
+        var reply = await _gateway.LlmService.AskAsync(req?.message ?? "");
         var response = Encoding.UTF8.GetBytes(reply);
 
-        ColorLog.Info("MSG-HTTP", $"[@{req?.userId ?? ""}] '{req?.message ?? ""}'");
+        ColorLog.Info("MSG-HTTP", $"'{req?.message ?? ""}'");
 
         ctx.Response.ContentType = "text/plain; charset=utf-8";
         ctx.Response.ContentLength64 = response.Length;
         await ctx.Response.OutputStream.WriteAsync(response);
     }
 
-    private static long GetStableHashCode(string str)
-    {
-        unchecked
-        {
-            long hash1 = 5381;
-            long hash2 = hash1;
-
-            for (var i = 0; i < str.Length && str[i] != '\0'; i += 2)
-            {
-                hash1 = ((hash1 << 5) + hash1) ^ str[i];
-                if (i == str.Length - 1) break;
-                hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
-            }
-
-            return hash1 + hash2 * 1566083941;
-        }
-    }
 }
+

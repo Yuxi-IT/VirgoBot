@@ -62,7 +62,7 @@ public class TelegramBotHandler
 
         if (msg.Text == "/clear")
         {
-            _memoryService.ClearAllMessages(msg.From.Id);
+            _memoryService.ClearAllMessages();
             await _bot.SendMessage(msg.Chat.Id, "✅ 聊天记录已清空");
             return;
         }
@@ -85,7 +85,7 @@ public class TelegramBotHandler
 
         _functionRegistry.SetTelegramBot(_bot, msg.Chat.Id);
 
-        var reply = await _llmService.AskAsync(msg.From.Id, msg.Text, async (text) =>
+        var reply = await _llmService.AskAsync(msg.Text, async (text) =>
         {
             var processed = _messageHelper.ProcessThinkTags(text);
             await _messageHelper.SendLongMessage(msg.Chat.Id, processed);

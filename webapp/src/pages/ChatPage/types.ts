@@ -25,7 +25,6 @@ export interface MessagesResponse {
   data: {
     messages: Message[];
     total: number;
-    userId: string;
   };
 }
 
@@ -43,8 +42,4 @@ export interface AgentsResponse {
     agents: AgentInfo[];
     currentAgent: string;
   };
-}
-
-export interface UserInfo {
-  userId: string;
 }

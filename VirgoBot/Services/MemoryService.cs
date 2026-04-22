@@ -16,23 +16,16 @@ public class MemoryService : IDisposable
     public MemoryService(string? dbFileName = null, int messageLimit = 20)
     {
         _messageLimit = messageLimit;
-
         Directory.CreateDirectory(MemorysDirectory);
 
         if (string.IsNullOrWhiteSpace(dbFileName))
-        {
             dbFileName = $"{Guid.NewGuid()}.db";
-        }
 
         CurrentDbName = dbFileName;
         var fullPath = Path.Combine(MemorysDirectory, dbFileName);
         _conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
         _conn.Open();
-
-        using var pragmaCmd = _conn.CreateCommand();
-        pragmaCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        pragmaCmd.ExecuteNonQuery();
-
+        ExecutePragma(_conn);
         InitDatabase();
     }
 
@@ -41,7 +34,6 @@ public class MemoryService : IDisposable
         if (string.IsNullOrWhiteSpace(dbFileName))
             throw new ArgumentException("Database file name cannot be empty");
 
-
         _conn.Close();
         _conn.Dispose();
 
@@ -49,11 +41,7 @@ public class MemoryService : IDisposable
         var fullPath = Path.Combine(MemorysDirectory, dbFileName);
         _conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
         _conn.Open();
-
-        using var pragmaCmd = _conn.CreateCommand();
-        pragmaCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        pragmaCmd.ExecuteNonQuery();
-
+        ExecutePragma(_conn);
         InitDatabase();
     }
 
@@ -62,42 +50,28 @@ public class MemoryService : IDisposable
         var dbFileName = $"{Guid.NewGuid()}.db";
         var fullPath = Path.Combine(MemorysDirectory, dbFileName);
 
-
         using var conn = new SqliteConnection($"Data Source={fullPath};Cache=Shared");
         conn.Open();
-
-        using var pragmaCmd = conn.CreateCommand();
-        pragmaCmd.CommandText = "PRAGMA journal_mode=WAL;";
-        pragmaCmd.ExecuteNonQuery();
+        ExecutePragma(conn);
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )";
-        cmd.ExecuteNonQuery();
-
-        using var soulCmd = conn.CreateCommand();
-        soulCmd.CommandText = @"
+                created_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
             CREATE TABLE IF NOT EXISTS soul (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )";
-        soulCmd.ExecuteNonQuery();
-
-        using var metaCmd = conn.CreateCommand();
-        metaCmd.CommandText = @"
+                created_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
             CREATE TABLE IF NOT EXISTS session_meta (
                 key TEXT PRIMARY KEY,
                 value TEXT
             )";
-        metaCmd.ExecuteNonQuery();
-
+        cmd.ExecuteNonQuery();
         conn.Close();
         return dbFileName;
     }
@@ -106,7 +80,6 @@ public class MemoryService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(dbFileName))
             throw new ArgumentException("Database file name cannot be empty");
-
         if (dbFileName == CurrentDbName)
             throw new InvalidOperationException("Cannot delete the currently active session");
 
@@ -131,9 +104,7 @@ public class MemoryService : IDisposable
         {
             var fileName = Path.GetFileName(file);
             var fileInfo = new FileInfo(file);
-
-            int messageCount = 0;
-            int soulCount = 0;
+            int messageCount = 0, soulCount = 0;
             string? sessionName = null;
 
             try
@@ -149,7 +120,6 @@ public class MemoryService : IDisposable
                 soulCmd.CommandText = "SELECT COUNT(*) FROM soul";
                 soulCount = Convert.ToInt32(soulCmd.ExecuteScalar());
 
-                // Try to read session name
                 using var metaCheck = conn.CreateCommand();
                 metaCheck.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='session_meta'";
                 if (metaCheck.ExecuteScalar() != null)
@@ -158,26 +128,27 @@ public class MemoryService : IDisposable
                     nameCmd.CommandText = "SELECT value FROM session_meta WHERE key = 'session_name'";
                     sessionName = nameCmd.ExecuteScalar() as string;
                 }
-
                 conn.Close();
             }
-            catch
-            {
-            }
+            catch { }
 
             sessions.Add(new SessionInfo
             {
-                FileName = fileName,
-                SessionName = sessionName,
-                MessageCount = messageCount,
-                SoulCount = soulCount,
-                LastModified = fileInfo.LastWriteTimeUtc,
-                Size = fileInfo.Length,
+                FileName = fileName, SessionName = sessionName,
+                MessageCount = messageCount, SoulCount = soulCount,
+                LastModified = fileInfo.LastWriteTimeUtc, Size = fileInfo.Length,
                 IsCurrent = fileName == CurrentDbName
             });
         }
 
         return sessions.OrderByDescending(s => s.LastModified).ToList();
+    }
+
+    private static void ExecutePragma(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "PRAGMA journal_mode=WAL;";
+        cmd.ExecuteNonQuery();
     }
 
     private void InitDatabase()
@@ -186,57 +157,80 @@ public class MemoryService : IDisposable
         cmd.CommandText = @"
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
                 role TEXT NOT NULL,
                 content TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )";
-        cmd.ExecuteNonQuery();
-
-        using var soulCmd = _conn.CreateCommand();
-        soulCmd.CommandText = @"
+                created_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
             CREATE TABLE IF NOT EXISTS soul (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 content TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )";
-        soulCmd.ExecuteNonQuery();
-
-        using var metaCmd = _conn.CreateCommand();
-        metaCmd.CommandText = @"
+                created_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
             CREATE TABLE IF NOT EXISTS session_meta (
                 key TEXT PRIMARY KEY,
                 value TEXT
             )";
-        metaCmd.ExecuteNonQuery();
+        cmd.ExecuteNonQuery();
+
+        MigrateDropUserIdColumn();
     }
 
-    public void UpdateMessageLimit(int newLimit)
+    /// <summary>
+    /// Migrate old databases that have user_id column — recreate table without it.
+    /// </summary>
+    private void MigrateDropUserIdColumn()
     {
-        _messageLimit = newLimit;
+        try
+        {
+            using var checkCmd = _conn.CreateCommand();
+            checkCmd.CommandText = "PRAGMA table_info(messages)";
+            bool hasUserId = false;
+            using var reader = checkCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (reader.GetString(1) == "user_id") { hasUserId = true; break; }
+            }
+            reader.Close();
+            if (!hasUserId) return;
+
+            using var migrate = _conn.CreateCommand();
+            migrate.CommandText = @"
+                CREATE TABLE messages_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at DATETIME DEFAULT (datetime('now','localtime'))
+                );
+                INSERT INTO messages_new (id, role, content, created_at)
+                    SELECT id, role, content, created_at FROM messages;
+                DROP TABLE messages;
+                ALTER TABLE messages_new RENAME TO messages;";
+            migrate.ExecuteNonQuery();
+        }
+        catch { }
     }
 
-    public void SaveMessage(long userId, string role, object content)
+    public void UpdateMessageLimit(int newLimit) => _messageLimit = newLimit;
+
+    public void SaveMessage(string role, object content)
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO messages (user_id, role, content) VALUES (@uid, @role, @content)";
-        cmd.Parameters.AddWithValue("@uid", userId);
+        cmd.CommandText = "INSERT INTO messages (role, content, created_at) VALUES (@role, @content, @time)";
         cmd.Parameters.AddWithValue("@role", role);
         cmd.Parameters.AddWithValue("@content", JsonSerializer.Serialize(content));
+        cmd.Parameters.AddWithValue("@time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         cmd.ExecuteNonQuery();
     }
 
-    public List<object> LoadMessages(long userId, int? limit = null)
+    public List<object> LoadMessages(int? limit = null)
     {
         var effectiveLimit = limit ?? _messageLimit;
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT role, content FROM messages WHERE user_id = @uid ORDER BY id DESC LIMIT @limit";
-        cmd.Parameters.AddWithValue("@uid", userId);
+        cmd.CommandText = "SELECT role, content FROM messages ORDER BY id DESC LIMIT @limit";
         cmd.Parameters.AddWithValue("@limit", effectiveLimit);
 
         var messages = new List<object>();
         using var reader = cmd.ExecuteReader();
-
         while (reader.Read())
         {
             var role = reader.GetString(0);
@@ -244,80 +238,46 @@ public class MemoryService : IDisposable
             var content = JsonSerializer.Deserialize<JsonElement>(contentJson);
             messages.Add(new { role, content });
         }
-
         messages.Reverse();
         return messages;
     }
 
-    public void ClearOldMessages(long userId, int? keepLast = null)
+    public void ClearOldMessages(int? keepLast = null)
     {
         var effectiveKeep = keepLast ?? _messageLimit;
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = @"
-            DELETE FROM messages
-            WHERE user_id = @uid
-            AND id NOT IN (
-                SELECT id FROM messages
-                WHERE user_id = @uid
-                ORDER BY id DESC
-                LIMIT @keep
+            DELETE FROM messages WHERE id NOT IN (
+                SELECT id FROM messages ORDER BY id DESC LIMIT @keep
             )";
-        cmd.Parameters.AddWithValue("@uid", userId);
         cmd.Parameters.AddWithValue("@keep", effectiveKeep);
         cmd.ExecuteNonQuery();
     }
 
-    public void ClearAllMessages(long userId)
+    public void ClearAllMessages()
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM messages WHERE user_id = @uid";
-        cmd.Parameters.AddWithValue("@uid", userId);
+        cmd.CommandText = "DELETE FROM messages";
         cmd.ExecuteNonQuery();
     }
 
-    public List<long> GetAllUserIds()
+    public int GetMessageCount()
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT DISTINCT user_id FROM messages ORDER BY user_id";
-
-        var userIds = new List<long>();
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            userIds.Add(reader.GetInt64(0));
-        }
-        return userIds;
-    }
-
-    public int GetMessageCount(long userId)
-    {
-        using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM messages WHERE user_id = @uid";
-        cmd.Parameters.AddWithValue("@uid", userId);
+        cmd.CommandText = "SELECT COUNT(*) FROM messages";
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
-    public DateTime? GetLastActiveTime(long userId)
-    {
-        using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT MAX(created_at) FROM messages WHERE user_id = @uid";
-        cmd.Parameters.AddWithValue("@uid", userId);
-        var result = cmd.ExecuteScalar();
-        if (result is string dateStr)
-            return DateTime.Parse(dateStr);
-        return null;
-    }
+    /* PLACEHOLDER_PAGINATION_AND_SOUL */
 
-    public (List<MessageRecord> Messages, int Total) LoadMessagesWithPagination(long userId, int limit, int offset)
+    public (List<MessageRecord> Messages, int Total) LoadMessagesWithPagination(int limit, int offset)
     {
         using var countCmd = _conn.CreateCommand();
-        countCmd.CommandText = "SELECT COUNT(*) FROM messages WHERE user_id = @uid";
-        countCmd.Parameters.AddWithValue("@uid", userId);
+        countCmd.CommandText = "SELECT COUNT(*) FROM messages";
         var total = Convert.ToInt32(countCmd.ExecuteScalar());
 
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT id, role, content, created_at FROM messages WHERE user_id = @uid ORDER BY id DESC LIMIT @limit OFFSET @offset";
-        cmd.Parameters.AddWithValue("@uid", userId);
+        cmd.CommandText = "SELECT id, role, content, created_at FROM messages ORDER BY id DESC LIMIT @limit OFFSET @offset";
         cmd.Parameters.AddWithValue("@limit", limit);
         cmd.Parameters.AddWithValue("@offset", offset);
 
@@ -343,28 +303,20 @@ public class MemoryService : IDisposable
                     contentText = string.Join(" ", parts);
                 }
                 else if (content.ValueKind == JsonValueKind.String)
-                {
                     contentText = content.GetString() ?? "";
-                }
                 else
-                {
                     contentText = contentJson;
-                }
             }
-            catch
-            {
-                contentText = contentJson;
-            }
+            catch { contentText = contentJson; }
 
             messages.Add(new MessageRecord
             {
                 Id = reader.GetInt32(0),
                 Role = reader.GetString(1),
                 Content = contentText,
-                CreatedAt = reader.IsDBNull(3) ? DateTime.UtcNow : DateTime.Parse(reader.GetString(3))
+                CreatedAt = reader.IsDBNull(3) ? DateTime.Now : DateTime.Parse(reader.GetString(3), null, System.Globalization.DateTimeStyles.AssumeLocal)
             });
         }
-
         messages.Reverse();
         return (messages, total);
     }
@@ -373,7 +325,6 @@ public class MemoryService : IDisposable
     {
         using var cmd = _conn.CreateCommand();
         cmd.CommandText = "SELECT id, content, created_at FROM soul ORDER BY id ASC";
-
         var entries = new List<SoulRecord>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -382,7 +333,7 @@ public class MemoryService : IDisposable
             {
                 Id = reader.GetInt32(0),
                 Content = reader.GetString(1),
-                CreatedAt = reader.IsDBNull(2) ? DateTime.UtcNow : DateTime.Parse(reader.GetString(2))
+                CreatedAt = reader.IsDBNull(2) ? DateTime.Now : DateTime.Parse(reader.GetString(2), null, System.Globalization.DateTimeStyles.AssumeLocal)
             });
         }
         return entries;
@@ -391,8 +342,9 @@ public class MemoryService : IDisposable
     public void AddSoulEntry(string content)
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO soul (content) VALUES (@content)";
+        cmd.CommandText = "INSERT INTO soul (content, created_at) VALUES (@content, @time)";
         cmd.Parameters.AddWithValue("@content", content);
+        cmd.Parameters.AddWithValue("@time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         cmd.ExecuteNonQuery();
     }
 
@@ -451,12 +403,9 @@ public class MemoryService : IDisposable
         {
             using var conn = new SqliteConnection($"Data Source={dbFilePath};Mode=ReadOnly");
             conn.Open();
-
-            // Check if session_meta table exists
             using var checkCmd = conn.CreateCommand();
             checkCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='session_meta'";
             if (checkCmd.ExecuteScalar() == null) return null;
-
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT value FROM session_meta WHERE key = 'session_name'";
             return cmd.ExecuteScalar() as string;
@@ -474,11 +423,7 @@ public class MemoryService : IDisposable
 
     public void Dispose()
     {
-        if (!_disposed)
-        {
-            _conn.Dispose();
-            _disposed = true;
-        }
+        if (!_disposed) { _conn.Dispose(); _disposed = true; }
     }
 }
 
