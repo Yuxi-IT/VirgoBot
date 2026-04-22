@@ -1,4 +1,5 @@
-import { Dropdown, Disclosure } from '@heroui/react';
+import { useState, useEffect, useRef } from 'react';
+import { Disclosure, Surface, ListBox } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import type { Message } from './types';
 
@@ -12,8 +13,28 @@ export default function ChatBubble({ message, onDelete }: Props) {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content).catch(() => {});
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(null);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menu]);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleAction = (keys: Set<string>) => {
+    const key = [...keys][0];
+    if (key === 'copy') navigator.clipboard.writeText(message.content).catch(() => {});
+    if (key === 'delete') onDelete(message.id);
+    setMenu(null);
   };
 
   const renderContent = () => {
@@ -61,38 +82,44 @@ export default function ChatBubble({ message, onDelete }: Props) {
 
   return (
     <div className={`flex mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <Dropdown trigger="longPress">
-        <Dropdown.Trigger>
-          <div
-            className={`relative max-w-[80%] rounded-2xl px-3 py-2 text-sm text-left ${
-              isUser
-                ? 'bg-sky-700/30 rounded-br-none'
-                : isTool
-                  ? 'bg-default-200 border border-default-300 rounded-bl-none'
-                  : 'bg-content2 shadow-sm rounded-bl-none'
-            }`}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            {renderContent()}
-            <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
-              {new Date(message.createdAt).toLocaleTimeString()}
-            </div>
-          </div>
-        </Dropdown.Trigger>
-        <Dropdown.Popover>
-          <Dropdown.Menu onAction={(key) => {
-            if (key === 'copy') handleCopy();
-            if (key === 'delete') onDelete(message.id);
-          }}>
-            <Dropdown.Item id="copy" textValue={t('chatPage.copy')}>
-              {t('chatPage.copy')}
-            </Dropdown.Item>
-            <Dropdown.Item id="delete" textValue={t('common.delete')}>
-              {t('common.delete')}
-            </Dropdown.Item>
-          </Dropdown.Menu>
-        </Dropdown.Popover>
-      </Dropdown>
+      <div
+        className={`relative max-w-[80%] rounded-2xl px-3 py-2 text-sm text-left ${
+          isUser
+            ? 'bg-sky-700/30 rounded-br-none'
+            : isTool
+              ? 'bg-default-200 border border-default-300 rounded-bl-none'
+              : 'bg-content2 shadow-sm rounded-bl-none'
+        }`}
+        onContextMenu={handleContextMenu}
+      >
+        {renderContent()}
+        <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
+          {new Date(message.createdAt).toLocaleTimeString()}
+        </div>
+      </div>
+
+      {menu && (
+        <div
+          ref={menuRef}
+          className="fixed z-50"
+          style={{ left: menu.x, top: menu.y }}
+        >
+          <Surface className="w-[160px] rounded-2xl shadow-surface">
+            <ListBox
+              aria-label="actions"
+              selectionMode="single"
+              onSelectionChange={(keys) => handleAction(keys as Set<string>)}
+            >
+              <ListBox.Item id="copy" textValue={t('chatPage.copy')}>
+                {t('chatPage.copy')}
+              </ListBox.Item>
+              <ListBox.Item id="delete" textValue={t('common.delete')}>
+                {t('common.delete')}
+              </ListBox.Item>
+            </ListBox>
+          </Surface>
+        </div>
+      )}
     </div>
   );
 }

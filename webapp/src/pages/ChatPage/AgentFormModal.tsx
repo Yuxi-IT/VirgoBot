@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Modal, Button, TextField, Label, Input, TextArea, Spinner, toast } from '@heroui/react';
 import { api } from '../../services/api';
-import { useI18n } from '../../i18n';
 
 interface Props {
   isOpen: boolean;
