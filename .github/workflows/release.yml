@@ -43,6 +43,7 @@ jobs:
     needs: build-frontend
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Windows
@@ -59,10 +60,6 @@ jobs:
             artifact: VirgoBot-linux-arm
           - rid: linux-arm64
             artifact: VirgoBot-linux-arm64
-          - rid: linux-musl-x64
-            artifact: VirgoBot-linux-musl-x64
-          - rid: linux-musl-arm64
-            artifact: VirgoBot-linux-musl-arm64
 
     steps:
       - uses: actions/checkout@v4
