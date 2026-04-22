@@ -127,7 +127,7 @@ export default function AgentPanel() {
                         {agent.name}
                         {isCurrent && <Chip size="sm" color="accent">{t('chatPage.agentCurrent')}</Chip>}
                       </Card.Title>
-                      <Card.Description>{agent.preview.slice(0, 60) + (agent.preview.length > 60 ? '...' : '')}</Card.Description>
+                      <Card.Description className='text-xs'>{agent.preview.slice(0, 60) + (agent.preview.length > 60 ? '...' : '')}</Card.Description>
                     </Card.Header>
                     <Card.Content>
                       <div className="flex gap-1 mt-1">
