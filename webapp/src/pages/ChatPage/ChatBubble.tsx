@@ -93,9 +93,11 @@ export default function ChatBubble({ message, onDelete }: Props) {
         onContextMenu={handleContextMenu}
       >
         {renderContent()}
+{/*
         <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
           {new Date(message.createdAt).toLocaleTimeString()}
         </div>
+*/}
       </div>
 
       {menu && (

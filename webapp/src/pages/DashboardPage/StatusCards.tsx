@@ -85,14 +85,6 @@ function StatusCards({ status }: StatusCardsProps) {
             </Card.Content>
           </Card>
 
-          <Card>
-            <Card.Header>
-              <Card.Title>{t('dashboard.requestCount')}</Card.Title>
-            </Card.Header>
-            <Card.Content>
-              <p className="text-2xl font-bold">{status.tokenStats.requestCount.toLocaleString()}</p>
-            </Card.Content>
-          </Card>
         </>
       )}
     </div>

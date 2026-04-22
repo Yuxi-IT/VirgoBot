@@ -13,14 +13,21 @@ interface Props {
   page: number;
   totalPages: number;
   voiceFeedback: boolean;
+  splitDelimiters: string;
   onSend: (text: string) => void;
   onDeleteMessage: (id: number) => void;
   onPageChange: (page: number) => void;
   onToggleVoiceFeedback: () => void;
 }
 
+function splitMessage(text: string, delimiters: string): string[] {
+  if (!delimiters) return [text];
+  const parts = text.split(new RegExp(delimiters.split('|').map(d => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')));
+  return parts.map(p => p.trim()).filter(Boolean);
+}
+
 export default function ChatPanel({
-  messages, loading, sending, page, totalPages, voiceFeedback,
+  messages, loading, sending, page, totalPages, voiceFeedback, splitDelimiters,
   onSend, onDeleteMessage, onPageChange, onToggleVoiceFeedback
 }: Props) {
   const { t } = useI18n();
@@ -77,9 +84,21 @@ export default function ChatPanel({
                 </Button>
               </div>
             )}
-            {messages.map(msg => (
-              <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} />
-            ))}
+            {messages.map(msg => {
+              if (msg.role === 'assistant' && splitDelimiters) {
+                const parts = splitMessage(msg.content, splitDelimiters);
+                if (parts.length > 1) {
+                  return parts.map((part, i) => (
+                    <ChatBubble
+                      key={`${msg.id}-${i}`}
+                      message={{ ...msg, content: part }}
+                      onDelete={onDeleteMessage}
+                    />
+                  ));
+                }
+              }
+              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} />;
+            })}
           </>
         )}
       </div>

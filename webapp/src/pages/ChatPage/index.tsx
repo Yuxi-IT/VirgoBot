@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Spinner } from '@heroui/react';
+import { Button, Spinner } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { api, BASE_URL } from '../../services/api';
 import SessionList from './SessionList';
 import ChatPanel from './ChatPanel';
 import AgentPanel from './AgentPanel';
 import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from './types';
+import { ArrowLeft, ArrowRight } from '@gravity-ui/icons';
 
 const PAGE_SIZE = 50;
 
@@ -19,6 +20,8 @@ function ChatPage() {
   const [msgLoading, setMsgLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [splitDelimiters, setSplitDelimiters] = useState('。|！|？|?|\n\n|\n');
 
   const wsRef = useRef<WebSocket | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -53,6 +56,9 @@ function ChatPage() {
 
   useEffect(() => {
     loadSessions();
+    api.get<{ success: boolean; data: { server: { messageSplitDelimiters: string } } }>('/api/config')
+      .then(res => { if (res.success) setSplitDelimiters(res.data.server.messageSplitDelimiters); })
+      .catch(() => {});
   }, [loadSessions]);
 
   useEffect(() => {
@@ -174,18 +180,32 @@ function ChatPage() {
     <DefaultLayout noPadding>
       <div className="flex h-[calc(100vh-44px)] sm:h-screen overflow-hidden">
         {/* Left: Session List */}
-        <div className="w-64 shrink-0 border-r overflow-y-auto hidden sm:block">
-          <SessionList
-            sessions={sessions}
-            currentSession={currentSession}
-            onSwitch={switchSession}
-            onCreate={createSession}
-            onReload={() => loadSessions(true)}
-          />
+        <div
+          className="shrink-0 border-r overflow-y-auto hidden sm:block transition-[width] duration-300 ease-in-out"
+          style={{ width: sidebarOpen ? 256 : 0, overflow: sidebarOpen ? undefined : 'hidden' }}
+        >
+          <div className="w-64">
+            <SessionList
+              sessions={sessions}
+              currentSession={currentSession}
+              onSwitch={switchSession}
+              onCreate={createSession}
+              onReload={() => loadSessions(true)}
+            />
+          </div>
         </div>
 
         {/* Center: Chat Panel */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          <Button
+            onClick={() => setSidebarOpen(v => !v)}
+            className="hidden sm:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20"
+            variant='tertiary'
+            size='lg'
+            isIconOnly
+          >
+            {sidebarOpen ? <ArrowRight /> : <ArrowLeft />}
+          </Button>
           <ChatPanel
             messages={messages}
             loading={msgLoading}
@@ -193,6 +213,7 @@ function ChatPage() {
             page={page}
             totalPages={totalPages}
             voiceFeedback={voiceFeedback}
+            splitDelimiters={splitDelimiters}
             onSend={sendMessage}
             onDeleteMessage={deleteMessage}
             onPageChange={setPage}
