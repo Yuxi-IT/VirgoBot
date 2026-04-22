@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Button, Spinner, Switch, toast } from '@heroui/react';
+import { Button, Spinner, Switch, TextArea, toast } from '@heroui/react';
 import { Microphone, ArrowShapeTurnUpRight, Volume } from '@gravity-ui/icons';
 import { api } from '../../services/api';
 
@@ -98,8 +98,8 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
         </div>
       </div>
       <div className="flex gap-2 items-end">
-        <textarea
-          className="flex-1 resize-none border rounded-lg px-3 py-2 text-sm bg-default-100 focus:outline-none focus:ring-1 focus:ring-primary"
+        <TextArea
+          className="flex-1"
           rows={1}
           value={text}
           onChange={(e) => setText(e.target.value)}

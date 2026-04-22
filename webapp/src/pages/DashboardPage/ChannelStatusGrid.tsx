@@ -41,7 +41,7 @@ function ChannelStatusGrid({ channels }: ChannelStatusGridProps) {
                 {getChannelChip(channel.status)}
               </div>
               {channel.clients !== undefined && (
-                <p className="text-sm mt-2 text-gray-500">
+                <p className="text-sm mt-2 text-default-500">
                   {t('dashboard.connectedClients')}: {channel.clients}
                 </p>
               )}

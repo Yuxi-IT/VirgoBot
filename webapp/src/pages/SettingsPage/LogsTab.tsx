@@ -125,7 +125,7 @@ export default function LogsTab({ active }: { active: boolean }) {
           {loading ? (
             <div className="flex justify-center py-8"><Spinner size="lg" /></div>
           ) : filtered.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">{t('common.noData')}</p>
+            <p className="text-center py-8 text-default-500">{t('common.noData')}</p>
           ) : (
             <Table>
               <Table.ScrollContainer>

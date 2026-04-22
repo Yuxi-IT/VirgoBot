@@ -55,6 +55,46 @@ function StatusCards({ status }: StatusCardsProps) {
           <p className="text-2xl font-bold">{status.connectedClients ?? 0}</p>
         </Card.Content>
       </Card>
+
+      {status.tokenStats && (
+        <>
+          <Card>
+            <Card.Header>
+              <Card.Title>{t('dashboard.promptTokens')}</Card.Title>
+            </Card.Header>
+            <Card.Content>
+              <p className="text-2xl font-bold">{status.tokenStats.promptTokens.toLocaleString()}</p>
+            </Card.Content>
+          </Card>
+
+          <Card>
+            <Card.Header>
+              <Card.Title>{t('dashboard.completionTokens')}</Card.Title>
+            </Card.Header>
+            <Card.Content>
+              <p className="text-2xl font-bold">{status.tokenStats.completionTokens.toLocaleString()}</p>
+            </Card.Content>
+          </Card>
+
+          <Card>
+            <Card.Header>
+              <Card.Title>{t('dashboard.totalTokens')}</Card.Title>
+            </Card.Header>
+            <Card.Content>
+              <p className="text-2xl font-bold">{status.tokenStats.totalTokens.toLocaleString()}</p>
+            </Card.Content>
+          </Card>
+
+          <Card>
+            <Card.Header>
+              <Card.Title>{t('dashboard.requestCount')}</Card.Title>
+            </Card.Header>
+            <Card.Content>
+              <p className="text-2xl font-bold">{status.tokenStats.requestCount.toLocaleString()}</p>
+            </Card.Content>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

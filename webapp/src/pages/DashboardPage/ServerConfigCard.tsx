@@ -19,15 +19,15 @@ function ServerConfigCard({ server }: ServerConfigCardProps) {
         <Card.Content>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <p className="text-sm text-gray-500">{t('dashboard.listenUrl')}</p>
+              <p className="text-sm text-default-500">{t('dashboard.listenUrl')}</p>
               <p className="font-mono">{server.listenUrl}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">{t('dashboard.maxTokens')}</p>
+              <p className="text-sm text-default-500">{t('dashboard.maxTokens')}</p>
               <p className="font-bold">{server.maxTokens}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">{t('dashboard.messageLimit')}</p>
+              <p className="text-sm text-default-500">{t('dashboard.messageLimit')}</p>
               <p className="font-bold">{server.messageLimit}</p>
             </div>
           </div>

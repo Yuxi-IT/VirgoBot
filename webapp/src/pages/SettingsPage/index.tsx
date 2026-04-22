@@ -5,7 +5,6 @@ import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import GeneralTab from './GeneralTab';
 import EmailTab from './EmailTab';
-import SystemMemoryTab from './SystemMemoryTab';
 import RuleTab from './RuleTab';
 import VoiceTab from './VoiceTab';
 import LogsTab from './LogsTab';
@@ -154,10 +153,6 @@ function SettingsPage() {
                 {t('settings.email')}
                 <Tabs.Indicator />
               </Tabs.Tab>
-              <Tabs.Tab id="systemMemory">
-                {t('settings.systemMemory')}
-                <Tabs.Indicator />
-              </Tabs.Tab>
               <Tabs.Tab id="rule">
                 {t('settings.rule')}
                 <Tabs.Indicator />
@@ -213,10 +208,6 @@ function SettingsPage() {
                 onSaveAndRestart={saveAndRestart}
               />
             )}
-          </Tabs.Panel>
-
-          <Tabs.Panel id="systemMemory">
-            <SystemMemoryTab active={activeTab === 'systemMemory'} />
           </Tabs.Panel>
 
           <Tabs.Panel id="rule">

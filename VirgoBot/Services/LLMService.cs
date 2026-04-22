@@ -15,6 +15,7 @@ public class LLMService
     private readonly FunctionRegistry _functions;
     private readonly string _systemMemory;
     private readonly int _maxTokens;
+    private readonly TokenStatsService? _tokenStats;
 
     public LLMService(
         HttpClient http,
@@ -23,7 +24,8 @@ public class LLMService
         MemoryService memory,
         FunctionRegistry functions,
         string systemMemory,
-        int maxTokens = 8192)
+        int maxTokens = 8192,
+        TokenStatsService? tokenStats = null)
     {
         _http = http;
         _baseUrl = baseUrl;
@@ -32,6 +34,7 @@ public class LLMService
         _functions = functions;
         _systemMemory = systemMemory;
         _maxTokens = maxTokens;
+        _tokenStats = tokenStats;
     }
 
     public async Task<string> AskAsync(
@@ -73,6 +76,13 @@ public class LLMService
         var result = await response.Content.ReadAsStringAsync();
 
         using var doc = JsonDocument.Parse(result);
+
+        if (doc.RootElement.TryGetProperty("usage", out var usage))
+        {
+            var promptTk = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
+            var completionTk = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
+            _tokenStats?.Record(promptTk, completionTk);
+        }
 
         if (!response.IsSuccessStatusCode)
         {

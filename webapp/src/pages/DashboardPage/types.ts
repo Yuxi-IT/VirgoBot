@@ -16,6 +16,12 @@ export interface StatusData {
     maxTokens: number;
     messageLimit: number;
   };
+  tokenStats?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    requestCount: number;
+  };
 }
 
 export interface ApiResponse {

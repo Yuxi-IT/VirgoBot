@@ -385,6 +385,7 @@ public class HttpServerHost
 
         if (path == "/chat" && method == "POST") { await HandleChatRequest(ctx); return; }
         if (path == "/api/status" && method == "GET") { await _statusApiHandler.HandleStatusRequest(ctx); return; }
+        if (path == "/api/token-stats" && method == "GET") { await _statusApiHandler.HandleTokenStatsRequest(ctx); return; }
         if (path == "/api/messages/users" && method == "GET") { await _statusApiHandler.HandleGetUsersRequest(ctx); return; }
         if (path == "/api/messages" && method == "GET") { await _statusApiHandler.HandleGetMessagesRequest(ctx); return; }
         if (path == "/api/contacts" && method == "GET") { await _contactApiHandler.HandleGetContactsRequest(ctx); return; }

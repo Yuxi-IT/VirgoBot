@@ -55,7 +55,8 @@ public class StatusApiHandler
                     listenUrl = _gateway.Config.Server.ListenUrl,
                     maxTokens = _gateway.Config.Server.MaxTokens,
                     messageLimit = _gateway.Config.Server.MessageLimit
-                }
+                },
+                tokenStats = GetTokenStatsData()
             }
         };
 
@@ -206,5 +207,22 @@ public class StatusApiHandler
 
         _memoryService.DeleteMessage(messageId);
         await SendJsonResponse(ctx, new { success = true, message = "Message deleted" });
+    }
+
+    public async Task HandleTokenStatsRequest(HttpListenerContext ctx)
+    {
+        await SendJsonResponse(ctx, new { success = true, data = GetTokenStatsData() });
+    }
+
+    private object GetTokenStatsData()
+    {
+        var stats = _gateway.TokenStatsService.GetStats();
+        return new
+        {
+            promptTokens = stats.PromptTokens,
+            completionTokens = stats.CompletionTokens,
+            totalTokens = stats.TotalTokens,
+            requestCount = stats.RequestCount
+        };
     }
 }

@@ -57,6 +57,10 @@ export default {
     disabled: '已禁用',
     systemStatus: '系统状态',
     channelStatus: '通道状态',
+    promptTokens: 'Prompt Tokens',
+    completionTokens: 'Completion Tokens',
+    totalTokens: 'Total Tokens',
+    requestCount: '请求次数',
   },
   chat: {
     title: '聊天监控',

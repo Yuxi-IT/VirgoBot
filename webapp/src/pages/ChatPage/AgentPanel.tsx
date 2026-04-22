@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Spinner, Chip, toast } from '@heroui/react';
+import { Button, Spinner, Chip, ListBox, Label, Description, toast, Card } from '@heroui/react';
 import { api } from '../../services/api';
 import AgentFormModal from './AgentFormModal';
 import type { AgentInfo, AgentsResponse } from './types';
@@ -78,33 +78,37 @@ export default function AgentPanel() {
         <Button size="sm" variant="ghost" onPress={() => setShowForm(true)}>新建</Button>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {agents.map(agent => {
-          const isCurrent = currentAgent === agent.memoryPath;
-          return (
-            <div
-              key={agent.name}
-              className={`px-3 py-2 border-b text-sm ${isCurrent ? 'bg-primary/10 border-l-2 border-l-primary' : 'hover:bg-default-100'}`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1">
-                  <span className="font-medium truncate">{agent.name}</span>
-                  {isCurrent && <Chip size="sm" color="accent">当前</Chip>}
-                </div>
-              </div>
-              <p className="text-xs text-default-400 line-clamp-2 mt-1">{agent.preview}</p>
-              {!isCurrent && (
-                <div className="flex gap-1 mt-1">
-                  <Button size="sm" variant="ghost" onPress={() => handleSwitch(agent)} isDisabled={switching}>
-                    {switching ? <Spinner size="sm" /> : '切换'}
-                  </Button>
-                  <Button size="sm" variant="ghost" onPress={() => deleteAgent(agent.name)}>删除</Button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {agents.length === 0 && (
+        {agents.length === 0 ? (
           <div className="text-center text-default-400 text-sm py-8">暂无设定</div>
+        ) : (
+          <ListBox aria-label="设定列表" selectionMode="none">
+            {agents.map(agent => {
+              const isCurrent = currentAgent === agent.memoryPath;
+              return (
+                <ListBox.Item key={agent.name} id={agent.name} textValue={agent.name}>
+                  <Card className="w-[320px]">
+                    <Card.Header>
+                      <Card.Title>
+                        {agent.name}
+                        {isCurrent && <Chip size="sm" color="accent">当前</Chip>}
+                      </Card.Title>
+                      <Card.Description>{agent.preview.slice(0, 30) + (agent.preview.length > 100 ? '...' : '')}</Card.Description>
+                    </Card.Header>
+                    {!isCurrent && (
+                      <Card.Content className='flex gap-1 mt-1'>
+                        <div className='flex gap-1 mt-1'>
+                          <Button size="sm" variant="ghost" onPress={() => handleSwitch(agent)} isDisabled={switching}>
+                            {switching ? <Spinner size="sm" /> : '切换'}
+                          </Button>
+                          <Button size="sm" variant="ghost" onPress={() => deleteAgent(agent.name)}>删除</Button>
+                        </div>
+                      </Card.Content>
+                    )}
+                  </Card>
+                </ListBox.Item>
+              );
+            })}
+          </ListBox>
         )}
       </div>
 

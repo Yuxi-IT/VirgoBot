@@ -32,6 +32,7 @@ public class Gateway : IDisposable
     public ILinkMessageHandler? ILinkHandler { get; private set; }
     public ContactService ContactService { get; private set; } = null!;
     public ScheduledTaskService ScheduledTaskService { get; private set; } = null!;
+    public TokenStatsService TokenStatsService { get; } = new();
 
     public bool IsRunning { get; private set; }
 
@@ -104,7 +105,7 @@ public class Gateway : IDisposable
 
         FunctionRegistry = new FunctionRegistry(Config, _memoryService, ScheduledTaskService);
         ContactService = new ContactService();
-        LlmService = new LLMService(_httpClient, baseUrl, model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
+        LlmService = new LLMService(_httpClient, baseUrl, model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens, TokenStatsService);
         ScheduledTaskService.SetLlmService(LlmService);
 
         if (Config.Channel.Email.Enabled)

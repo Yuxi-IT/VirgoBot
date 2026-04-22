@@ -57,6 +57,10 @@ export default {
     disabled: 'Disabled',
     systemStatus: 'System Status',
     channelStatus: 'Channel Status',
+    promptTokens: 'Prompt Tokens',
+    completionTokens: 'Completion Tokens',
+    totalTokens: 'Total Tokens',
+    requestCount: 'Request Count',
   },
   chat: {
     title: 'Chat Monitor',
