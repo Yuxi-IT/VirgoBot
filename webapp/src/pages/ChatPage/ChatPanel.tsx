@@ -13,11 +13,15 @@ interface Props {
   page: number;
   totalPages: number;
   voiceFeedback: boolean;
+  splitEnabled: boolean;
+  showTime: boolean;
   splitDelimiters: string;
   onSend: (text: string) => void;
   onDeleteMessage: (id: number) => void;
   onPageChange: (page: number) => void;
   onToggleVoiceFeedback: () => void;
+  onToggleSplit: () => void;
+  onToggleShowTime: () => void;
 }
 
 function splitMessage(text: string, delimiters: string): string[] {
@@ -27,8 +31,8 @@ function splitMessage(text: string, delimiters: string): string[] {
 }
 
 export default function ChatPanel({
-  messages, loading, sending, page, totalPages, voiceFeedback, splitDelimiters,
-  onSend, onDeleteMessage, onPageChange, onToggleVoiceFeedback
+  messages, loading, sending, page, totalPages, voiceFeedback, splitEnabled, showTime, splitDelimiters,
+  onSend, onDeleteMessage, onPageChange, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime
 }: Props) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -61,7 +65,7 @@ export default function ChatPanel({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full pb-2">
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
         {loading && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -85,7 +89,7 @@ export default function ChatPanel({
               </div>
             )}
             {messages.map(msg => {
-              if (msg.role === 'assistant' && splitDelimiters) {
+              if (splitEnabled && msg.role === 'assistant' && splitDelimiters) {
                 const parts = splitMessage(msg.content, splitDelimiters);
                 if (parts.length > 1) {
                   return parts.map((part, i) => (
@@ -93,11 +97,12 @@ export default function ChatPanel({
                       key={`${msg.id}-${i}`}
                       message={{ ...msg, content: part }}
                       onDelete={onDeleteMessage}
+                      showTime={showTime}
                     />
                   ));
                 }
               }
-              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} />;
+              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} showTime={showTime} />;
             })}
           </>
         )}
@@ -106,8 +111,12 @@ export default function ChatPanel({
       <ChatInput
         sending={sending}
         voiceFeedback={voiceFeedback}
+        splitEnabled={splitEnabled}
+        showTime={showTime}
         onSend={onSend}
         onToggleVoiceFeedback={onToggleVoiceFeedback}
+        onToggleSplit={onToggleSplit}
+        onToggleShowTime={onToggleShowTime}
       />
     </div>
   );

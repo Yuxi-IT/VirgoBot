@@ -298,7 +298,7 @@ public class HttpServerHost
         });
 
         _wsManager.Add(ws);
-        ColorLog.Success("WS", "客户端已连接");
+        //ColorLog.Success("WS", "客户端已连接");
 
         var buffer = new byte[AppConstants.WebSocketBufferSize];
         try
@@ -325,7 +325,7 @@ public class HttpServerHost
         finally
         {
             _wsManager.Remove(ws);
-            ColorLog.Info("WS", "客户端已断开");
+            //ColorLog.Info("WS", "客户端已断开");
         }
     }
 

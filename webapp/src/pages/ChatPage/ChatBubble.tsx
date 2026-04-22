@@ -6,9 +6,10 @@ import type { Message } from './types';
 interface Props {
   message: Message;
   onDelete: (id: number) => void;
+  showTime: boolean;
 }
 
-export default function ChatBubble({ message, onDelete }: Props) {
+export default function ChatBubble({ message, onDelete, showTime }: Props) {
   const { t } = useI18n();
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
@@ -37,6 +38,9 @@ export default function ChatBubble({ message, onDelete }: Props) {
     setMenu(null);
   };
 
+  const decodeUnicode = (s: string) =>
+    s.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+
   const renderContent = () => {
     if (isTool) {
       return (
@@ -48,7 +52,7 @@ export default function ChatBubble({ message, onDelete }: Props) {
           </Disclosure.Heading>
           <Disclosure.Content>
             <Disclosure.Body>
-              <pre className="whitespace-pre-wrap break-all text-default-600">{message.content}</pre>
+              <pre className="whitespace-pre-wrap break-all text-xs text-default-600">{decodeUnicode(message.content)}</pre>
             </Disclosure.Body>
           </Disclosure.Content>
         </Disclosure>
@@ -77,7 +81,7 @@ export default function ChatBubble({ message, onDelete }: Props) {
       );
     }
 
-    return <div className="whitespace-pre-wrap break-words">{message.content}</div>;
+    return <div className="whitespace-pre-wrap break-words">{isUser ? message.content.split('\n').slice(0, -1).join('\n') : message.content}</div>;
   };
 
   return (
@@ -93,11 +97,11 @@ export default function ChatBubble({ message, onDelete }: Props) {
         onContextMenu={handleContextMenu}
       >
         {renderContent()}
-{/*
-        <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
-          {new Date(message.createdAt).toLocaleTimeString()}
-        </div>
-*/}
+        {showTime && (
+          <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
+            {new Date(message.createdAt).toLocaleTimeString()}
+          </div>
+        )}
       </div>
 
       {menu && (
@@ -110,6 +114,7 @@ export default function ChatBubble({ message, onDelete }: Props) {
             <ListBox
               aria-label="actions"
               selectionMode="single"
+              className='text-[14px]'
               onSelectionChange={(keys) => handleAction(keys as Set<string>)}
             >
               <ListBox.Item id="copy" textValue={t('chatPage.copy')}>

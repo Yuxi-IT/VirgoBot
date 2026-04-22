@@ -7,11 +7,18 @@ import { api } from '../../services/api';
 interface Props {
   sending: boolean;
   voiceFeedback: boolean;
+  splitEnabled: boolean;
+  showTime: boolean;
   onSend: (text: string) => void;
   onToggleVoiceFeedback: () => void;
+  onToggleSplit: () => void;
+  onToggleShowTime: () => void;
 }
 
-export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoiceFeedback }: Props) {
+export default function ChatInput({
+  sending, voiceFeedback, splitEnabled, showTime,
+  onSend, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime
+}: Props) {
   const { t } = useI18n();
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
@@ -92,13 +99,29 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
 
   return (
     <div className="border-t p-3">
-      <div className="flex items-center gap-1 mt-2 text-xs text-default-400">
+      <div className="flex items-center gap-3 mt-2 text-xs text-default-400 flex-wrap">
         <Switch isSelected={voiceFeedback} onChange={onToggleVoiceFeedback}>
           <Switch.Control>
             <Switch.Thumb />
           </Switch.Control>
           <Switch.Content>
             <Label className="text-sm">{t('chatPage.voiceFeedback')}</Label>
+          </Switch.Content>
+        </Switch>
+        <Switch isSelected={splitEnabled} onChange={onToggleSplit}>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Content>
+            <Label className="text-sm">{t('chatPage.messageSplit')}</Label>
+          </Switch.Content>
+        </Switch>
+        <Switch isSelected={showTime} onChange={onToggleShowTime}>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Content>
+            <Label className="text-sm">{t('chatPage.showTime')}</Label>
           </Switch.Content>
         </Switch>
       </div>

@@ -1,16 +1,27 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Spinner } from '@heroui/react';
+import { Button, Spinner, Tabs } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { api, BASE_URL } from '../../services/api';
 import SessionList from './SessionList';
 import ChatPanel from './ChatPanel';
 import AgentPanel from './AgentPanel';
+import SoulPanel from './SoulPanel';
 import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from './types';
 import { ArrowLeft, ArrowRight } from '@gravity-ui/icons';
+import { useI18n } from '../../i18n';
 
 const PAGE_SIZE = 50;
 
+function readFlag(key: string, defaultVal: boolean): boolean {
+  try {
+    const v = localStorage.getItem(key);
+    if (v === null) return defaultVal;
+    return v === 'true';
+  } catch { return defaultVal; }
+}
+
 function ChatPage() {
+  const { t } = useI18n();
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [currentSession, setCurrentSession] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -19,9 +30,20 @@ function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [msgLoading, setMsgLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [voiceFeedback, setVoiceFeedback] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [voiceFeedback, setVoiceFeedback] = useState(() => readFlag('chat.voiceFeedback', false));
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [splitDelimiters, setSplitDelimiters] = useState('。|！|？|?|\n\n|\n');
+  const [splitEnabled, setSplitEnabled] = useState(() => readFlag('chat.splitEnabled', true));
+  const [showTime, setShowTime] = useState(() => readFlag('chat.showTime', true));
+  const [activeTab, setActiveTab] = useState('chat');
+
+  const toggleFlag = (key: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
+    setter(v => {
+      const next = !v;
+      try { localStorage.setItem(key, String(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const wsRef = useRef<WebSocket | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -195,7 +217,7 @@ function ChatPage() {
           </div>
         </div>
 
-        {/* Center: Chat Panel */}
+        {/* Center: Chat + Soul Tabs */}
         <div className="flex-1 flex flex-col min-w-0 relative">
           <Button
             onClick={() => setSidebarOpen(v => !v)}
@@ -206,19 +228,45 @@ function ChatPage() {
           >
             {sidebarOpen ? <ArrowRight /> : <ArrowLeft />}
           </Button>
-          <ChatPanel
-            messages={messages}
-            loading={msgLoading}
-            sending={sending}
-            page={page}
-            totalPages={totalPages}
-            voiceFeedback={voiceFeedback}
-            splitDelimiters={splitDelimiters}
-            onSend={sendMessage}
-            onDeleteMessage={deleteMessage}
-            onPageChange={setPage}
-            onToggleVoiceFeedback={() => setVoiceFeedback(v => !v)}
-          />
+
+          <Tabs selectedKey={activeTab} onSelectionChange={(key) => setActiveTab(String(key))} className="flex-1 min-h-0 flex flex-col">
+            <Tabs.ListContainer className="px-3 pt-1">
+              <Tabs.List aria-label="Chat tabs">
+                <Tabs.Tab id="chat">
+                  {t('chatPage.tabChat')}
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="soul">
+                  {t('chatPage.tabSoul')}
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
+
+            <Tabs.Panel id="chat" className="flex-1 min-h-0">
+              <ChatPanel
+                messages={messages}
+                loading={msgLoading}
+                sending={sending}
+                page={page}
+                totalPages={totalPages}
+                voiceFeedback={voiceFeedback}
+                splitEnabled={splitEnabled}
+                showTime={showTime}
+                splitDelimiters={splitDelimiters}
+                onSend={sendMessage}
+                onDeleteMessage={deleteMessage}
+                onPageChange={setPage}
+                onToggleVoiceFeedback={() => toggleFlag('chat.voiceFeedback', setVoiceFeedback)}
+                onToggleSplit={() => toggleFlag('chat.splitEnabled', setSplitEnabled)}
+                onToggleShowTime={() => toggleFlag('chat.showTime', setShowTime)}
+              />
+            </Tabs.Panel>
+
+            <Tabs.Panel id="soul" className="flex-1 min-h-0">
+              <SoulPanel />
+            </Tabs.Panel>
+          </Tabs>
         </div>
 
         {/* Right: Agent Panel */}

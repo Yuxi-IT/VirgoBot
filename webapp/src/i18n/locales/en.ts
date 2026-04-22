@@ -336,6 +336,10 @@ export default {
   chatPage: {
     greeting: 'Hi, how can I help you today?',
     voiceFeedback: 'Voice Feedback',
+    messageSplit: 'Split Messages',
+    showTime: 'Time',
+    tabChat: 'Chat',
+    tabSoul: 'Soul Memory',
     inputPlaceholder: 'Type a message...',
     micError: 'Cannot access microphone',
     asrFailed: 'Speech recognition failed',

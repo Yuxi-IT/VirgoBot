@@ -13,7 +13,7 @@ export const navItems: {
     showInBottomNav?: boolean;
 }[] = [
     { icon: LayoutList, label: "Dashboard", url: "/" },
-    { icon: Comment, label: "Chat", url: "/chat", showBottomNav: false },
+    { icon: Comment, label: "Chat", url: "/chat" },
     { icon: Database, label: "Providers", url: "/providers", showInBottomNav: false },
     { icon: Persons, label: "Contacts", url: "/contacts", showInBottomNav: false },
     { icon: ArrowShapeTurnUpRight, label: "Channel", url: "/channel", showInBottomNav: false },

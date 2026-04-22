@@ -335,7 +335,11 @@ export default {
   },
   chatPage: {
     greeting: '你好，有什么可以帮你的吗？',
-    voiceFeedback: '语音反馈',
+    voiceFeedback: '语音',
+    messageSplit: '分割',
+    showTime: '时间',
+    tabChat: '聊天',
+    tabSoul: 'Soul 记忆',
     inputPlaceholder: '输入消息...',
     micError: '无法访问麦克风',
     asrFailed: '语音识别失败',

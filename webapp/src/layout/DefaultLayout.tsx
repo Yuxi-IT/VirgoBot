@@ -6,7 +6,7 @@ function DefaultLayout({ children, header, className, noPadding }: { children: R
                 {header}
             </div>
             )}
-            <div className={noPadding ? '' : 'sm:pb-0 pb-[70px]'}>
+            <div className={noPadding ? '' : 'sm:pb-0 pb-[80px]'}>
                 {children}
             </div>
         </div>
