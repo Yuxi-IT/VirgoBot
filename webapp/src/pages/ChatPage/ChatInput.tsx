@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button, Label, Spinner, Switch, TextArea, toast } from '@heroui/react';
-import { Microphone, ArrowShapeTurnUpRight, Volume } from '@gravity-ui/icons';
+import { Microphone, ArrowShapeTurnUpRight } from '@gravity-ui/icons';
+import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoiceFeedback }: Props) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -53,7 +55,7 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
       mediaRecorderRef.current = recorder;
       setRecording(true);
     } catch {
-      toast.danger('无法访问麦克风');
+      toast.danger(t('chatPage.micError'));
     }
   };
 
@@ -77,10 +79,10 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
       if (res.success && res.data.text) {
         onSend(res.data.text);
       } else {
-        toast.danger('语音识别失败');
+        toast.danger(t('chatPage.asrFailed'));
       }
     } catch {
-      toast.danger('语音处理失败');
+      toast.danger(t('chatPage.audioProcessFailed'));
     } finally {
       setProcessing(false);
     }
@@ -96,18 +98,18 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
             <Switch.Thumb />
           </Switch.Control>
           <Switch.Content>
-            <Label className="text-sm">语音反馈</Label>
+            <Label className="text-sm">{t('chatPage.voiceFeedback')}</Label>
           </Switch.Content>
         </Switch>
       </div>
       <div className="flex gap-2 items-end m-1">
         <TextArea
           className="flex-1 text-[16px]"
-          rows={4}
+          rows={1}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息..."
+          placeholder={t('chatPage.inputPlaceholder')}
         />
         {micAvailable && (
           <Button

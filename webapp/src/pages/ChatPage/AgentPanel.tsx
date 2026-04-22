@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Button, Spinner, Chip, ListBox, toast, Card, Modal } from '@heroui/react';
+import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import AgentFormModal from './AgentFormModal';
 import type { AgentInfo, AgentsResponse } from './types';
 
 export default function AgentPanel() {
+  const { t } = useI18n();
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [currentAgent, setCurrentAgent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,10 +41,10 @@ export default function AgentPanel() {
       }
       await api.put('/api/config/agent', { memoryFile: agent.memoryPath });
       await api.post('/api/gateway/restart', {});
-      toast.success('设定已切换');
+      toast.success(t('chatPage.agentSwitched'));
       setCurrentAgent(agent.memoryPath);
     } catch {
-      toast.danger('切换失败');
+      toast.danger(t('chatPage.agentSwitchFailed'));
     } finally {
       setSwitching(false);
     }
@@ -59,10 +61,10 @@ export default function AgentPanel() {
     if (!deleteTarget) return;
     try {
       await api.del(`/api/agents/${encodeURIComponent(deleteTarget)}`);
-      toast.success('设定已删除');
+      toast.success(t('chatPage.agentDeleted'));
       loadAgents();
     } catch {
-      toast.danger('删除失败');
+      toast.danger(t('chatPage.agentDeleteFailed'));
     }
     setDeleteTarget(null);
   };
@@ -78,14 +80,14 @@ export default function AgentPanel() {
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b flex items-center justify-between">
-        <span className="font-semibold text-sm">设定</span>
-        <Button size="sm" variant="ghost" onPress={() => setShowForm(true)}>新建</Button>
+        <span className="font-semibold text-sm">{t('chatPage.agentTitle')}</span>
+        <Button size="sm" variant="ghost" onPress={() => setShowForm(true)}>{t('chatPage.agentCreate')}</Button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {agents.length === 0 ? (
-          <div className="text-center text-default-400 text-sm py-8">暂无设定</div>
+          <div className="text-center text-default-400 text-sm py-8">{t('chatPage.noAgents')}</div>
         ) : (
-          <ListBox aria-label="设定列表" selectionMode="none">
+          <ListBox aria-label="agents" selectionMode="none">
             {agents.map(agent => {
               const isCurrent = currentAgent === agent.memoryPath;
               return (
@@ -94,7 +96,7 @@ export default function AgentPanel() {
                     <Card.Header>
                       <Card.Title>
                         {agent.name}
-                        {isCurrent && <Chip size="sm" color="accent">当前</Chip>}
+                        {isCurrent && <Chip size="sm" color="accent">{t('chatPage.agentCurrent')}</Chip>}
                       </Card.Title>
                       <Card.Description>{agent.preview.slice(0, 30) + (agent.preview.length > 100 ? '...' : '')}</Card.Description>
                     </Card.Header>
@@ -102,9 +104,9 @@ export default function AgentPanel() {
                       <Card.Content className='flex gap-1 mt-1'>
                         <div className='flex gap-1 mt-1'>
                           <Button size="sm" variant="ghost" onPress={() => setSwitchTarget(agent)} isDisabled={switching}>
-                            {switching ? <Spinner size="sm" /> : '切换'}
+                            {switching ? <Spinner size="sm" /> : t('chatPage.agentSwitch')}
                           </Button>
-                          <Button size="sm" variant="ghost" onPress={() => setDeleteTarget(agent.name)}>删除</Button>
+                          <Button size="sm" variant="ghost" onPress={() => setDeleteTarget(agent.name)}>{t('common.delete')}</Button>
                         </div>
                       </Card.Content>
                     )}
@@ -128,15 +130,15 @@ export default function AgentPanel() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.Header>
-                <Modal.Heading>切换设定</Modal.Heading>
+                <Modal.Heading>{t('chatPage.switchAgentTitle')}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p className="text-sm">切换设定时是否创建新会话？</p>
+                <p className="text-sm">{t('chatPage.switchAgentDesc')}</p>
               </Modal.Body>
               <Modal.Footer>
-                <Button variant="ghost" size="sm" onPress={() => setSwitchTarget(null)}>取消</Button>
-                <Button variant="ghost" size="sm" onPress={() => handleSwitchConfirm(false)}>保留当前会话</Button>
-                <Button variant="primary" size="sm" onPress={() => handleSwitchConfirm(true)}>新建会话</Button>
+                <Button variant="ghost" size="sm" onPress={() => setSwitchTarget(null)}>{t('common.cancel')}</Button>
+                <Button variant="ghost" size="sm" onPress={() => handleSwitchConfirm(false)}>{t('chatPage.keepCurrentSession')}</Button>
+                <Button variant="primary" size="sm" onPress={() => handleSwitchConfirm(true)}>{t('chatPage.createNewSession')}</Button>
               </Modal.Footer>
             </Modal.Dialog>
           </Modal.Container>
@@ -149,14 +151,14 @@ export default function AgentPanel() {
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.Header>
-                <Modal.Heading>确认删除</Modal.Heading>
+                <Modal.Heading>{t('chatPage.confirmDelete')}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <p className="text-sm">确定删除设定「{deleteTarget}」？此操作不可撤销。</p>
+                <p className="text-sm">{t('chatPage.confirmDeleteDesc').replace('{name}', deleteTarget || '')}</p>
               </Modal.Body>
               <Modal.Footer>
-                <Button variant="ghost" size="sm" onPress={() => setDeleteTarget(null)}>取消</Button>
-                <Button variant="danger" size="sm" onPress={handleDeleteConfirm}>删除</Button>
+                <Button variant="ghost" size="sm" onPress={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
+                <Button variant="danger" size="sm" onPress={handleDeleteConfirm}>{t('common.delete')}</Button>
               </Modal.Footer>
             </Modal.Dialog>
           </Modal.Container>

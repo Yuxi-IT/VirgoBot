@@ -1,4 +1,4 @@
-function DefaultLayout({ children, header, className }: { children: React.ReactNode; header?: React.ReactNode; className?: string }) {
+function DefaultLayout({ children, header, className, noPadding }: { children: React.ReactNode; header?: React.ReactNode; className?: string; noPadding?: boolean }) {
     return(
         <div className={className}>
             {header && (
@@ -6,9 +6,9 @@ function DefaultLayout({ children, header, className }: { children: React.ReactN
                 {header}
             </div>
             )}
-            <div className="sm:pb-0 pb-[70px]">
+            <div className={noPadding ? '' : 'sm:pb-0 pb-[70px]'}>
                 {children}
-            </div>    
+            </div>
         </div>
     );
 }

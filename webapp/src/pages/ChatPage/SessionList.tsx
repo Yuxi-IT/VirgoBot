@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Dropdown, Label, Modal, Input, toast, Card } from '@heroui/react';
 import { Plus } from '@gravity-ui/icons';
+import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import type { SessionInfo, Message, MessagesResponse } from './types';
 
@@ -13,20 +14,21 @@ interface Props {
 }
 
 export default function SessionList({ sessions, currentSession, onSwitch, onCreate, onReload }: Props) {
+  const { t } = useI18n();
   const [renameTarget, setRenameTarget] = useState<SessionInfo | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
   const handleDelete = async (session: SessionInfo) => {
     if (session.isCurrent) {
-      toast.danger('无法删除当前会话');
+      toast.danger(t('chatPage.cannotDeleteCurrent'));
       return;
     }
     try {
       await api.del(`/api/sessions/${encodeURIComponent(session.fileName)}`);
-      toast.success('会话已删除');
+      toast.success(t('chatPage.sessionDeleted'));
       onReload();
     } catch {
-      toast.danger('删除失败');
+      toast.danger(t('chatPage.deleteFailed'));
     }
   };
 
@@ -38,7 +40,6 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
   const handleRenameConfirm = async () => {
     if (!renameTarget || !renameValue.trim()) return;
     try {
-      // Need to switch to target session first if not current, then rename, then switch back
       const wasCurrent = renameTarget.isCurrent;
       if (!wasCurrent) {
         await api.put('/api/sessions/switch', { session: renameTarget.fileName });
@@ -47,17 +48,16 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
       if (!wasCurrent) {
         await api.put('/api/sessions/switch', { session: currentSession });
       }
-      toast.success('会话已重命名');
+      toast.success(t('chatPage.sessionRenamed'));
       onReload();
     } catch {
-      toast.danger('重命名失败');
+      toast.danger(t('chatPage.renameFailed'));
     }
     setRenameTarget(null);
   };
 
   const handleExport = async (session: SessionInfo) => {
     try {
-      // Temporarily switch to target session to fetch messages, then switch back
       const wasCurrent = session.isCurrent;
       if (!wasCurrent) {
         await api.put('/api/sessions/switch', { session: session.fileName });
@@ -68,7 +68,7 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
       }
 
       if (!res.success) {
-        toast.danger('导出失败');
+        toast.danger(t('chatPage.exportFailed'));
         return;
       }
 
@@ -77,7 +77,7 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
       const lines = [`# ${name}\n`];
       for (const msg of messages) {
         const time = new Date(msg.createdAt).toLocaleString();
-        const role = msg.role === 'user' ? '用户' : msg.role === 'assistant' ? 'AI' : '工具';
+        const role = msg.role === 'user' ? t('chatPage.roleUser') : msg.role === 'assistant' ? t('chatPage.roleAI') : t('chatPage.roleTool');
         lines.push(`### ${role}  \n*${time}*\n`);
         lines.push(msg.content + '\n');
       }
@@ -89,23 +89,23 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
       a.download = `${name}.md`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('导出成功');
+      toast.success(t('chatPage.exportSuccess'));
     } catch {
-      toast.danger('导出失败');
+      toast.danger(t('chatPage.exportFailed'));
     }
   };
 
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b flex items-center justify-between">
-        <span className="font-semibold text-sm">会话</span>
+        <span className="font-semibold text-sm">{t('chatPage.sessions')}</span>
         <Button size="sm" isIconOnly variant="ghost" onPress={onCreate}>
           <Plus />
         </Button>
       </div>
       <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
         {sessions.length === 0 ? (
-          <div className="text-center text-default-400 text-sm py-8">暂无会话</div>
+          <div className="text-center text-default-400 text-sm py-8">{t('chatPage.noSessions')}</div>
         ) : (
           sessions.map(s => {
             const isSelected = s.fileName === currentSession;
@@ -122,8 +122,8 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
                     onContextMenu={(e) => e.preventDefault()}
                   >
                     <div className={`font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
-                      {s.sessionName || '新会话'}
-                      <span className='text-xs'>{s.messageCount} 条消息</span>
+                      {s.sessionName || t('chatPage.newSession')}
+                      <span className='text-xs'>{t('chatPage.messageCount').replace('{n}', String(s.messageCount))}</span>
                     </div>
                   </Card>
                 </Dropdown.Trigger>
@@ -133,14 +133,14 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
                     if (key === 'export') handleExport(s);
                     if (key === 'delete') handleDelete(s);
                   }}>
-                    <Dropdown.Item id="rename" textValue="重命名">
-                      <Label>重命名</Label>
+                    <Dropdown.Item id="rename" textValue={t('chatPage.rename')}>
+                      <Label>{t('chatPage.rename')}</Label>
                     </Dropdown.Item>
-                    <Dropdown.Item id="export" textValue="导出 Markdown">
-                      <Label>导出 Markdown</Label>
+                    <Dropdown.Item id="export" textValue={t('chatPage.exportMarkdown')}>
+                      <Label>{t('chatPage.exportMarkdown')}</Label>
                     </Dropdown.Item>
-                    <Dropdown.Item id="delete" textValue="删除" variant="danger">
-                      <Label>删除</Label>
+                    <Dropdown.Item id="delete" textValue={t('common.delete')}>
+                      <Label>{t('common.delete')}</Label>
                     </Dropdown.Item>
                   </Dropdown.Menu>
                 </Dropdown.Popover>
@@ -156,11 +156,11 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.Header>
-                <Modal.Heading>重命名会话</Modal.Heading>
+                <Modal.Heading>{t('chatPage.renameSession')}</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
                 <Input
-                  placeholder="会话名称"
+                  placeholder={t('chatPage.sessionName')}
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleRenameConfirm(); }}
@@ -168,8 +168,8 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
                 />
               </Modal.Body>
               <Modal.Footer>
-                <Button variant="ghost" size="sm" onPress={() => setRenameTarget(null)}>取消</Button>
-                <Button variant="primary" size="sm" onPress={handleRenameConfirm} isDisabled={!renameValue.trim()}>确定</Button>
+                <Button variant="ghost" size="sm" onPress={() => setRenameTarget(null)}>{t('common.cancel')}</Button>
+                <Button variant="primary" size="sm" onPress={handleRenameConfirm} isDisabled={!renameValue.trim()}>{t('common.confirm')}</Button>
               </Modal.Footer>
             </Modal.Dialog>
           </Modal.Container>

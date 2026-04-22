@@ -23,6 +23,7 @@ function ChatPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentSessionRef = useRef(currentSession);
+  const loadMessagesRef = useRef<(silent?: boolean) => Promise<void>>(async () => {});
   currentSessionRef.current = currentSession;
 
   const loadSessions = useCallback(async (silent = false) => {
@@ -48,6 +49,7 @@ function ChatPage() {
       }
     } catch { /* silent */ } finally { if (!silent) setMsgLoading(false); }
   }, [page]);
+  loadMessagesRef.current = loadMessages;
 
   useEffect(() => {
     loadSessions();
@@ -73,7 +75,7 @@ function ChatPage() {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'sendMessage' && data.content) {
-          loadMessages(true);
+          loadMessagesRef.current(true);
           if (voiceFeedback) {
             convertTTS(data.content);
           }
@@ -82,7 +84,7 @@ function ChatPage() {
     };
     wsRef.current = ws;
     return () => { ws.close(); };
-  }, [voiceFeedback, loadMessages]);
+  }, [voiceFeedback]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || sending) return;
@@ -90,6 +92,14 @@ function ChatPage() {
     try {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'message', message: text, userId: '0' }));
+        // Optimistically add user message
+        const optimisticMsg: Message = {
+          id: Date.now(),
+          role: 'user',
+          content: text,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
         // Generate session name on first message
         const cur = sessions.find(s => s.isCurrent);
         if (cur && !cur.sessionName && cur.messageCount === 0) {
@@ -105,7 +115,7 @@ function ChatPage() {
       setTimeout(() => {
         setSending(false);
         loadMessages(true);
-      }, 500);
+      }, 1000);
     }
   };
 
@@ -161,8 +171,8 @@ function ChatPage() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <DefaultLayout>
-      <div className="flex max-h-full overflow-hidden">
+    <DefaultLayout noPadding>
+      <div className="flex h-[calc(100vh-44px)] sm:h-screen overflow-hidden">
         {/* Left: Session List */}
         <div className="w-64 shrink-0 border-r overflow-y-auto hidden sm:block">
           <SessionList
