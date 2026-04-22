@@ -1,78 +1,129 @@
 <div align="center">
   <img src="doc/75018f3ea271fec03664b2fb9748333b.webp" alt="VirgoBot Logo" width="600"/>
   <h1>VirgoBot</h1>
-  <p>基于 .NET 10 的多通道 AI 助手框架</p>
+  <p><strong>有灵魂、会成长、全天候在线的专属 AI 智能体</strong></p>
+  <p>基于 .NET 10 打造的本地化私有化多通道个人 AI 助手框架</p>
 
   ![License](https://img.shields.io/badge/license-MIT-green)
   ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
-  ![NodeJS](https://img.shields.io/badge/NodeJS-24.13.0-green)
+  ![React](https://img.shields.io/badge/React-19-blue)
+  ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)
+  ![HeroUI](https://img.shields.io/badge/HeroUI-3.0-orange)
 </div>
 
-## 核心特性
+---
 
-### 多通道接入
-- **Telegram Bot** - 支持内联按钮、Markdown、表情包发送
-- **HTTP API** - RESTful 接口，`/chat` 端点直接对话
-- **WebSocket** - 实时双向通信，支持多客户端连接
-- **OpenILink.SDK 集成** - 通过 iLink 桥接第三方平台，支持图片/语音/视频/文件发送、自动重连和消息分片
+## 项目定位
 
-### 工具系统
-- **Shell 命令执行** - 支持交互式会话和后台任务
-- **文件操作** - 读写文件、列出目录、管理文件系统
-- **邮件集成** - IMAP/SMTP 收发邮件，AI 自动摘要和回复
-- **表情包管理** - 本地表情包库搜索和发送
-- **浏览器自动化** - Playwright 集成，支持网页截图和交互
-- **联系人管理** - 增删改查联系人信息
-- **自定义技能** - 基于 JSON 配置的动态技能系统（命令式/HTTP 式），兼容 OpenClaw Skill 格式
-- **自然语言生成 Skill** - 用自然语言描述需求，AI 自动生成完整的 Skill 配置
+VirgoBot 是一个聚焦**高端私人情感陪伴 + 智能效率助理**双核心场景的个人 AI 助手。它打破通用大模型「千人一面」的同质化困境，为每位用户打造**独一份、有灵魂、会成长**的专属智能体。
 
-### 会话管理
-- **多会话支持** - 每个用户独立的对话历史，SQLite 持久化
-- **上下文窗口** - 自动加载最近 N 条消息作为上下文
-- **Soul 记忆** - LLM 自主写入的长期记忆，带内存缓存
-- **会话切换** - 支持创建、切换、删除多个对话会话
-- **时间感知** - 消息自动附加北京时间戳
+全设备无界接入、零代码能力扩展、私有化安全部署——重新定义个人 AI 助手的体验标准。
 
-### 智能特性
-- **自动响应模式** - 用户空闲后 LLM 自主发起对话，可配置时间区间
-- **邮件监控** - 自动监控新邮件并推送 AI 摘要到多个通道
-- **定时任务** - 支持 HTTP 请求、Shell 命令、文本指令三种任务类型，支持间隔/每日/一次性执行，用户可通过对话直接创建（定时进化、定时抓取数据等）
-- **AI 生成角色设定** - 输入角色名称，AI 自动生成 2000+ 字的详细人物设定（性格、说话方式、对话示例等）并保存为智能体配置
-- **语音对话** - 集成火山 ASR/TTS，支持语音转文字和文字转语音
-- **消息分片** - 长消息智能分段，支持自定义分隔符
+---
 
-### Web 管理面板
-基于 React + TypeScript + HeroUI 的现代化管理界面：
+## 核心亮点
 
-- **仪表盘** - 实时查看运行状态、在线时长、通道状态
-- **对话记录** - 按用户浏览完整聊天历史（user/assistant/tool）
-- **联系人管理** - 可视化增删改查，支持搜索
-- **技能管理** - 动态管理自定义技能，支持自然语言生成、OpenClaw 格式导入，无需重启
-- **定时任务** - 创建和管理定时任务（间隔/每日/一次性执行），支持用户通过对话直接创建
-- **Agent 管理** - 多 Agent 配置文件管理，支持输入角色名由 AI 一键生成完整人物设定
-- **会话管理** - 创建、切换、删除对话会话
-- **频道配置** - 在线配置 Telegram、Email、iLink 通道
-- **设置** - 在线编辑系统提示词、Soul 记忆、规则文件
-- **日志查看** - 按级别筛选、搜索、分页浏览运行日志
+### 🧠 Soul 记忆——专属灵魂内核
 
-## 一键部署
+这是 VirgoBot 区别于所有通用 AI 的核心壁垒。
 
-自动检测并安装 .NET SDK、Node.js，构建前后端：
+Soul 记忆不是传统的长期记忆，而是**用户与智能体深度绑定的灵魂内核**。它镌刻用户的性格偏好、情感习惯、专属交互逻辑、私密情感联结，是智能体的身份本源。LLM 在对话中自主读取和写入 Soul，带 5 分钟内存缓存，SQLite 持久化存储。
 
-**Windows (PowerShell)**
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install.ps1
-```
+你的智能体不再是对所有人都一样的工具，而是**只属于你、无可复制的专属陪伴者**。
 
-**Linux / macOS (Bash)**
-```bash
-bash scripts/install.sh
-```
+Web 面板提供可视化的 Soul 管理界面，支持手动增删改查每一条灵魂记忆。
+
+### 🔄 自进化引擎——定时任务 + 自然语言 Skill
+
+智能体具备活态自进化能力，无需人工干预即可持续迭代：
+
+- **定时任务系统**：支持 HTTP 请求、Shell 命令、文本指令三种任务类型，间隔/每日/一次性执行。口语化一键创建——「每天 20 点自动获取国际财经新闻，整合生成 HTML 文件保存至桌面」，让智能体越用越强大
+- **零代码 Skill 生成**：纯自然语言描述需求，AI 自动生成完整技能配置（JSON / SKILL.md 格式），实时生效无需重启，支持单功能和多子功能 Skill，兼容 OpenClaw 格式导入
+
+### 💬 极致拟人化交互
+
+搭配深度定制的拟人化提示词、时间感知（消息自动附加北京时间戳）、空闲主动发起对话、消息智能分片等能力，结合 Soul 记忆的灵魂内核，智能体拥有真人级的情感反馈逻辑，提供沉浸式、有温度的专属情感陪伴。
+
+- **自动响应模式**：用户空闲后 LLM 自主发起对话，可配置时间区间
+- **消息分片**：长消息按自定义分隔符智能分段，模拟真人聊天节奏
+- **AI 生成角色设定**：输入角色名称，AI 自动生成 2000+ 字的详细人物设定
+- **自然语言生成Skill**：在聊天中可直接使用自然语言生成Skill，不需要写代码也能创建自己的专属Skill
+### 🌐 全设备无界接入
+
+原生支持 WebSocket 实时双向通信，任意设备、任意地域接入本地部署的 AI 助手：
+
+| 通道 | 说明 |
+|------|------|
+| **WebSocket** | 实时双向通信，支持多客户端并发连接 |
+| **HTTP API** | RESTful `/chat` 端点，标准化接口 |
+| **Telegram Bot** | 内联按钮、Markdown、表情包发送 |
+| **OpenILink.SDK** | 桥接微信、钉钉等第三方平台，支持图片/语音/视频/文件发送、自动重连和消息分片 |
+| **Email** | IMAP/SMTP 邮件监控，AI 自动摘要，多通道通知推送 |
+
+### 🎙️ 沉浸式语音交互
+
+深度集成**火山 ASR 语音识别 + TTS 语音合成引擎**，支持自定义音色，实现「语音对话 + 语音回复」全闭环，将文字交互升级为沉浸式语音陪伴。
+
+### 🛠️ 全能力工具生态
+
+内置丰富的工具，情感陪伴与效率两不误：
+
+- **Shell 命令执行**：交互式会话 + 后台任务
+- **文件操作**：读写文件、目录管理
+- **邮件收发**：IMAP/SMTP，AI 自动摘要和回复
+- **联系人管理**：SQLite 存储，增删改查
+- **表情包管理**：本地表情包库搜索和发送
+- **自定义技能**：JSON / SKILL.md 格式，支持命令式和 HTTP 式
+
+所有工具通过 `FunctionRegistry` 统一注册，以 OpenAI tools 格式注入 LLM 请求，支持 Agentic 递归工具调用链。
+
+### 🔒 私有化安全底座
+
+- 全程本地部署，数据本地持久化，无云端上传
+- 所有情感记忆、灵魂内核、私人信息 100% 可控
+- 白名单校验、权限隔离，安全无泄露风险
+
+---
+
+## Web 管理面板
+
+基于 React 19 + TypeScript + HeroUI 3 + Tailwind CSS 4 的现代化管理界面，支持中英双语：
+
+| 页面 | 功能 |
+|------|------|
+| **仪表盘** | 运行状态、在线时长、通道健康度、Token 统计 |
+| **聊天** | 三栏布局：会话列表 + 对话面板（含 Soul 记忆 Tab）+ Agent 面板，支持消息删除、分片显示、语音回复 |
+| **技能管理** | 动态增删改查，自然语言生成，OpenClaw 格式导入，保存后自动重启生效 |
+| **定时任务** | 创建和管理定时任务，支持间隔/每日/一次性执行 |
+| **联系人** | 可视化管理，支持搜索 |
+| **Agent 管理** | 多 Agent 配置，AI 一键生成完整人物设定 |
+| **供应商管理** | 多 LLM 供应商配置（OpenAI / Anthropic / Gemini 等），一键切换 |
+| **频道配置** | 在线配置 Telegram、Email、iLink 通道 |
+| **设置** | 编辑系统提示词、规则文件，按级别筛选/搜索/分页浏览运行日志 |
+
+---
+
+## 技术栈
+
+**后端**
+- .NET 10、SQLite（Microsoft.Data.Sqlite）
+- Telegram.Bot、MailKit、OpenILink.SDK
+- HtmlAgilityPack、Spectre.Console
+
+**前端**
+- React 19 + TypeScript 5 + Vite 5
+- HeroUI 3 + Tailwind CSS 4 + Framer Motion
+- Gravity UI Icons、i18n（中/英）
+
+---
 
 ## 快速开始
 
-### 后端
+- 直接在Github Release页面下载预编译二进制文件
 
+### 手动部署
+
+**后端**
 ```bash
 dotnet restore && dotnet build
 dotnet run --project VirgoBot/VirgoBot.csproj
@@ -80,8 +131,7 @@ dotnet run --project VirgoBot/VirgoBot.csproj
 
 首次启动自动生成 `config/config.json`，填入必要配置后重启。
 
-### 前端
-
+**前端**
 ```bash
 cd webapp
 npm install
@@ -89,13 +139,23 @@ npm run dev        # 开发模式
 npm run build      # 生产构建
 ```
 
+---
+
 ## 配置示例
 
 ```json
 {
-  "apiKey": "YOUR_LLM_API_KEY",
-  "baseUrl": "https://api.openai.com/v1",
-  "model": "gpt-4",
+  "providers": [
+    {
+      "name": "OpenAI",
+      "apiKey": "YOUR_API_KEY",
+      "baseUrl": "https://api.openai.com/v1",
+      "currentModel": "gpt-4",
+      "models": ["gpt-4", "gpt-4o"],
+      "protocol": "OpenAI"
+    }
+  ],
+  "currentProvider": "OpenAI",
   "server": {
     "listenUrl": "http://0.0.0.0:5000/",
     "maxTokens": 8192,
@@ -135,6 +195,8 @@ npm run build      # 生产构建
 }
 ```
 
+---
+
 ## 工作原理
 
 ### 消息流转
@@ -142,23 +204,45 @@ npm run build      # 生产构建
 所有通道的消息经白名单校验后汇入统一处理链路：
 
 ```
-用户消息 → 白名单校验 → MemoryService 存储 → 构建上下文 → LLM API → 响应/工具调用
+用户消息 → 白名单校验 → MemoryService 存储 → 构建上下文（系统提示词 + Soul + 近 N 条消息）→ LLM API → 响应/工具调用
 ```
 
 ### Agentic 工具调用
 
-LLM 返回的 `tool_calls` 触发递归循环：解析工具 → 执行 → 写回记忆 → 再次请求 LLM，直到返回纯文本。这使得 LLM 可以自主编排多步操作。
+LLM 返回的 `tool_calls` 触发递归循环：解析工具 → 执行 → 写回记忆 → 再次请求 LLM，直到返回纯文本。智能体可自主编排多步操作，实现复杂任务的自动化完成。
 
-### 工具注册
+### HTTP 服务架构
 
-`FunctionRegistry` 统一管理所有工具。各模块通过 `Register()` 提交工具定义（名称、描述、JSON Schema、处理函数），Registry 以 OpenAI tools 格式注入每次 LLM 请求。
+双端口设计：
+- **端口 8765**（TcpListener）— 对外服务，无需管理员权限
+- **端口 8766**（HttpListener）— 内部接口，仅 127.0.0.1
+
+---
 
 ## 注意事项
 
 - 需要 .NET 10 SDK 和 Node.js >= 18（推荐使用一键部署脚本自动安装）
-- 启用 Telegram 时 `AllowedUsers` 不能为空
+- 启用 Telegram 时 `allowedUsers` 不能为空
 - 工具能力较强（Shell、文件读写等），请在可信环境或虚拟机运行
 - 默认监听 `0.0.0.0:5000`，支持外部访问
+- 支持多 LLM 供应商配置，兼容 OpenAI 协议的任意提供商
+
+---
+
+## 最近更新
+
+- 重构聊天页面为三栏布局（会话列表 + 对话 + Agent），合并语聊/记忆/设定页面
+- 新增 Soul 记忆可视化管理面板，支持增删改查
+- 新增多供应商配置系统，支持一键切换 LLM 提供商
+- 优化 Web 端对话拟人性，消息智能跟随滚动
+- 新增设定在线编辑功能
+- 移除会话中的 userId 隔离，同一会话所有用户共享记忆
+- 保存设置/技能后自动重启服务生效
+- 日志页面迁移到设置 Tab，支持按级别筛选
+- HeroUI 组件全面替换，Spectre.Console 日志美化，Token 统计
+- 火山 ASR/TTS 语音交互集成
+- OpenILink.SDK 重构，支持图片/语音/视频/文件发送
+- 多子功能 Skill 支持，SKILL.md 格式编辑
 
 ---
 

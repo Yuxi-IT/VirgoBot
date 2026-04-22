@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Button, Dropdown, Label, Modal, Input, toast, Card } from '@heroui/react';
+import { useState, useRef, useEffect } from 'react';
+import { Button, Label, Modal, Input, toast, Card, Surface, ListBox, Avatar, Description } from '@heroui/react';
 import { Plus } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
@@ -17,6 +17,18 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
   const { t } = useI18n();
   const [renameTarget, setRenameTarget] = useState<SessionInfo | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; session: SessionInfo | null }>({ x: 0, y: 0, session: null });
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setContextMenu({ x: 0, y: 0, session: null });
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleDelete = async (session: SessionInfo) => {
     if (session.isCurrent) {
@@ -95,6 +107,11 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent, session: SessionInfo) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, session });
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-3 border-b flex items-center justify-between">
@@ -110,41 +127,46 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
           sessions.map(s => {
             const isSelected = s.fileName === currentSession;
             return (
-              <Dropdown key={s.fileName} trigger="longPress">
-                <Dropdown.Trigger>
-                  <Card
-                    className={`px-3 py-2 cursor-pointer text-sm text-left ${
-                      isSelected
-                        ? 'bg-default-400 shadow-sm border-1 border-primary-500'
-                        : 'hover:bg-default-100'
-                    }`}
-                    onClick={() => { if (!isSelected) onSwitch(s.fileName); }}
-                    onContextMenu={(e) => e.preventDefault()}
+              <div key={s.fileName} className="relative">
+                <Card
+                  className={`px-3 py-2 cursor-pointer text-sm text-left ${
+                    isSelected
+                      ? 'bg-default-400 shadow-sm border-1 border-primary-500'
+                      : 'hover:bg-default-100'
+                  }`}
+                  onClick={() => { if (!isSelected) onSwitch(s.fileName); }}
+                  onContextMenu={(e) => handleContextMenu(e, s)}
+                >
+                  <div className={`font-medium flex justify-between items-center ${isSelected ? 'text-primary' : ''}`}>
+                    <span>{s.sessionName || t('chatPage.newSession')}</span>
+                    <span className={`text-xs ${isSelected ? "text-sky-600" : ""}`}>{t('chatPage.messageCount').replace('{n}', String(s.messageCount))}</span>
+                  </div>
+                </Card>
+                {contextMenu.session?.fileName === s.fileName && (
+                  <Surface
+                    ref={menuRef}
+                    className="w-[256px] rounded-3xl shadow-surface absolute z-50"
+                    style={{ left: contextMenu.x, top: contextMenu.y }}
                   >
-                    <div className={`font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
-                      {s.sessionName || t('chatPage.newSession')}
-                      <span className='text-xs'>{t('chatPage.messageCount').replace('{n}', String(s.messageCount))}</span>
-                    </div>
-                  </Card>
-                </Dropdown.Trigger>
-                <Dropdown.Popover>
-                  <Dropdown.Menu onAction={(key) => {
-                    if (key === 'rename') handleRenameOpen(s);
-                    if (key === 'export') handleExport(s);
-                    if (key === 'delete') handleDelete(s);
-                  }}>
-                    <Dropdown.Item id="rename" textValue={t('chatPage.rename')}>
-                      <Label>{t('chatPage.rename')}</Label>
-                    </Dropdown.Item>
-                    <Dropdown.Item id="export" textValue={t('chatPage.exportMarkdown')}>
-                      <Label>{t('chatPage.exportMarkdown')}</Label>
-                    </Dropdown.Item>
-                    <Dropdown.Item id="delete" textValue={t('common.delete')}>
-                      <Label>{t('common.delete')}</Label>
-                    </Dropdown.Item>
-                  </Dropdown.Menu>
-                </Dropdown.Popover>
-              </Dropdown>
+                    <ListBox aria-label="Actions" selectionMode="single" onAction={(key) => {
+                      if (key === 'rename') handleRenameOpen(contextMenu.session!);
+                      if (key === 'export') handleExport(contextMenu.session!);
+                      if (key === 'delete') handleDelete(contextMenu.session!);
+                      setContextMenu({ x: 0, y: 0, session: null });
+                    }}>
+                      <ListBox.Item id="rename" textValue={t('chatPage.rename')}>
+                        <Label>{t('chatPage.rename')}</Label>
+                      </ListBox.Item>
+                      <ListBox.Item id="export" textValue={t('chatPage.exportMarkdown')}>
+                        <Label>{t('chatPage.exportMarkdown')}</Label>
+                      </ListBox.Item>
+                      <ListBox.Item id="delete" textValue={t('common.delete')}>
+                        <Label>{t('common.delete')}</Label>
+                      </ListBox.Item>
+                    </ListBox>
+                  </Surface>
+                )}
+              </div>
             );
           })
         )}
@@ -178,3 +200,4 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
     </div>
   );
 }
+
