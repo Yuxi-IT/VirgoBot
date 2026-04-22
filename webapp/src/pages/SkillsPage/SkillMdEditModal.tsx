@@ -54,7 +54,7 @@ function SkillMdEditModal({ isOpen, onOpenChange, onClose, skill, onSaved }: Ski
   return (
     <Modal>
       <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
-        <Modal.Container size="xl" className="w-4xl">
+        <Modal.Container size="lg" className="w-4xl">
           <Modal.Dialog>
             <Modal.Header>
               <Modal.Heading>

@@ -68,7 +68,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormDescription(task.description);
     setFormEnabled(task.enabled);
     setFormTaskType(task.taskType);
-    setFormScheduleType(task.scheduleType === 'cron' ? 'interval' : task.scheduleType);
+    setFormScheduleType(task.scheduleType);
     setFormIntervalMinutes(task.intervalMinutes);
     setFormDailyTime(task.dailyTime);
     if (task.scheduleType === 'once') {

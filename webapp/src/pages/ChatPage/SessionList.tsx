@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Button, Label, Modal, Input, toast, Card, Surface, ListBox, Avatar, Description } from '@heroui/react';
+import { Button, Label, Modal, Input, toast, Card, Surface, ListBox } from '@heroui/react';
 import { Plus } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';

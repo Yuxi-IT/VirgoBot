@@ -32,8 +32,10 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
       return `${t('tasks.every')} ${task.intervalMinutes} ${t('tasks.minutes')}`;
     } else if (task.scheduleType === 'daily') {
       return `${t('tasks.daily')} ${task.dailyTime}`;
-    } else if (task.scheduleType === 'cron') {
-      return task.cronExpression;
+    } else if (task.scheduleType === 'once') {
+      if (task.onceAt) return new Date(task.onceAt).toLocaleString();
+      if (task.onceDelayMinutes) return `${task.onceDelayMinutes} ${t('tasks.minutes')}`;
+      return '-';
     }
     return '-';
   };
