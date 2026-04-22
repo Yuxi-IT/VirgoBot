@@ -127,50 +127,50 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
           sessions.map(s => {
             const isSelected = s.fileName === currentSession;
             return (
-              <div key={s.fileName} className="relative">
-                <Card
-                  className={`px-3 py-2 cursor-pointer text-sm text-left ${
-                    isSelected
-                      ? 'bg-default-400 shadow-sm border-1 border-primary-500'
-                      : 'hover:bg-default-100'
-                  }`}
-                  onClick={() => { if (!isSelected) onSwitch(s.fileName); }}
-                  onContextMenu={(e) => handleContextMenu(e, s)}
-                >
-                  <div className={`font-medium flex justify-between items-center ${isSelected ? 'text-primary' : ''}`}>
-                    <span>{s.sessionName || t('chatPage.newSession')}</span>
-                    <span className={`text-xs ${isSelected ? "text-sky-600" : ""}`}>{t('chatPage.messageCount').replace('{n}', String(s.messageCount))}</span>
-                  </div>
-                </Card>
-                {contextMenu.session?.fileName === s.fileName && (
-                  <Surface
-                    ref={menuRef}
-                    className="w-[256px] rounded-3xl shadow-surface absolute z-50"
-                    style={{ left: contextMenu.x, top: contextMenu.y }}
-                  >
-                    <ListBox aria-label="Actions" selectionMode="single" onAction={(key) => {
-                      if (key === 'rename') handleRenameOpen(contextMenu.session!);
-                      if (key === 'export') handleExport(contextMenu.session!);
-                      if (key === 'delete') handleDelete(contextMenu.session!);
-                      setContextMenu({ x: 0, y: 0, session: null });
-                    }}>
-                      <ListBox.Item id="rename" textValue={t('chatPage.rename')}>
-                        <Label>{t('chatPage.rename')}</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="export" textValue={t('chatPage.exportMarkdown')}>
-                        <Label>{t('chatPage.exportMarkdown')}</Label>
-                      </ListBox.Item>
-                      <ListBox.Item id="delete" textValue={t('common.delete')}>
-                        <Label>{t('common.delete')}</Label>
-                      </ListBox.Item>
-                    </ListBox>
-                  </Surface>
-                )}
-              </div>
+              <Card
+                key={s.fileName}
+                className={`px-3 py-2 cursor-pointer text-sm text-left ${
+                  isSelected
+                    ? 'bg-default-400 shadow-sm border-1 border-primary-500'
+                    : 'hover:bg-default-100'
+                }`}
+                onClick={() => { if (!isSelected) onSwitch(s.fileName); }}
+                onContextMenu={(e) => handleContextMenu(e, s)}
+              >
+                <div className={`font-medium flex justify-between items-center ${isSelected ? 'text-primary' : ''}`}>
+                  <span>{s.sessionName || t('chatPage.newSession')}</span>
+                  <span className={`text-xs ${isSelected ? "text-sky-600" : ""}`}>{t('chatPage.messageCount').replace('{n}', String(s.messageCount))}</span>
+                </div>
+              </Card>
             );
           })
         )}
       </div>
+
+      {contextMenu.session && (
+        <Surface
+          ref={menuRef}
+          className="w-[256px] rounded-3xl shadow-surface fixed z-40"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <ListBox aria-label="Actions" selectionMode="single" onAction={(key) => {
+            if (key === 'rename') handleRenameOpen(contextMenu.session!);
+            if (key === 'export') handleExport(contextMenu.session!);
+            if (key === 'delete') handleDelete(contextMenu.session!);
+            setContextMenu({ x: 0, y: 0, session: null });
+          }}>
+            <ListBox.Item id="rename" textValue={t('chatPage.rename')}>
+              <Label>{t('chatPage.rename')}</Label>
+            </ListBox.Item>
+            <ListBox.Item id="export" textValue={t('chatPage.exportMarkdown')}>
+              <Label>{t('chatPage.exportMarkdown')}</Label>
+            </ListBox.Item>
+            <ListBox.Item id="delete" textValue={t('common.delete')}>
+              <Label>{t('common.delete')}</Label>
+            </ListBox.Item>
+          </ListBox>
+        </Surface>
+      )}
 
       {/* Rename modal */}
       <Modal>

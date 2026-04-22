@@ -92,7 +92,7 @@ export default function ChatBubble({ message, onDelete, showTime }: Props) {
             ? 'bg-sky-700/30 rounded-br-none'
             : isTool
               ? 'bg-default-200 border border-default-300 rounded-bl-none'
-              : 'bg-content2 shadow-sm rounded-bl-none'
+              : 'bg-content2 shadow-sky-200/10 shadow-sm rounded-bl-none'
         }`}
         onContextMenu={handleContextMenu}
       >
