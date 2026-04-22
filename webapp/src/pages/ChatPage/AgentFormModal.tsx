@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Button, TextField, Label, Input, TextArea, Spinner, toast } from '@heroui/react';
 import { api } from '../../services/api';
+import { useI18n } from '../../i18n';
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +15,7 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
   const [characterName, setCharacterName] = useState('');
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const { t } = useI18n();
 
   const handleCreate = async () => {
     if (!name.trim() || !content.trim()) return;
@@ -66,11 +68,11 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
               </TextField>
 
               <div className="border rounded-lg p-3 bg-muted/30 space-y-2">
-                <p className="text-sm font-medium">AI 生成</p>
+                <p className="text-sm font-medium">{t("agent.generateBtn")}</p>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
                     <TextField value={characterName} onChange={setCharacterName}>
-                      <Label>角色名</Label>
+                      <Label>Name</Label>
                       <Input placeholder="输入角色名，AI 自动生成设定" />
                     </TextField>
                   </div>

@@ -162,7 +162,7 @@ function ChatPage() {
 
   return (
     <DefaultLayout>
-      <div className="flex h-[calc(100vh-60px)] overflow-hidden">
+      <div className="flex max-h-full overflow-hidden">
         {/* Left: Session List */}
         <div className="w-64 shrink-0 border-r overflow-y-auto hidden sm:block">
           <SessionList

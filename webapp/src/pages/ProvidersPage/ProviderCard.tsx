@@ -32,7 +32,7 @@ export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, on
   };
 
   return (
-    <Card className={isCurrent ? 'border-2 border-primary' : ''}>
+    <Card className={`${isCurrent ? 'border-2 border-sky-500' : ''} hover:scale-101`}>
       <Card.Content>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

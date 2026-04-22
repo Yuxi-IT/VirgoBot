@@ -119,7 +119,7 @@ export default {
     maxIdleMinutes: 'Max Idle Minutes',
     save: 'Save',
     voice: {
-      tab: 'Voice (Experimental)',
+      tab: 'Voice',
       title: 'Voice Configuration',
       description: 'Configure ByteDance Voice Recognition (ASR) and Text-to-Speech (TTS) services for voice conversation features.',
       apiKey: 'API Key',

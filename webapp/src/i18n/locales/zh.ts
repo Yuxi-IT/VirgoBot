@@ -119,7 +119,7 @@ export default {
     maxIdleMinutes: '最大空闲时间（分钟）',
     save: '保存',
     voice: {
-      tab: '语音（实验性）',
+      tab: '语音',
       title: '语音功能配置',
       description: '配置火山引擎语音识别（ASR）和语音合成（TTS）服务，用于语音对话功能。',
       apiKey: 'API Key',

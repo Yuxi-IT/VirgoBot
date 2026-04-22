@@ -113,9 +113,9 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
               <Dropdown key={s.fileName} trigger="longPress">
                 <Dropdown.Trigger>
                   <Card
-                    className={`px-3 py-2 cursor-pointer transition-colors text-sm text-left ${
+                    className={`px-3 py-2 cursor-pointer text-sm text-left ${
                       isSelected
-                        ? 'bg-primary/10 shadow-sm border border-primary/20'
+                        ? 'bg-default-400 shadow-sm border-1 border-primary-500'
                         : 'hover:bg-default-100'
                     }`}
                     onClick={() => { if (!isSelected) onSwitch(s.fileName); }}

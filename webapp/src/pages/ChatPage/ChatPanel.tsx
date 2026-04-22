@@ -41,7 +41,6 @@ export default function ChatPanel({
     return () => el.removeEventListener('scroll', onScroll);
   }, [isAtBottom]);
 
-  // Only auto-scroll when new messages arrive AND user was already at bottom
   useEffect(() => {
     const newCount = messages.length;
     const hasNew = newCount > prevMsgCountRef.current;
@@ -53,15 +52,15 @@ export default function ChatPanel({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+    <div className="flex flex-col h-full max-h-screen">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 pb-32 sm:pb-4">
         {loading && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <Spinner size="lg" />
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-default-400">
-            开始对话吧
+          <div className="flex items-center justify-center h-full text-xl text-default-400">
+            Hi Maxwell, how can I help you today?
           </div>
         ) : (
           <>
@@ -83,7 +82,6 @@ export default function ChatPanel({
         )}
       </div>
 
-      {/* Input area */}
       <ChatInput
         sending={sending}
         voiceFeedback={voiceFeedback}
@@ -93,3 +91,4 @@ export default function ChatPanel({
     </div>
   );
 }
+

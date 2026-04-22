@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Button, Spinner, Switch, TextArea, toast } from '@heroui/react';
+import { Button, Label, Spinner, Switch, TextArea, toast } from '@heroui/react';
 import { Microphone, ArrowShapeTurnUpRight, Volume } from '@gravity-ui/icons';
 import { api } from '../../services/api';
 
@@ -90,10 +90,20 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
 
   return (
     <div className="border-t p-3">
-      <div className="flex gap-2 items-end">
+      <div className="flex items-center gap-1 mt-2 text-xs text-default-400">
+        <Switch isSelected={voiceFeedback} onChange={onToggleVoiceFeedback}>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Content>
+            <Label className="text-sm">语音反馈</Label>
+          </Switch.Content>
+        </Switch>
+      </div>
+      <div className="flex gap-2 items-end m-1">
         <TextArea
-          className="flex-1"
-          rows={1}
+          className="flex-1 text-[16px]"
+          rows={4}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -118,11 +128,6 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
         >
           {sending ? <Spinner size="sm" /> : <ArrowShapeTurnUpRight />}
         </Button>
-      </div>
-      <div className="flex items-center gap-1 mt-2 text-xs text-default-400">
-        <Volume className="w-3 h-3" />
-        <span>语音反馈</span>
-        <Switch size="sm" isSelected={voiceFeedback} onChange={onToggleVoiceFeedback} />
       </div>
     </div>
   );
