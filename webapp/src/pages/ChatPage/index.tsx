@@ -1,117 +1,199 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { SearchField } from '@heroui/react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Spinner } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
-import { useI18n } from '../../i18n';
-import { api } from '../../services/api';
-import UserSelector from './UserSelector';
-import MessagesTable from './MessagesTable';
-import type { UserInfo, Message, UsersResponse, MessagesResponse } from './types';
+import { api, BASE_URL } from '../../services/api';
+import SessionList from './SessionList';
+import ChatPanel from './ChatPanel';
+import AgentPanel from './AgentPanel';
+import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from './types';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 function ChatPage() {
-  const { t } = useI18n();
-  const [users, setUsers] = useState<UserInfo[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [currentSession, setCurrentSession] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [usersLoading, setUsersLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [voiceFeedback, setVoiceFeedback] = useState(false);
+
+  const wsRef = useRef<WebSocket | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentSessionRef = useRef(currentSession);
+  currentSessionRef.current = currentSession;
 
-  const loadUsers = useCallback(async (silent = false) => {
-    try {
-      if (!silent) setUsersLoading(true);
-      const res = await api.get<UsersResponse>('/api/messages/users');
-      if (res.success) {
-        setUsers(res.data);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      if (!silent) setUsersLoading(false);
-    }
-  }, []);
-
-  const loadMessages = useCallback(async (userId: string, pageNum: number, silent = false) => {
+  const loadSessions = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const offset = (pageNum - 1) * PAGE_SIZE;
-      const res = await api.get<MessagesResponse>(`/api/messages?userId=${userId}&limit=${PAGE_SIZE}&offset=${offset}`);
+      const res = await api.get<SessionsResponse>('/api/sessions');
+      if (res.success) {
+        setSessions(res.data as unknown as SessionInfo[]);
+        const cur = (res.data as unknown as SessionInfo[]).find(s => s.isCurrent);
+        if (cur) setCurrentSession(cur.fileName);
+      }
+    } catch { /* silent */ } finally { if (!silent) setLoading(false); }
+  }, []);
+
+  const loadMessages = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setMsgLoading(true);
+      const offset = (page - 1) * PAGE_SIZE;
+      const res = await api.get<MessagesResponse>(`/api/messages?userId=0&limit=${PAGE_SIZE}&offset=${offset}`);
       if (res.success) {
         setMessages(res.data.messages);
         setTotal(res.data.total);
       }
-    } catch {
-      // silently fail
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, []);
-
-  const selectedUserIdRef = useRef(selectedUserId);
-  const pageRef = useRef(page);
-  selectedUserIdRef.current = selectedUserId;
-  pageRef.current = page;
+    } catch { /* silent */ } finally { if (!silent) setMsgLoading(false); }
+  }, [page]);
 
   useEffect(() => {
-    loadUsers();
+    loadSessions();
+  }, [loadSessions]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages, currentSession]);
+
+  // Auto-refresh messages
+  useEffect(() => {
     intervalRef.current = setInterval(() => {
-      loadUsers(true);
-      if (selectedUserIdRef.current) {
-        loadMessages(selectedUserIdRef.current, pageRef.current, true);
-      }
-    }, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [loadUsers, loadMessages]);
+      loadMessages(true);
+    }, 2000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [loadMessages]);
 
+  // WebSocket connection
   useEffect(() => {
-    if (selectedUserId) {
-      loadMessages(selectedUserId, page);
+    const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/';
+    const ws = new WebSocket(wsUrl);
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'sendMessage' && data.content) {
+          loadMessages(true);
+          if (voiceFeedback) {
+            convertTTS(data.content);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+    wsRef.current = ws;
+    return () => { ws.close(); };
+  }, [voiceFeedback, loadMessages]);
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    try {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'message', message: text, userId: '0' }));
+        // Generate session name on first message
+        const cur = sessions.find(s => s.isCurrent);
+        if (cur && !cur.sessionName && cur.messageCount === 0) {
+          setTimeout(async () => {
+            try {
+              await api.post('/api/sessions/generate-name', { message: text });
+              loadSessions(true);
+            } catch { /* ignore */ }
+          }, 1000);
+        }
+      }
+    } finally {
+      setTimeout(() => {
+        setSending(false);
+        loadMessages(true);
+      }, 500);
     }
-  }, [selectedUserId, page, loadMessages]);
+  };
+
+  const deleteMessage = async (id: number) => {
+    try {
+      await api.del(`/api/messages/${id}`);
+      loadMessages(true);
+    } catch { /* ignore */ }
+  };
+
+  const switchSession = async (fileName: string) => {
+    try {
+      await api.put('/api/sessions/switch', { session: fileName });
+      setCurrentSession(fileName);
+      setPage(1);
+      loadSessions(true);
+      loadMessages();
+    } catch { /* ignore */ }
+  };
+
+  const createSession = async () => {
+    try {
+      const res = await api.post<{ success: boolean; data: { fileName: string } }>('/api/sessions', {});
+      if (res.success) {
+        await switchSession(res.data.fileName);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const convertTTS = async (text: string) => {
+    try {
+      const res = await api.post<{ success: boolean; data: { audioBase64: string } }>('/api/voice/tts', { text });
+      if (res.success && res.data.audioBase64) {
+        const audioData = atob(res.data.audioBase64);
+        const buf = new ArrayBuffer(audioData.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < audioData.length; i++) view[i] = audioData.charCodeAt(i);
+        const blob = new Blob([buf], { type: 'audio/mpeg' });
+        const audio = new Audio(URL.createObjectURL(blob));
+        audio.play();
+      }
+    } catch { /* ignore */ }
+  };
+
+  if (loading) {
+    return (
+      <DefaultLayout>
+        <div className="flex items-center justify-center h-[60vh]"><Spinner size="lg" /></div>
+      </DefaultLayout>
+    );
+  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <DefaultLayout>
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">{t('chat.title')}</h1>
-
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <UserSelector
-            users={users}
-            loading={usersLoading}
-            onSelect={(userId) => {
-              setSelectedUserId(userId);
-              setPage(1);
-            }}
+      <div className="flex h-[calc(100vh-60px)] overflow-hidden">
+        {/* Left: Session List */}
+        <div className="w-64 shrink-0 border-r overflow-y-auto hidden sm:block">
+          <SessionList
+            sessions={sessions}
+            currentSession={currentSession}
+            onSwitch={switchSession}
+            onCreate={createSession}
+            onReload={() => loadSessions(true)}
           />
-
-          <div className="flex-1">
-            <SearchField value={searchQuery} onChange={setSearchQuery}>
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder={t('common.search')} />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-          </div>
         </div>
 
-        <MessagesTable
-          messages={messages}
-          loading={loading}
-          selectedUserId={selectedUserId}
-          searchQuery={searchQuery}
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
+        {/* Center: Chat Panel */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <ChatPanel
+            messages={messages}
+            loading={msgLoading}
+            sending={sending}
+            page={page}
+            totalPages={totalPages}
+            voiceFeedback={voiceFeedback}
+            onSend={sendMessage}
+            onDeleteMessage={deleteMessage}
+            onPageChange={setPage}
+            onToggleVoiceFeedback={() => setVoiceFeedback(v => !v)}
+          />
+        </div>
+
+        {/* Right: Agent Panel */}
+        <div className="w-72 shrink-0 border-l overflow-y-auto hidden md:block">
+          <AgentPanel />
+        </div>
       </div>
     </DefaultLayout>
   );

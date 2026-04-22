@@ -10,11 +10,7 @@ const Contacts = lazy(() => import('../pages/ContactsPage'));
 const Settings = lazy(() => import('../pages/SettingsPage'));
 const Skills = lazy(() => import('../pages/SkillsPage'));
 const Tasks = lazy(() => import('../pages/TasksPage'));
-const Logs = lazy(() => import('../pages/LogsPage'));
-const Agent = lazy(() => import('../pages/AgentPage'));
-const Memory = lazy(() => import('../pages/MemoryPage'));
 const Channel = lazy(() => import('../pages/ChannelPage'));
-const VoiceChat = lazy(() => import('../pages/VoiceChatPage'));
 const Providers = lazy(() => import('../pages/ProvidersPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
@@ -40,11 +36,7 @@ function AppRoutes() {
         <Route path="/settings" element={<PageTransition><Suspense fallback={<Loading />}><Settings /></Suspense></PageTransition>} />
         <Route path="/skills" element={<PageTransition><Suspense fallback={<Loading />}><Skills /></Suspense></PageTransition>} />
         <Route path="/tasks" element={<PageTransition><Suspense fallback={<Loading />}><Tasks /></Suspense></PageTransition>} />
-        <Route path="/logs" element={<PageTransition><Suspense fallback={<Loading />}><Logs /></Suspense></PageTransition>} />
-        <Route path="/agent" element={<PageTransition><Suspense fallback={<Loading />}><Agent /></Suspense></PageTransition>} />
-        <Route path="/memory" element={<PageTransition><Suspense fallback={<Loading />}><Memory /></Suspense></PageTransition>} />
         <Route path="/channel" element={<PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition>} />
-        <Route path="/voice" element={<PageTransition><Suspense fallback={<Loading />}><VoiceChat /></Suspense></PageTransition>} />
         <Route path="/providers" element={<PageTransition><Suspense fallback={<Loading />}><Providers /></Suspense></PageTransition>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
