@@ -45,6 +45,11 @@ function SkillsPage() {
     }
   };
 
+  const loadSkillsAndRestart = async () => {
+    await loadSkills();
+    await restartGateway();
+  };
+
   const openAddModal = () => {
     setEditingSkill(null);
     formModal.open();
@@ -65,6 +70,12 @@ function SkillsPage() {
     deleteModal.open();
   };
 
+  const restartGateway = async () => {
+    try {
+      await api.post('/api/gateway/restart', {});
+    } catch { /* silent */ }
+  };
+
   const handleDelete = async () => {
     if (!deletingSkill) return;
     try {
@@ -73,6 +84,7 @@ function SkillsPage() {
       toast.success(t('skills.deleteSuccess'));
       deleteModal.close();
       await loadSkills();
+      await restartGateway();
     } catch {
       toast.danger(t('common.error'));
     }
@@ -103,6 +115,7 @@ function SkillsPage() {
       }
       toast.success(t('skills.importSuccess'));
       await loadSkills();
+      await restartGateway();
     } catch {
       toast.danger(t('skills.importFailed'));
     }
@@ -141,6 +154,7 @@ function SkillsPage() {
       importModal.close();
       setImportUrl('');
       await loadSkills();
+      await restartGateway();
     } catch {
       toast.danger(t('skills.importFailed'));
     } finally {
@@ -191,7 +205,7 @@ function SkillsPage() {
           onOpenChange={formModal.toggle}
           onClose={formModal.close}
           editingSkill={editingSkill}
-          onSaved={loadSkills}
+          onSaved={loadSkillsAndRestart}
         />
 
         <SkillMdEditModal
@@ -199,7 +213,7 @@ function SkillsPage() {
           onOpenChange={skillMdModal.toggle}
           onClose={skillMdModal.close}
           skill={editingSkillMd}
-          onSaved={loadSkills}
+          onSaved={loadSkillsAndRestart}
         />
 
         <Modal>

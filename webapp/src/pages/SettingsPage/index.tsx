@@ -15,7 +15,6 @@ function SettingsPage() {
   const { t } = useI18n();
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('general');
 
@@ -80,30 +79,6 @@ function SettingsPage() {
       }
     } catch {
       // silently fail
-    }
-  };
-
-  const saveConfig = async () => {
-    setSaving(true);
-    try {
-      await api.put('/api/config', {
-        model: editModel,
-        baseUrl: editBaseUrl,
-        apiStandard: editApiStandard,
-        maxTokens: parseInt(editMaxTokens) || undefined,
-        messageLimit: parseInt(editMessageLimit) || undefined,
-        messageSplitDelimiters: editMessageSplitDelimiters,
-        autoResponseEnabled: editAutoResponseEnabled,
-        autoResponseMinIdle: parseInt(editAutoResponseMinIdle) || undefined,
-        autoResponseMaxIdle: parseInt(editAutoResponseMaxIdle) || undefined,
-        imapHost: editImapHost,
-        emailAddress: editEmailAddress,
-      });
-      toast.success(t('gateway.configSaved'));
-    } catch {
-      toast.danger(t('settings.saveFailed'));
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -220,9 +195,7 @@ function SettingsPage() {
                 onEditAutoResponseEnabled={setEditAutoResponseEnabled}
                 onEditAutoResponseMinIdle={setEditAutoResponseMinIdle}
                 onEditAutoResponseMaxIdle={setEditAutoResponseMaxIdle}
-                saving={saving}
                 restarting={restarting}
-                onSave={saveConfig}
                 onSaveAndRestart={saveAndRestart}
               />
             )}
@@ -236,9 +209,7 @@ function SettingsPage() {
                 editEmailAddress={editEmailAddress}
                 onEditImapHost={setEditImapHost}
                 onEditEmailAddress={setEditEmailAddress}
-                saving={saving}
                 restarting={restarting}
-                onSave={saveConfig}
                 onSaveAndRestart={saveAndRestart}
               />
             )}

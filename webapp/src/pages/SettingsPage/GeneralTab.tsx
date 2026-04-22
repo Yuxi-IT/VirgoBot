@@ -22,9 +22,7 @@ interface GeneralTabProps {
   onEditAutoResponseEnabled: (v: boolean) => void;
   onEditAutoResponseMinIdle: (v: string) => void;
   onEditAutoResponseMaxIdle: (v: string) => void;
-  saving: boolean;
   restarting: boolean;
-  onSave: () => void;
   onSaveAndRestart: () => void;
 }
 
@@ -33,7 +31,7 @@ function GeneralTab({
   editAutoResponseEnabled, editAutoResponseMinIdle, editAutoResponseMaxIdle,
   onEditModel, onEditBaseUrl, onEditApiStandard, onEditMaxTokens, onEditMessageLimit, onEditMessageSplitDelimiters,
   onEditAutoResponseEnabled, onEditAutoResponseMinIdle, onEditAutoResponseMaxIdle,
-  saving, restarting, onSave, onSaveAndRestart,
+  restarting, onSaveAndRestart,
 }: GeneralTabProps) {
   const { t } = useI18n();
 
@@ -133,13 +131,9 @@ function GeneralTab({
           <Separator />
 
           <div className="flex gap-3">
-            <Button onPress={onSave} isDisabled={saving || restarting}>
-              {saving ? <Spinner size="sm" className="mr-2" /> : null}
-              {t('gateway.saveConfig')}
-            </Button>
-            <Button variant="danger" onPress={onSaveAndRestart} isDisabled={saving || restarting}>
+            <Button onPress={onSaveAndRestart} isDisabled={restarting}>
               {restarting ? <Spinner size="sm" className="mr-2" /> : null}
-              {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
+              {restarting ? t('gateway.restarting') : t('gateway.saveConfig')}
             </Button>
           </div>
         </div>

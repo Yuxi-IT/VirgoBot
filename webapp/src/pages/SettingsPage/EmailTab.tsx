@@ -8,16 +8,14 @@ interface EmailTabProps {
   editEmailAddress: string;
   onEditImapHost: (v: string) => void;
   onEditEmailAddress: (v: string) => void;
-  saving: boolean;
   restarting: boolean;
-  onSave: () => void;
   onSaveAndRestart: () => void;
 }
 
 function EmailTab({
   config, editImapHost, editEmailAddress,
   onEditImapHost, onEditEmailAddress,
-  saving, restarting, onSave, onSaveAndRestart,
+  restarting, onSaveAndRestart,
 }: EmailTabProps) {
   const { t } = useI18n();
 
@@ -54,13 +52,9 @@ function EmailTab({
           <Separator />
 
           <div className="flex gap-3">
-            <Button onPress={onSave} isDisabled={saving || restarting}>
-              {saving ? <Spinner size="sm" className="mr-2" /> : null}
-              {t('gateway.saveConfig')}
-            </Button>
-            <Button variant="danger" onPress={onSaveAndRestart} isDisabled={saving || restarting}>
+            <Button onPress={onSaveAndRestart} isDisabled={restarting}>
               {restarting ? <Spinner size="sm" className="mr-2" /> : null}
-              {restarting ? t('gateway.restarting') : t('gateway.saveAndRestart')}
+              {restarting ? t('gateway.restarting') : t('gateway.saveConfig')}
             </Button>
           </div>
         </div>
