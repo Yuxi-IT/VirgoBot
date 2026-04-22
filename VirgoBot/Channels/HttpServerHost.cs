@@ -447,7 +447,59 @@ public class HttpServerHost
         if (path?.StartsWith("/api/providers/") == true && method == "PUT") { await _providerApiHandler.HandleUpdateProviderRequest(ctx); return; }
         if (path?.StartsWith("/api/providers/") == true && method == "DELETE") { await _providerApiHandler.HandleDeleteProviderRequest(ctx); return; }
 
+        // Static file serving — webapp directory next to the executable
+        if (method == "GET" && await TryServeStaticFile(ctx, path))
+            return;
+
         ctx.Response.StatusCode = 404;
+    }
+
+    private static readonly Dictionary<string, string> MimeTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".html"] = "text/html; charset=utf-8",
+        [".css"] = "text/css; charset=utf-8",
+        [".js"] = "application/javascript; charset=utf-8",
+        [".json"] = "application/json; charset=utf-8",
+        [".png"] = "image/png",
+        [".jpg"] = "image/jpeg",
+        [".jpeg"] = "image/jpeg",
+        [".gif"] = "image/gif",
+        [".svg"] = "image/svg+xml",
+        [".ico"] = "image/x-icon",
+        [".woff"] = "font/woff",
+        [".woff2"] = "font/woff2",
+        [".ttf"] = "font/ttf",
+        [".webp"] = "image/webp",
+    };
+
+    private static async Task<bool> TryServeStaticFile(HttpListenerContext ctx, string? path)
+    {
+        var webRoot = Path.Combine(AppContext.BaseDirectory, "webapp");
+        if (!Directory.Exists(webRoot)) return false;
+
+        // Default to index.html for root
+        var relativePath = (path ?? "/").TrimStart('/');
+        if (string.IsNullOrEmpty(relativePath)) relativePath = "index.html";
+
+        var filePath = Path.GetFullPath(Path.Combine(webRoot, relativePath));
+
+        // Prevent directory traversal
+        if (!filePath.StartsWith(Path.GetFullPath(webRoot))) return false;
+
+        // If path points to a directory or has no extension, try index.html
+        if (Directory.Exists(filePath) || !Path.HasExtension(filePath))
+        {
+            filePath = Path.Combine(filePath, "index.html");
+        }
+
+        if (!File.Exists(filePath)) return false;
+
+        var ext = Path.GetExtension(filePath);
+        ctx.Response.ContentType = MimeTypes.GetValueOrDefault(ext, "application/octet-stream");
+        var bytes = await File.ReadAllBytesAsync(filePath);
+        ctx.Response.ContentLength64 = bytes.Length;
+        await ctx.Response.OutputStream.WriteAsync(bytes);
+        return true;
     }
 
     private async Task HandleChatRequest(HttpListenerContext ctx)
