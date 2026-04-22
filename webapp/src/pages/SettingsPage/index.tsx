@@ -8,6 +8,7 @@ import EmailTab from './EmailTab';
 import SystemMemoryTab from './SystemMemoryTab';
 import RuleTab from './RuleTab';
 import VoiceTab from './VoiceTab';
+import LogsTab from './LogsTab';
 import type { ConfigData, ConfigResponse, VoiceConfigResponse } from './types';
 
 function SettingsPage() {
@@ -190,6 +191,10 @@ function SettingsPage() {
                 {t('settings.voice.tab')}
                 <Tabs.Indicator />
               </Tabs.Tab>
+              <Tabs.Tab id="logs">
+                {t('logs.title')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
             </Tabs.List>
           </Tabs.ListContainer>
 
@@ -260,6 +265,10 @@ function SettingsPage() {
               saving={savingVoice}
               onSave={saveVoiceConfig}
             />
+          </Tabs.Panel>
+
+          <Tabs.Panel id="logs">
+            <LogsTab active={activeTab === 'logs'} />
           </Tabs.Panel>
         </Tabs>
       </div>
