@@ -61,7 +61,7 @@ export default function ChatBubble({ message, onDelete }: Props) {
 
   const bubbleDiv = (
     <div
-      className={`relative max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+      className={`relative max-w-[80%] px-3 py-2 rounded-lg text-sm text-left ${
         isUser
           ? 'bg-primary text-primary-foreground rounded-br-none'
           : isTool

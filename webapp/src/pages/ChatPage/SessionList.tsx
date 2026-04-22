@@ -113,7 +113,7 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
               <Dropdown key={s.fileName} trigger="longPress">
                 <Dropdown.Trigger>
                   <Card
-                    className={`px-3 py-2 cursor-pointer transition-colors text-sm ${
+                    className={`px-3 py-2 cursor-pointer transition-colors text-sm text-left ${
                       isSelected
                         ? 'bg-primary/10 shadow-sm border border-primary/20'
                         : 'hover:bg-default-100'
@@ -123,6 +123,7 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
                   >
                     <div className={`font-medium truncate ${isSelected ? 'text-primary' : ''}`}>
                       {s.sessionName || '新会话'}
+                      <span className='text-xs'>{s.messageCount} 条消息</span>
                     </div>
                   </Card>
                 </Dropdown.Trigger>
