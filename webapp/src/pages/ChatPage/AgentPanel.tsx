@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Spinner, Chip, ListBox, Label, Description, toast, Card } from '@heroui/react';
+import { Button, Spinner, Chip, ListBox, toast, Card, Modal } from '@heroui/react';
 import { api } from '../../services/api';
 import AgentFormModal from './AgentFormModal';
 import type { AgentInfo, AgentsResponse } from './types';
@@ -10,6 +10,10 @@ export default function AgentPanel() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [switching, setSwitching] = useState(false);
+
+  // Modal states
+  const [switchTarget, setSwitchTarget] = useState<AgentInfo | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   useEffect(() => { loadAgents(); }, []);
 
@@ -44,23 +48,23 @@ export default function AgentPanel() {
     }
   };
 
-  const handleSwitch = (agent: AgentInfo) => {
-    if (confirm('切换设定时是否创建新会话？\n\n确定 = 新会话\n取消 = 保留当前会话')) {
-      switchAgent(agent, true);
-    } else {
-      switchAgent(agent, false);
+  const handleSwitchConfirm = (createNewSession: boolean) => {
+    if (switchTarget) {
+      switchAgent(switchTarget, createNewSession);
     }
+    setSwitchTarget(null);
   };
 
-  const deleteAgent = async (name: string) => {
-    if (!confirm('确定删除此设定？')) return;
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.del(`/api/agents/${encodeURIComponent(name)}`);
+      await api.del(`/api/agents/${encodeURIComponent(deleteTarget)}`);
       toast.success('设定已删除');
       loadAgents();
     } catch {
       toast.danger('删除失败');
     }
+    setDeleteTarget(null);
   };
 
   if (loading) {
@@ -97,10 +101,10 @@ export default function AgentPanel() {
                     {!isCurrent && (
                       <Card.Content className='flex gap-1 mt-1'>
                         <div className='flex gap-1 mt-1'>
-                          <Button size="sm" variant="ghost" onPress={() => handleSwitch(agent)} isDisabled={switching}>
+                          <Button size="sm" variant="ghost" onPress={() => setSwitchTarget(agent)} isDisabled={switching}>
                             {switching ? <Spinner size="sm" /> : '切换'}
                           </Button>
-                          <Button size="sm" variant="ghost" onPress={() => deleteAgent(agent.name)}>删除</Button>
+                          <Button size="sm" variant="ghost" onPress={() => setDeleteTarget(agent.name)}>删除</Button>
                         </div>
                       </Card.Content>
                     )}
@@ -117,6 +121,47 @@ export default function AgentPanel() {
         onClose={() => setShowForm(false)}
         onCreated={() => { setShowForm(false); loadAgents(); }}
       />
+
+      {/* Switch confirmation modal */}
+      <Modal>
+        <Modal.Backdrop isOpen={!!switchTarget} onOpenChange={(open) => { if (!open) setSwitchTarget(null); }}>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>切换设定</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="text-sm">切换设定时是否创建新会话？</p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="ghost" size="sm" onPress={() => setSwitchTarget(null)}>取消</Button>
+                <Button variant="ghost" size="sm" onPress={() => handleSwitchConfirm(false)}>保留当前会话</Button>
+                <Button variant="primary" size="sm" onPress={() => handleSwitchConfirm(true)}>新建会话</Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal>
+        <Modal.Backdrop isOpen={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+          <Modal.Container size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>确认删除</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="text-sm">确定删除设定「{deleteTarget}」？此操作不可撤销。</p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="ghost" size="sm" onPress={() => setDeleteTarget(null)}>取消</Button>
+                <Button variant="danger" size="sm" onPress={handleDeleteConfirm}>删除</Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }
