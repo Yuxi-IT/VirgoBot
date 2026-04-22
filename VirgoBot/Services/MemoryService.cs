@@ -90,6 +90,14 @@ public class MemoryService : IDisposable
             )";
         soulCmd.ExecuteNonQuery();
 
+        using var metaCmd = conn.CreateCommand();
+        metaCmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS session_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )";
+        metaCmd.ExecuteNonQuery();
+
         conn.Close();
         return dbFileName;
     }
@@ -126,6 +134,7 @@ public class MemoryService : IDisposable
 
             int messageCount = 0;
             int soulCount = 0;
+            string? sessionName = null;
 
             try
             {
@@ -140,6 +149,16 @@ public class MemoryService : IDisposable
                 soulCmd.CommandText = "SELECT COUNT(*) FROM soul";
                 soulCount = Convert.ToInt32(soulCmd.ExecuteScalar());
 
+                // Try to read session name
+                using var metaCheck = conn.CreateCommand();
+                metaCheck.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='session_meta'";
+                if (metaCheck.ExecuteScalar() != null)
+                {
+                    using var nameCmd = conn.CreateCommand();
+                    nameCmd.CommandText = "SELECT value FROM session_meta WHERE key = 'session_name'";
+                    sessionName = nameCmd.ExecuteScalar() as string;
+                }
+
                 conn.Close();
             }
             catch
@@ -149,6 +168,7 @@ public class MemoryService : IDisposable
             sessions.Add(new SessionInfo
             {
                 FileName = fileName,
+                SessionName = sessionName,
                 MessageCount = messageCount,
                 SoulCount = soulCount,
                 LastModified = fileInfo.LastWriteTimeUtc,
@@ -181,6 +201,14 @@ public class MemoryService : IDisposable
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )";
         soulCmd.ExecuteNonQuery();
+
+        using var metaCmd = _conn.CreateCommand();
+        metaCmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS session_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )";
+        metaCmd.ExecuteNonQuery();
     }
 
     public void UpdateMessageLimit(int newLimit)
@@ -398,6 +426,52 @@ public class MemoryService : IDisposable
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
+    public string? GetSessionName()
+    {
+        try
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = "SELECT value FROM session_meta WHERE key = 'session_name'";
+            return cmd.ExecuteScalar() as string;
+        }
+        catch { return null; }
+    }
+
+    public void SetSessionName(string name)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT OR REPLACE INTO session_meta (key, value) VALUES ('session_name', @name)";
+        cmd.Parameters.AddWithValue("@name", name);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static string? GetSessionNameStatic(string dbFilePath)
+    {
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={dbFilePath};Mode=ReadOnly");
+            conn.Open();
+
+            // Check if session_meta table exists
+            using var checkCmd = conn.CreateCommand();
+            checkCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='session_meta'";
+            if (checkCmd.ExecuteScalar() == null) return null;
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT value FROM session_meta WHERE key = 'session_name'";
+            return cmd.ExecuteScalar() as string;
+        }
+        catch { return null; }
+    }
+
+    public void DeleteMessage(int messageId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM messages WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", messageId);
+        cmd.ExecuteNonQuery();
+    }
+
     public void Dispose()
     {
         if (!_disposed)
@@ -411,6 +485,7 @@ public class MemoryService : IDisposable
 public class SessionInfo
 {
     public string FileName { get; set; } = "";
+    public string? SessionName { get; set; }
     public int MessageCount { get; set; }
     public int SoulCount { get; set; }
     public DateTime LastModified { get; set; }

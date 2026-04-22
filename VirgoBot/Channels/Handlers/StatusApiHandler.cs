@@ -192,4 +192,19 @@ public class StatusApiHandler
 
         await SendJsonResponse(ctx, new { success = true, data });
     }
+
+    public async Task HandleDeleteMessageRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/messages/", "");
+
+        if (!int.TryParse(idStr, out var messageId))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid message ID");
+            return;
+        }
+
+        _memoryService.DeleteMessage(messageId);
+        await SendJsonResponse(ctx, new { success = true, message = "Message deleted" });
+    }
 }

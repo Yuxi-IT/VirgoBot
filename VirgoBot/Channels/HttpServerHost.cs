@@ -435,6 +435,9 @@ public class HttpServerHost
         if (path == "/api/sessions" && method == "POST") { await _sessionApiHandler.HandleCreateSessionRequest(ctx); return; }
         if (path == "/api/sessions/switch" && method == "PUT") { await _sessionApiHandler.HandleSwitchSessionRequest(ctx); return; }
         if (path?.StartsWith("/api/sessions/") == true && method == "DELETE") { await _sessionApiHandler.HandleDeleteSessionRequest(ctx); return; }
+        if (path == "/api/sessions/rename" && method == "PUT") { await _sessionApiHandler.HandleRenameSessionRequest(ctx); return; }
+        if (path == "/api/sessions/generate-name" && method == "POST") { await _sessionApiHandler.HandleGenerateSessionNameRequest(ctx); return; }
+        if (path?.StartsWith("/api/messages/") == true && path != "/api/messages/users" && method == "DELETE") { await _statusApiHandler.HandleDeleteMessageRequest(ctx); return; }
         if (path == "/api/voice/config" && method == "GET") { await _voiceApiHandler.HandleGetConfigRequest(ctx); return; }
         if (path == "/api/voice/config" && method == "PUT") { await _voiceApiHandler.HandleUpdateConfigRequest(ctx); return; }
         if (path == "/api/voice/asr" && method == "POST") { await _voiceApiHandler.HandleAsrRequest(ctx); return; }
