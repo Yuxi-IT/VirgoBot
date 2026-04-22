@@ -10,19 +10,23 @@ export default function ChatBubble({ message, onDelete }: Props) {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(message.content).catch(() => {});
+  };
+
   const renderContent = () => {
     if (isTool) {
       return (
         <Disclosure>
           <Disclosure.Heading>
-            <Disclosure.Trigger className="text-xs text-default-400 cursor-pointer flex items-center gap-1">
+            <Disclosure.Trigger className="text-xs text-default-500 cursor-pointer flex items-left gap-1">
               调用了工具
               <Disclosure.Indicator />
             </Disclosure.Trigger>
           </Disclosure.Heading>
           <Disclosure.Content>
             <Disclosure.Body>
-              <pre className="mt-1 whitespace-pre-wrap break-all text-default-500 text-xs">{message.content}</pre>
+              <pre className="mt-1 whitespace-pre-wrap break-all text-default-600 text-xs max-w-full">{message.content}</pre>
             </Disclosure.Body>
           </Disclosure.Content>
         </Disclosure>
@@ -37,14 +41,14 @@ export default function ChatBubble({ message, onDelete }: Props) {
           {textPart && <div className="whitespace-pre-wrap break-words">{textPart}</div>}
           <Disclosure>
             <Disclosure.Heading>
-              <Disclosure.Trigger className="text-xs text-default-400 cursor-pointer flex items-center gap-1 mt-1">
+              <Disclosure.Trigger className="text-xs text-default-500 cursor-pointer flex gap-1 mt-1">
                 调用了 {toolMatch.length} 个工具
                 <Disclosure.Indicator />
               </Disclosure.Trigger>
             </Disclosure.Heading>
             <Disclosure.Content>
               <Disclosure.Body>
-                <div className="mt-1 text-default-500 text-xs">{toolMatch.join(', ')}</div>
+                <div className="mt-1 text-default-600 text-xs">{toolMatch.join(', ')}</div>
               </Disclosure.Body>
             </Disclosure.Content>
           </Disclosure>
@@ -61,9 +65,10 @@ export default function ChatBubble({ message, onDelete }: Props) {
         isUser
           ? 'bg-primary text-primary-foreground rounded-br-none'
           : isTool
-            ? 'bg-default-100 rounded-bl-none'
-            : 'bg-default-200 rounded-bl-none'
+            ? 'bg-default-200 border border-default-300 rounded-bl-none'
+            : 'bg-content2 shadow-sm rounded-bl-none'
       }`}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {renderContent()}
       <div className={`text-[10px] mt-1 ${isUser ? 'text-primary-foreground/60' : 'text-default-400'}`}>
@@ -79,7 +84,13 @@ export default function ChatBubble({ message, onDelete }: Props) {
           {bubbleDiv}
         </Dropdown.Trigger>
         <Dropdown.Popover>
-          <Dropdown.Menu onAction={(key) => { if (key === 'delete') onDelete(message.id); }}>
+          <Dropdown.Menu onAction={(key) => {
+            if (key === 'delete') onDelete(message.id);
+            if (key === 'copy') handleCopy();
+          }}>
+            <Dropdown.Item id="copy" textValue="复制">
+              <Label>复制</Label>
+            </Dropdown.Item>
             <Dropdown.Item id="delete" textValue="删除" variant="danger">
               <Label>删除</Label>
             </Dropdown.Item>

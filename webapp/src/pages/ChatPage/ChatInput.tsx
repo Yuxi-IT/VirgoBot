@@ -90,13 +90,6 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
 
   return (
     <div className="border-t p-3">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="flex items-center gap-1 text-xs text-default-400">
-          <Volume className="w-3 h-3" />
-          <span>语音反馈</span>
-          <Switch size="sm" isSelected={voiceFeedback} onChange={onToggleVoiceFeedback} />
-        </div>
-      </div>
       <div className="flex gap-2 items-end">
         <TextArea
           className="flex-1"
@@ -125,6 +118,11 @@ export default function ChatInput({ sending, voiceFeedback, onSend, onToggleVoic
         >
           {sending ? <Spinner size="sm" /> : <ArrowShapeTurnUpRight />}
         </Button>
+      </div>
+      <div className="flex items-center gap-1 mt-2 text-xs text-default-400">
+        <Volume className="w-3 h-3" />
+        <span>语音反馈</span>
+        <Switch size="sm" isSelected={voiceFeedback} onChange={onToggleVoiceFeedback} />
       </div>
     </div>
   );
