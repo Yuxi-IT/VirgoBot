@@ -4,7 +4,6 @@ import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import GeneralTab from './GeneralTab';
-import EmailTab from './EmailTab';
 import RuleTab from './RuleTab';
 import VoiceTab from './VoiceTab';
 import LogsTab from './LogsTab';
@@ -149,10 +148,6 @@ function SettingsPage() {
                 {t('settings.general')}
                 <Tabs.Indicator />
               </Tabs.Tab>
-              <Tabs.Tab id="email">
-                {t('settings.email')}
-                <Tabs.Indicator />
-              </Tabs.Tab>
               <Tabs.Tab id="rule">
                 {t('settings.rule')}
                 <Tabs.Indicator />
@@ -190,20 +185,6 @@ function SettingsPage() {
                 onEditAutoResponseEnabled={setEditAutoResponseEnabled}
                 onEditAutoResponseMinIdle={setEditAutoResponseMinIdle}
                 onEditAutoResponseMaxIdle={setEditAutoResponseMaxIdle}
-                restarting={restarting}
-                onSaveAndRestart={saveAndRestart}
-              />
-            )}
-          </Tabs.Panel>
-
-          <Tabs.Panel id="email">
-            {config && (
-              <EmailTab
-                config={config}
-                editImapHost={editImapHost}
-                editEmailAddress={editEmailAddress}
-                onEditImapHost={setEditImapHost}
-                onEditEmailAddress={setEditEmailAddress}
                 restarting={restarting}
                 onSaveAndRestart={saveAndRestart}
               />

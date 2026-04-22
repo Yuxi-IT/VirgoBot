@@ -55,40 +55,46 @@ function EmailCard({
       </Card.Header>
       <Card.Content>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <TextField value={imapHost} onChange={onImapHostChange}>
-            <Label>{t('channel.imapHost')}</Label>
-            <Input />
-          </TextField>
+          <div className="flex gap-4">
+            <TextField value={imapHost} onChange={onImapHostChange}>
+              <Label>{t('channel.imapHost')}</Label>
+              <Input />
+            </TextField>
 
-          <TextField value={imapPort.toString()} onChange={(v) => onImapPortChange(parseInt(v) || 993)}>
-            <Label>{t('channel.imapPort')}</Label>
-            <Input type="number" />
-          </TextField>
+            <TextField value={imapPort.toString()} onChange={(v) => onImapPortChange(parseInt(v) || 993)}>
+              <Label>{t('channel.imapPort')}</Label>
+              <Input type="number" />
+            </TextField>
+          </div>
 
-          <TextField value={smtpHost} onChange={onSmtpHostChange}>
-            <Label>{t('channel.smtpHost')}</Label>
-            <Input />
-          </TextField>
+          <div className="flex gap-4">
+            <TextField value={smtpHost} onChange={onSmtpHostChange}>
+              <Label>{t('channel.smtpHost')}</Label>
+              <Input />
+            </TextField>
 
-          <TextField value={smtpPort.toString()} onChange={(v) => onSmtpPortChange(parseInt(v) || 587)}>
-            <Label>{t('channel.smtpPort')}</Label>
-            <Input type="number" />
-          </TextField>
+            <TextField value={smtpPort.toString()} onChange={(v) => onSmtpPortChange(parseInt(v) || 587)}>
+              <Label>{t('channel.smtpPort')}</Label>
+              <Input type="number" />
+            </TextField>
+          </div>
 
-          <TextField value={address} onChange={onAddressChange}>
-            <Label>{t('channel.emailAddress')}</Label>
-            <Input />
-          </TextField>
+          <div className="flex gap-4">
+            <TextField value={address} onChange={onAddressChange}>
+              <Label>{t('channel.emailAddress')}</Label>
+              <Input />
+            </TextField>
 
-          <TextField value={password} onChange={onPasswordChange}>
-            <Label>{t('channel.emailPassword')}</Label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <Input type={showPassword ? 'text' : 'password'} style={{ flex: 1 }} />
-              <Button size="sm" onPress={() => setShowPassword(!showPassword)}>
-                {showPassword ? t('channel.hide') : t('channel.show')}
-              </Button>
-            </div>
-          </TextField>
+            <TextField value={password} onChange={onPasswordChange}>
+              <Label>{t('channel.emailPassword')}</Label>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Input type={showPassword ? 'text' : 'password'} style={{ flex: 1 }} />
+                <Button size="sm" onPress={() => setShowPassword(!showPassword)}>
+                  {showPassword ? t('channel.hide') : t('channel.show')}
+                </Button>
+              </div>
+            </TextField>
+          </div>
         </div>
       </Card.Content>
     </Card>

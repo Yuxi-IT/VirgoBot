@@ -63,24 +63,26 @@ function VoiceTab({
           <Separator />
 
           <h3 className="text-base font-medium">{t('settings.voice.ttsSection')}</h3>
+          <div className="flex gap-4">
+            <TextField>
+              <Label>{t('settings.voice.ttsResourceId')}</Label>
+              <Input
+                value={editTtsResourceId}
+                onChange={(e) => onEditTtsResourceId(e.target.value)}
+                placeholder="seed-tts-2.0"
+              />
+            </TextField>
 
-          <TextField>
-            <Label>{t('settings.voice.ttsResourceId')}</Label>
-            <Input
-              value={editTtsResourceId}
-              onChange={(e) => onEditTtsResourceId(e.target.value)}
-              placeholder="seed-tts-2.0"
-            />
-          </TextField>
+            <TextField>
+              <Label>{t('settings.voice.voiceType')}</Label>
+              <Input
+                value={editVoiceType}
+                onChange={(e) => onEditVoiceType(e.target.value)}
+                placeholder="zh_female_vv_uranus_bigtts"
+              />
+            </TextField>
+          </div>
 
-          <TextField>
-            <Label>{t('settings.voice.voiceType')}</Label>
-            <Input
-              value={editVoiceType}
-              onChange={(e) => onEditVoiceType(e.target.value)}
-              placeholder="zh_female_vv_uranus_bigtts"
-            />
-          </TextField>
         </div>
 
         <div className="flex gap-2 mt-6">
