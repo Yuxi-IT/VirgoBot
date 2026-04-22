@@ -8,6 +8,7 @@ export default {
     skills: 'Skills',
     tasks: 'Tasks',
     agent: 'Agent',
+    providers: 'Providers',
     voice: 'Voice',
     memory: 'Memory',
     channel: 'Channel',

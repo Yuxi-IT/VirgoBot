@@ -8,6 +8,7 @@ export default {
     skills: '技能',
     tasks: '任务',
     agent: '设定',
+    providers: '供应商',
     memory: '记忆',
     voice: "语聊",
     channel: '频道',
