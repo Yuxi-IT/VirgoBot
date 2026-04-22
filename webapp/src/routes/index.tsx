@@ -15,6 +15,7 @@ const Agent = lazy(() => import('../pages/AgentPage'));
 const Memory = lazy(() => import('../pages/MemoryPage'));
 const Channel = lazy(() => import('../pages/ChannelPage'));
 const VoiceChat = lazy(() => import('../pages/VoiceChatPage'));
+const Providers = lazy(() => import('../pages/ProvidersPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
 function Loading() {
@@ -44,6 +45,7 @@ function AppRoutes() {
         <Route path="/memory" element={<PageTransition><Suspense fallback={<Loading />}><Memory /></Suspense></PageTransition>} />
         <Route path="/channel" element={<PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition>} />
         <Route path="/voice" element={<PageTransition><Suspense fallback={<Loading />}><VoiceChat /></Suspense></PageTransition>} />
+        <Route path="/providers" element={<PageTransition><Suspense fallback={<Loading />}><Providers /></Suspense></PageTransition>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>

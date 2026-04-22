@@ -1,4 +1,4 @@
-import { LayoutList, Comment, Persons, Gear, FileText, Rocket, PersonWorker, CirclesIntersection, ArrowShapeTurnUpRight, Clock, Microphone } from "@gravity-ui/icons";
+import { LayoutList, Comment, Persons, Gear, FileText, Rocket, PersonWorker, CirclesIntersection, ArrowShapeTurnUpRight, Clock, Microphone, Database } from "@gravity-ui/icons";
 import { ComponentType, SVGProps } from "react";
 
 export const siteConfig = {
@@ -13,6 +13,7 @@ export const navItems: {
     showInBottomNav?: boolean;
 }[] = [
     { icon: LayoutList, label: "Dashboard", url: "/" },
+    { icon: Database, label: "Providers", url: "/providers", showInBottomNav: false },
     { icon: Persons, label: "Contacts", url: "/contacts", showInBottomNav: false },
     { icon: Comment, label: "Chat", url: "/chat" },
     { icon: Microphone, label: "Voice", url: "/voice" },
