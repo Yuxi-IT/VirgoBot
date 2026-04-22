@@ -1,0 +1,117 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Build frontend
+        working-directory: webapp
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: webapp-dist
+          path: webapp/dist
+
+  build-dotnet:
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Windows
+          - rid: win-x64
+            artifact: VirgoBot-win-x64
+          - rid: win-x86
+            artifact: VirgoBot-win-x86
+          - rid: win-arm64
+            artifact: VirgoBot-win-arm64
+          # Linux
+          - rid: linux-x64
+            artifact: VirgoBot-linux-x64
+          - rid: linux-arm
+            artifact: VirgoBot-linux-arm
+          - rid: linux-arm64
+            artifact: VirgoBot-linux-arm64
+          - rid: linux-musl-x64
+            artifact: VirgoBot-linux-musl-x64
+          - rid: linux-musl-arm64
+            artifact: VirgoBot-linux-musl-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: webapp-dist
+          path: webapp-dist
+
+      - name: Publish .NET
+        run: |
+          dotnet publish VirgoBot/VirgoBot.csproj \
+            -c Release \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=false \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/${{ matrix.artifact }}
+
+      - name: Bundle frontend into publish
+        run: cp -r webapp-dist publish/${{ matrix.artifact }}/webapp
+
+      - name: Package (zip for Windows, tar.gz for Linux)
+        working-directory: publish
+        run: |
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            zip -r ../${{ matrix.artifact }}.zip ${{ matrix.artifact }}
+          else
+            tar czf ../${{ matrix.artifact }}.tar.gz ${{ matrix.artifact }}
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.zip
+            ${{ matrix.artifact }}.tar.gz
+
+  release:
+    needs: build-dotnet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
