@@ -192,7 +192,8 @@ public class AgentApiHandler
         }
 
         var config = _gateway.Config;
-        if (string.IsNullOrWhiteSpace(config.BaseUrl) || string.IsNullOrWhiteSpace(config.ApiKey))
+        var provider = ConfigLoader.GetCurrentProvider(config);
+        if (provider == null || string.IsNullOrWhiteSpace(provider.BaseUrl) || string.IsNullOrWhiteSpace(provider.ApiKey))
         {
             await SendErrorResponse(ctx, 400, "LLM API not configured");
             return;
@@ -200,7 +201,7 @@ public class AgentApiHandler
 
         try
         {
-            var content = await GenerateAgentContentAsync(config, characterName);
+            var content = await GenerateAgentContentAsync(provider, characterName);
             await File.WriteAllTextAsync(filePath, content);
             ColorLog.Success("AGENT", $"AI 生成 Agent 已保存: {agentName}.md ({content.Length} 字符)");
             await SendJsonResponse(ctx, new { success = true, message = "Agent generated and saved", agentName, contentLength = content.Length });
@@ -212,10 +213,10 @@ public class AgentApiHandler
         }
     }
 
-    private static async Task<string> GenerateAgentContentAsync(Config config, string characterName)
+    private static async Task<string> GenerateAgentContentAsync(ProviderConfig provider, string characterName)
     {
         using var http = new HttpClient();
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", provider.ApiKey);
 
         var prompt = $"""
 请为角色「{characterName}」生成一份详细的 AI 智能体人物设定文档，用于配置聊天机器人的系统提示词。
@@ -239,7 +240,7 @@ public class AgentApiHandler
 
         var requestBody = new
         {
-            model = config.Model,
+            model = provider.CurrentModel,
             max_tokens = 4096,
             messages = new[]
             {
@@ -252,7 +253,7 @@ public class AgentApiHandler
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         });
 
-        var baseUrl = config.BaseUrl.TrimEnd('/');
+        var baseUrl = provider.BaseUrl.TrimEnd('/');
         string chatUrl;
         if (baseUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase) ||
             baseUrl.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))

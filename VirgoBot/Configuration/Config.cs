@@ -1,11 +1,27 @@
+using System.Text.Json.Serialization;
+
 namespace VirgoBot.Configuration;
+
+public class ProviderConfig
+{
+    public string Name { get; set; } = "";
+    public string ApiKey { get; set; } = "";
+    public string BaseUrl { get; set; } = "";
+    public string CurrentModel { get; set; } = "";
+    public List<string> Models { get; set; } = new();
+    public string Protocol { get; set; } = "openai"; // openai/anthropic/gemini
+}
 
 public class Config
 {
-    public string ApiKey { get; set; } = "";
-    public string BaseUrl { get; set; } = "";
-    public string Model { get; set; } = "";
-    public ApiStandard ApiStandard { get; set; } = ApiStandard.OpenAI;
+    // Legacy fields — kept for migration, ignored during serialization
+    [JsonIgnore] public string ApiKey { get; set; } = "";
+    [JsonIgnore] public string BaseUrl { get; set; } = "";
+    [JsonIgnore] public string Model { get; set; } = "";
+    [JsonIgnore] public ApiStandard ApiStandard { get; set; } = ApiStandard.OpenAI;
+
+    public List<ProviderConfig> Providers { get; set; } = new();
+    public string CurrentProvider { get; set; } = "";
     public string MemoryFile { get; set; } = "system_memory.md";
     public string SoulFile { get; set; } = "soul.md";
     public string RuleFile { get; set; } = "RULE.md";

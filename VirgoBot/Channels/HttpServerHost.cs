@@ -30,6 +30,7 @@ public class HttpServerHost
     private readonly ScheduledTaskApiHandler _taskApiHandler;
     private readonly ScheduledTaskService _taskService;
     private readonly VoiceApiHandler _voiceApiHandler;
+    private readonly ProviderApiHandler _providerApiHandler;
 
     // Public-facing port (TcpListener on 0.0.0.0) — no admin/URL ACL needed
     private const int PublicPort = 8765;
@@ -58,6 +59,7 @@ public class HttpServerHost
         _statusApiHandler = new StatusApiHandler(gateway, memoryService, logService, wsManager);
         _taskApiHandler = new ScheduledTaskApiHandler(_taskService);
         _voiceApiHandler = new VoiceApiHandler();
+        _providerApiHandler = new ProviderApiHandler(gateway);
     }
 
     public async Task StartAsync()
@@ -437,6 +439,12 @@ public class HttpServerHost
         if (path == "/api/voice/config" && method == "PUT") { await _voiceApiHandler.HandleUpdateConfigRequest(ctx); return; }
         if (path == "/api/voice/asr" && method == "POST") { await _voiceApiHandler.HandleAsrRequest(ctx); return; }
         if (path == "/api/voice/tts" && method == "POST") { await _voiceApiHandler.HandleTtsRequest(ctx); return; }
+        if (path == "/api/providers" && method == "GET") { await _providerApiHandler.HandleGetProvidersRequest(ctx); return; }
+        if (path == "/api/providers" && method == "POST") { await _providerApiHandler.HandleCreateProviderRequest(ctx); return; }
+        if (path == "/api/providers/current" && method == "PUT") { await _providerApiHandler.HandleSwitchCurrentProviderRequest(ctx); return; }
+        if (path?.StartsWith("/api/providers/") == true && path.EndsWith("/models") && method == "GET") { await _providerApiHandler.HandleGetModelsRequest(ctx); return; }
+        if (path?.StartsWith("/api/providers/") == true && method == "PUT") { await _providerApiHandler.HandleUpdateProviderRequest(ctx); return; }
+        if (path?.StartsWith("/api/providers/") == true && method == "DELETE") { await _providerApiHandler.HandleDeleteProviderRequest(ctx); return; }
 
         ctx.Response.StatusCode = 404;
     }

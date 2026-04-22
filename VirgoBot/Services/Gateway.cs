@@ -80,6 +80,11 @@ public class Gateway : IDisposable
         ColorLog.Success("SESSION", $"会话已切换: {dbFileName}");
     }
 
+    public ProviderConfig? GetCurrentProvider()
+    {
+        return ConfigLoader.GetCurrentProvider(Config);
+    }
+
     private void BuildServices()
     {
         Config = ConfigLoader.Load();
@@ -87,14 +92,19 @@ public class Gateway : IDisposable
 
         _memoryService.UpdateMessageLimit(Config.Server.MessageLimit);
 
+        var provider = GetCurrentProvider();
+        var apiKey = provider?.ApiKey ?? "";
+        var baseUrl = provider?.BaseUrl ?? "";
+        var model = provider?.CurrentModel ?? "";
+
         _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", Config.ApiKey);
+            new AuthenticationHeaderValue("Bearer", apiKey);
 
         ScheduledTaskService = new ScheduledTaskService();
 
         FunctionRegistry = new FunctionRegistry(Config, _memoryService, ScheduledTaskService);
         ContactService = new ContactService();
-        LlmService = new LLMService(_httpClient, Config.BaseUrl, Config.Model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
+        LlmService = new LLMService(_httpClient, baseUrl, model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens);
         ScheduledTaskService.SetLlmService(LlmService);
 
         if (Config.Channel.Email.Enabled)

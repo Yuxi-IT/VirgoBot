@@ -23,9 +23,18 @@ public static class ConfigLoader
         {
             var defaultConfig = new Config
             {
-                ApiKey = "YOUR_API_KEY",
-                BaseUrl = "https://localhost/",
-                Model = "gpt-4.5",
+                Providers = new List<ProviderConfig>
+                {
+                    new()
+                    {
+                        Name = "default",
+                        ApiKey = "YOUR_API_KEY",
+                        BaseUrl = "https://localhost/",
+                        CurrentModel = "gpt-4.5",
+                        Protocol = "openai"
+                    }
+                },
+                CurrentProvider = "default",
                 Channel = new ChannelConfig
                 {
                     Telegram = new TelegramChannelConfig
@@ -55,15 +64,79 @@ public static class ConfigLoader
             ColorLog.Info("CONFIG", $"已创建默认配置文件: {configPath}");
         }
 
-        var config = JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath), JsonOptions)
+        var json = File.ReadAllText(configPath);
+        var config = JsonSerializer.Deserialize<Config>(json, JsonOptions)
             ?? throw new InvalidOperationException($"无法解析配置文件: {configPath}");
 
-        if (config.Channel.Telegram.AllowedUsers.Length == 0)
-        { 
-            //throw new InvalidOperationException("配置错误: Channel.Telegram.AllowedUsers 不能为空，请在 config.json 中添加至少一个用户 ID");
+        // Migrate legacy format: if Providers is empty, check for old apiKey/baseUrl/model fields
+        if (config.Providers.Count == 0)
+        {
+            MigrateLegacyConfig(config, json);
         }
 
         return config;
+    }
+
+    private static void MigrateLegacyConfig(Config config, string rawJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(rawJson);
+            var root = doc.RootElement;
+
+            var apiKey = TryGetString(root, "apiKey") ?? "";
+            var baseUrl = TryGetString(root, "baseUrl") ?? "";
+            var model = TryGetString(root, "model") ?? "";
+
+            if (string.IsNullOrWhiteSpace(apiKey) && string.IsNullOrWhiteSpace(baseUrl))
+                return;
+
+            var protocol = "openai";
+            if (root.TryGetProperty("apiStandard", out var stdEl))
+            {
+                var stdStr = stdEl.ValueKind == JsonValueKind.String ? stdEl.GetString() : stdEl.ToString();
+                if (stdStr?.Equals("Anthropic", StringComparison.OrdinalIgnoreCase) == true)
+                    protocol = "anthropic";
+                else if (stdStr?.Equals("Gemini", StringComparison.OrdinalIgnoreCase) == true)
+                    protocol = "gemini";
+            }
+
+            var provider = new ProviderConfig
+            {
+                Name = "default",
+                ApiKey = apiKey,
+                BaseUrl = baseUrl,
+                CurrentModel = model,
+                Protocol = protocol
+            };
+
+            config.Providers.Add(provider);
+            config.CurrentProvider = "default";
+
+            Save(config);
+            ColorLog.Success("CONFIG", "旧配置已自动迁移为多供应商格式");
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("CONFIG", $"配置迁移失败: {ex.Message}");
+        }
+    }
+
+    private static string? TryGetString(JsonElement root, string propertyName)
+    {
+        return root.TryGetProperty(propertyName, out var el) && el.ValueKind == JsonValueKind.String
+            ? el.GetString()
+            : null;
+    }
+
+    public static ProviderConfig? GetCurrentProvider(Config config)
+    {
+        if (string.IsNullOrWhiteSpace(config.CurrentProvider))
+            return config.Providers.FirstOrDefault();
+
+        return config.Providers.FirstOrDefault(p =>
+            p.Name.Equals(config.CurrentProvider, StringComparison.OrdinalIgnoreCase))
+            ?? config.Providers.FirstOrDefault();
     }
 
     public static string LoadSystemMemory(Config config, MemoryService memoryService)

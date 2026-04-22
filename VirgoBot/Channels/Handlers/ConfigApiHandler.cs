@@ -20,12 +20,13 @@ public class ConfigApiHandler
     public async Task HandleGetConfigRequest(HttpListenerContext ctx)
     {
         var config = _gateway.Config;
+        var provider = ConfigLoader.GetCurrentProvider(config);
         var data = new
         {
-            model = config.Model,
-            baseUrl = config.BaseUrl,
-            apiKey = MaskSecret(config.ApiKey),
-            apiStandard = config.ApiStandard.ToString(),
+            model = provider?.CurrentModel ?? "",
+            baseUrl = provider?.BaseUrl ?? "",
+            apiKey = MaskSecret(provider?.ApiKey ?? ""),
+            currentProvider = config.CurrentProvider,
             memoryFile = config.MemoryFile,
             server = new
             {
@@ -87,12 +88,12 @@ public class ConfigApiHandler
             }
 
             var config = _gateway.Config;
+            var provider = ConfigLoader.GetCurrentProvider(config);
 
-            if (!string.IsNullOrWhiteSpace(body.Model)) config.Model = body.Model;
-            if (!string.IsNullOrWhiteSpace(body.BaseUrl)) config.BaseUrl = body.BaseUrl;
-            if (!string.IsNullOrWhiteSpace(body.ApiStandard) && Enum.TryParse<ApiStandard>(body.ApiStandard, out var apiStandard))
+            if (provider != null)
             {
-                config.ApiStandard = apiStandard;
+                if (!string.IsNullOrWhiteSpace(body.Model)) provider.CurrentModel = body.Model;
+                if (!string.IsNullOrWhiteSpace(body.BaseUrl)) provider.BaseUrl = body.BaseUrl;
             }
             if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;
             if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
@@ -196,7 +197,6 @@ public record ConfigUpdateRequest
 {
     public string? Model { get; init; }
     public string? BaseUrl { get; init; }
-    public string? ApiStandard { get; init; }
     public int? MaxTokens { get; init; }
     public int? MessageLimit { get; init; }
     public string? MessageSplitDelimiters { get; init; }

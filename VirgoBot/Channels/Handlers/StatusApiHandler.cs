@@ -1,5 +1,6 @@
 using System.Net;
 using VirgoBot.Services;
+using VirgoBot.Configuration;
 using VirgoBot.Utilities;
 using static VirgoBot.Channels.Handlers.HttpResponseHelper;
 
@@ -30,13 +31,14 @@ public class StatusApiHandler
 
         var clients = _wsManager.GetSnapshot();
 
+        var provider = ConfigLoader.GetCurrentProvider(_gateway.Config);
         var data = new
         {
             success = true,
             data = new
             {
                 botName = "VirgoBot",
-                model = _gateway.Config.Model,
+                model = provider?.CurrentModel ?? "",
                 uptime = uptimeStr,
                 startTime = StartTime.ToString("o"),
                 connectedClients = clients.Count,
@@ -172,6 +174,7 @@ public class StatusApiHandler
 
     public async Task HandleGatewayStatusRequest(HttpListenerContext ctx)
     {
+        var gwProvider = ConfigLoader.GetCurrentProvider(_gateway.Config);
         var data = new
         {
             isRunning = _gateway.IsRunning,
@@ -180,8 +183,8 @@ public class StatusApiHandler
                 kv => new { kv.Value.Name, kv.Value.Enabled, kv.Value.Status }),
             config = new
             {
-                model = _gateway.Config.Model,
-                baseUrl = _gateway.Config.BaseUrl,
+                model = gwProvider?.CurrentModel ?? "",
+                baseUrl = gwProvider?.BaseUrl ?? "",
                 maxTokens = _gateway.Config.Server.MaxTokens,
                 messageLimit = _gateway.Config.Server.MessageLimit
             }
