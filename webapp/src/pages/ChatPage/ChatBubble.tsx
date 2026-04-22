@@ -1,4 +1,4 @@
-import { Dropdown, Disclosure, Card } from '@heroui/react';
+import { Dropdown, Disclosure } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import type { Message } from './types';
 
@@ -19,16 +19,15 @@ export default function ChatBubble({ message, onDelete }: Props) {
   const renderContent = () => {
     if (isTool) {
       return (
-        <Disclosure className="min-w-[120px] w-auto">
+        <Disclosure>
           <Disclosure.Heading>
-            <Disclosure.Trigger className="text-default-500 cursor-pointer flex items-left gap-1">
+            <Disclosure.Trigger className="text-default-500 min-w-[130px] cursor-pointer flex gap-1">
               {t('chatPage.calledTool')}
-              <Disclosure.Indicator />
             </Disclosure.Trigger>
           </Disclosure.Heading>
           <Disclosure.Content>
             <Disclosure.Body>
-              <pre className="mt-1 whitespace-pre-wrap break-all text-default-600 max-w-full">{message.content}</pre>
+              <pre className="whitespace-pre-wrap break-all text-default-600">{message.content}</pre>
             </Disclosure.Body>
           </Disclosure.Content>
         </Disclosure>
@@ -41,11 +40,10 @@ export default function ChatBubble({ message, onDelete }: Props) {
       return (
         <>
           {textPart && <div className="whitespace-pre-wrap break-words">{textPart}</div>}
-          <Disclosure className="min-w-[160px] w-auto">
+          <Disclosure>
             <Disclosure.Heading>
-              <Disclosure.Trigger className="text-xs text-default-500 cursor-pointer flex gap-1 mt-1">
+              <Disclosure.Trigger className="text-default-500 cursor-pointer flex gap-1 min-w-[170px] w-auto mt-1">
                 {t('chatPage.calledNTools').replace('{n}', String(toolMatch.length))}
-                <Disclosure.Indicator />
               </Disclosure.Trigger>
             </Disclosure.Heading>
             <Disclosure.Content>
@@ -62,13 +60,13 @@ export default function ChatBubble({ message, onDelete }: Props) {
   };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
+    <div className={`flex mb-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       <Dropdown trigger="longPress">
         <Dropdown.Trigger>
-          <Card
-            className={`relative max-w-[80%] text-sm text-left ${
+          <div
+            className={`relative max-w-[80%] rounded-2xl px-3 py-2 text-sm text-left ${
               isUser
-                ? 'bg-sky-700/30 text-primary-foreground rounded-br-none'
+                ? 'bg-sky-700/30 rounded-br-none'
                 : isTool
                   ? 'bg-default-200 border border-default-300 rounded-bl-none'
                   : 'bg-content2 shadow-sm rounded-bl-none'
@@ -76,10 +74,10 @@ export default function ChatBubble({ message, onDelete }: Props) {
             onContextMenu={(e) => e.preventDefault()}
           >
             {renderContent()}
-            <div className={`text-[10px] mt-1 ${isUser ? 'text-primary-foreground/60' : 'text-default-400'}`}>
+            <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
               {new Date(message.createdAt).toLocaleTimeString()}
             </div>
-          </Card>
+          </div>
         </Dropdown.Trigger>
         <Dropdown.Popover>
           <Dropdown.Menu onAction={(key) => {

@@ -17,7 +17,7 @@ public class LogService
                 Level = level,
                 Component = component,
                 Message = message,
-                Timestamp = DateTime.UtcNow
+                Timestamp = DateTime.Now
             };
 
             _logs.Add(entry);

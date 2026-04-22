@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Spinner, Chip, ListBox, toast, Card, Modal } from '@heroui/react';
+import { Button, Spinner, Chip, ListBox, toast, Card, Modal, TextArea } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import AgentFormModal from './AgentFormModal';
@@ -13,9 +13,12 @@ export default function AgentPanel() {
   const [showForm, setShowForm] = useState(false);
   const [switching, setSwitching] = useState(false);
 
-  // Modal states
   const [switchTarget, setSwitchTarget] = useState<AgentInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<AgentInfo | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => { loadAgents(); }, []);
 
@@ -51,9 +54,7 @@ export default function AgentPanel() {
   };
 
   const handleSwitchConfirm = (createNewSession: boolean) => {
-    if (switchTarget) {
-      switchAgent(switchTarget, createNewSession);
-    }
+    if (switchTarget) switchAgent(switchTarget, createNewSession);
     setSwitchTarget(null);
   };
 
@@ -69,12 +70,40 @@ export default function AgentPanel() {
     setDeleteTarget(null);
   };
 
+  const openEdit = async (agent: AgentInfo) => {
+    setEditTarget(agent);
+    setEditLoading(true);
+    try {
+      const res = await api.get<{ success: boolean; data: { name: string; content: string } }>(
+        `/api/agents/${encodeURIComponent(agent.name)}`
+      );
+      if (res.success) setEditContent(res.data.content);
+      else toast.danger(t('chatPage.agentLoadFailed'));
+    } catch {
+      toast.danger(t('chatPage.agentLoadFailed'));
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    setEditSaving(true);
+    try {
+      await api.put(`/api/agents/${encodeURIComponent(editTarget.name)}`, { content: editContent });
+      toast.success(t('chatPage.agentSaved'));
+      await api.post('/api/gateway/restart', {});
+      setEditTarget(null);
+      loadAgents();
+    } catch {
+      toast.danger(t('chatPage.agentSaveFailed'));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-32">
-        <Spinner size="sm" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-32"><Spinner size="sm" /></div>;
   }
 
   return (
@@ -98,18 +127,21 @@ export default function AgentPanel() {
                         {agent.name}
                         {isCurrent && <Chip size="sm" color="accent">{t('chatPage.agentCurrent')}</Chip>}
                       </Card.Title>
-                      <Card.Description>{agent.preview.slice(0, 30) + (agent.preview.length > 100 ? '...' : '')}</Card.Description>
+                      <Card.Description>{agent.preview.slice(0, 60) + (agent.preview.length > 60 ? '...' : '')}</Card.Description>
                     </Card.Header>
-                    {!isCurrent && (
-                      <Card.Content className='flex gap-1 mt-1'>
-                        <div className='flex gap-1 mt-1'>
-                          <Button size="sm" variant="ghost" onPress={() => setSwitchTarget(agent)} isDisabled={switching}>
-                            {switching ? <Spinner size="sm" /> : t('chatPage.agentSwitch')}
-                          </Button>
-                          <Button size="sm" variant="ghost" onPress={() => setDeleteTarget(agent.name)}>{t('common.delete')}</Button>
-                        </div>
-                      </Card.Content>
-                    )}
+                    <Card.Content>
+                      <div className="flex gap-1 mt-1">
+                        <Button size="sm" variant="ghost" onPress={() => openEdit(agent)}>{t('chatPage.agentEdit')}</Button>
+                        {!isCurrent && (
+                          <>
+                            <Button size="sm" variant="ghost" onPress={() => setSwitchTarget(agent)} isDisabled={switching}>
+                              {switching ? <Spinner size="sm" /> : t('chatPage.agentSwitch')}
+                            </Button>
+                            <Button size="sm" variant="ghost" onPress={() => setDeleteTarget(agent.name)}>{t('common.delete')}</Button>
+                          </>
+                        )}
+                      </div>
+                    </Card.Content>
                   </Card>
                 </ListBox.Item>
               );
@@ -118,23 +150,46 @@ export default function AgentPanel() {
         )}
       </div>
 
-      <AgentFormModal
-        isOpen={showForm}
-        onClose={() => setShowForm(false)}
-        onCreated={() => { setShowForm(false); loadAgents(); }}
-      />
+      <AgentFormModal isOpen={showForm} onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); loadAgents(); }} />
+
+      {/* Edit modal */}
+      <Modal>
+        <Modal.Backdrop isOpen={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+          <Modal.Container size="lg">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{editTarget?.name}</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                {editLoading ? (
+                  <div className="flex justify-center py-8"><Spinner size="sm" /></div>
+                ) : (
+                  <TextArea
+                    className="font-mono w-full"
+                    rows={16}
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                  />
+                )}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="ghost" size="sm" onPress={() => setEditTarget(null)}>{t('common.cancel')}</Button>
+                <Button variant="primary" size="sm" onPress={saveEdit} isDisabled={editSaving || editLoading}>
+                  {editSaving ? <Spinner size="sm" /> : t('common.save')}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
 
       {/* Switch confirmation modal */}
       <Modal>
         <Modal.Backdrop isOpen={!!switchTarget} onOpenChange={(open) => { if (!open) setSwitchTarget(null); }}>
           <Modal.Container size="sm">
             <Modal.Dialog>
-              <Modal.Header>
-                <Modal.Heading>{t('chatPage.switchAgentTitle')}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
-                <p className="text-sm">{t('chatPage.switchAgentDesc')}</p>
-              </Modal.Body>
+              <Modal.Header><Modal.Heading>{t('chatPage.switchAgentTitle')}</Modal.Heading></Modal.Header>
+              <Modal.Body><p className="text-sm">{t('chatPage.switchAgentDesc')}</p></Modal.Body>
               <Modal.Footer>
                 <Button variant="ghost" size="sm" onPress={() => setSwitchTarget(null)}>{t('common.cancel')}</Button>
                 <Button variant="ghost" size="sm" onPress={() => handleSwitchConfirm(false)}>{t('chatPage.keepCurrentSession')}</Button>
@@ -150,12 +205,8 @@ export default function AgentPanel() {
         <Modal.Backdrop isOpen={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
           <Modal.Container size="sm">
             <Modal.Dialog>
-              <Modal.Header>
-                <Modal.Heading>{t('chatPage.confirmDelete')}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
-                <p className="text-sm">{t('chatPage.confirmDeleteDesc').replace('{name}', deleteTarget || '')}</p>
-              </Modal.Body>
+              <Modal.Header><Modal.Heading>{t('chatPage.confirmDelete')}</Modal.Heading></Modal.Header>
+              <Modal.Body><p className="text-sm">{t('chatPage.confirmDeleteDesc').replace('{name}', deleteTarget || '')}</p></Modal.Body>
               <Modal.Footer>
                 <Button variant="ghost" size="sm" onPress={() => setDeleteTarget(null)}>{t('common.cancel')}</Button>
                 <Button variant="danger" size="sm" onPress={handleDeleteConfirm}>{t('common.delete')}</Button>

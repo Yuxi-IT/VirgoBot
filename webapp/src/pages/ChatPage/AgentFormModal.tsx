@@ -14,7 +14,6 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
   const [content, setContent] = useState('');
   const [creating, setCreating] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const { t } = useI18n();
 
   const handleCreate = async () => {
     if (!name.trim() || !content.trim()) return;
