@@ -37,6 +37,9 @@ public class FunctionRegistry
     public void SetShellSessionService(ShellSessionService shellSessionService)
         => RegisterAll(InteractiveShellFunctions.Register(shellSessionService));
 
+    public void SetMcpService(McpClientService mcpService)
+        => RegisterAll(mcpService.GetAllToolDefinitions());
+
     public void SetTelegramBot(TelegramBotClient bot, long chatId)
     {
         if (!_functions.ContainsKey("send_photo"))

@@ -33,6 +33,7 @@ public class Gateway : IDisposable
     public ContactService ContactService { get; private set; } = null!;
     public ScheduledTaskService ScheduledTaskService { get; private set; } = null!;
     public TokenStatsService TokenStatsService { get; } = new();
+    public McpClientService? McpClientService { get; private set; }
 
     public bool IsRunning { get; private set; }
 
@@ -104,6 +105,23 @@ public class Gateway : IDisposable
         ScheduledTaskService = new ScheduledTaskService();
 
         FunctionRegistry = new FunctionRegistry(Config, _memoryService, ScheduledTaskService);
+
+        // MCP
+        try
+        {
+            var mcpConfigs = McpConfigLoader.Load();
+            if (mcpConfigs.Any(c => c.Enabled))
+            {
+                McpClientService = new McpClientService();
+                McpClientService.ConnectAllAsync(mcpConfigs).GetAwaiter().GetResult();
+                FunctionRegistry.SetMcpService(McpClientService);
+            }
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("MCP", $"MCP 初始化失败: {ex.Message}");
+        }
+
         ContactService = new ContactService();
         LlmService = new LLMService(_httpClient, baseUrl, model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens, TokenStatsService);
         ScheduledTaskService.SetLlmService(LlmService);
@@ -276,6 +294,12 @@ public class Gateway : IDisposable
 
     private async Task StopChannelsAsync()
     {
+        if (McpClientService != null)
+        {
+            try { await McpClientService.DisconnectAllAsync(); } catch { }
+            McpClientService = null;
+        }
+
         if (_cts != null)
         {
             await _cts.CancelAsync();
@@ -305,6 +329,7 @@ public class Gateway : IDisposable
         _shellSessionService.Dispose();
         _httpClient?.Dispose();
         ILinkBridge?.Dispose();
+        McpClientService?.Dispose();
     }
 }
 
