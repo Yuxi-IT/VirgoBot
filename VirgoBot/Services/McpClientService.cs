@@ -55,6 +55,16 @@ public class StdioMcpTransport : IMcpTransport
         _stdin = _process.StandardInput;
         _stdin.AutoFlush = true;
         _stdout = _process.StandardOutput;
+
+        // Drain stderr asynchronously to prevent buffer deadlock.
+        // npx -y writes download progress to stderr; if the 4KB buffer fills up,
+        // the child process blocks and stdout stops responding.
+        _process.ErrorDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+                ColorLog.Info("MCP", $"[{_config.Name}] {e.Data}");
+        };
+        _process.BeginErrorReadLine();
     }
 
     public async Task<string> SendRequestAsync(string json)
