@@ -1,12 +1,10 @@
-using System.Net.Http.Headers;
-using Telegram.Bot;
 using VirgoBot.Channels;
 using VirgoBot.Configuration;
 using VirgoBot.Features.Email;
 using VirgoBot.Functions;
 using VirgoBot.Integrations.ILink;
 using VirgoBot.Utilities;
-using VirgoBot.Services;
+using Telegram.Bot;
 
 namespace VirgoBot.Services;
 
@@ -17,26 +15,27 @@ public class Gateway : IDisposable
     private readonly MemoryService _memoryService;
     private readonly ShellSessionService _shellSessionService = new();
     private readonly HttpClient _httpClient = new();
+    private readonly TokenStatsService _tokenStatsService = new();
 
-    private CancellationTokenSource? _cts;
+    private ServiceContainer? _services;
 
-    public Config Config { get; private set; } = null!;
-    public LLMService LlmService { get; private set; } = null!;
-    public FunctionRegistry FunctionRegistry { get; private set; } = null!;
-    public EmailService? EmailService { get; private set; }
-    public EmailManager? EmailManager { get; private set; }
-    public ActivityMonitor? ActivityMonitor { get; private set; }
-    public TelegramBotClient? Bot { get; private set; }
-    public TelegramBotHandler? TelegramHandler { get; private set; }
-    public ILinkBridgeService? ILinkBridge { get; private set; }
-    public ILinkMessageHandler? ILinkHandler { get; private set; }
-    public ContactService ContactService { get; private set; } = null!;
-    public ScheduledTaskService ScheduledTaskService { get; private set; } = null!;
-    public TokenStatsService TokenStatsService { get; } = new();
-    public McpClientService? McpClientService { get; private set; }
+    // Public property proxies — handlers continue using gateway.Xxx
+    public Config Config => _services!.Config;
+    public LLMService LlmService => _services!.LlmService;
+    public FunctionRegistry FunctionRegistry => _services!.FunctionRegistry;
+    public EmailService? EmailService => _services?.EmailService;
+    public EmailManager? EmailManager => _services?.EmailManager;
+    public ActivityMonitor? ActivityMonitor => _services?.ActivityMonitor;
+    public TelegramBotClient? Bot => _services?.Bot;
+    public TelegramBotHandler? TelegramHandler => _services?.TelegramHandler;
+    public ILinkBridgeService? ILinkBridge => _services?.ILinkBridge;
+    public ILinkMessageHandler? ILinkHandler => _services?.ILinkHandler;
+    public ContactService ContactService => _services!.ContactService;
+    public ScheduledTaskService ScheduledTaskService => _services!.ScheduledTaskService;
+    public TokenStatsService TokenStatsService => _tokenStatsService;
+    public McpClientService? McpClientService => _services?.McpClientService;
 
     public bool IsRunning { get; private set; }
-
     public Dictionary<string, ChannelStatus> ChannelStatuses { get; } = new();
 
     public Gateway(LogService logService, WebSocketClientManager wsManager, MemoryService memoryService)
@@ -48,7 +47,8 @@ public class Gateway : IDisposable
 
     public async Task StartAsync()
     {
-        BuildServices();
+        _services = ServiceContainer.Build(_memoryService, _wsManager, _shellSessionService, _httpClient, _tokenStatsService);
+        InitChannelStatuses();
         await StartChannelsAsync();
         ColorLog.Success("GATEWAY", "网关服务已启动");
     }
@@ -56,6 +56,7 @@ public class Gateway : IDisposable
     public async Task StopAsync()
     {
         await StopChannelsAsync();
+        _services?.Dispose();
         ColorLog.Info("GATEWAY", "网关服务已停止");
     }
 
@@ -63,7 +64,9 @@ public class Gateway : IDisposable
     {
         ColorLog.Info("GATEWAY", "正在重启所有服务...");
         await StopChannelsAsync();
-        BuildServices();
+        _services?.Dispose();
+        _services = ServiceContainer.Build(_memoryService, _wsManager, _shellSessionService, _httpClient, _tokenStatsService);
+        InitChannelStatuses();
         await StartChannelsAsync();
     }
 
@@ -73,11 +76,14 @@ public class Gateway : IDisposable
         _memoryService.SwitchDatabase(dbFileName);
         SoulFunctions.ClearCache();
 
-        Config.CurrentSession = dbFileName;
-        ConfigLoader.Save(Config);
+        var config = ConfigLoader.Load();
+        config.CurrentSession = dbFileName;
+        ConfigLoader.Save(config);
 
         await StopChannelsAsync();
-        BuildServices();
+        _services?.Dispose();
+        _services = ServiceContainer.Build(_memoryService, _wsManager, _shellSessionService, _httpClient, _tokenStatsService);
+        InitChannelStatuses();
         await StartChannelsAsync();
         ColorLog.Success("SESSION", $"会话已切换: {dbFileName}");
     }
@@ -87,107 +93,8 @@ public class Gateway : IDisposable
         return ConfigLoader.GetCurrentProvider(Config);
     }
 
-    private void BuildServices()
+    private void InitChannelStatuses()
     {
-        Config = ConfigLoader.Load();
-        var systemMemory = ConfigLoader.LoadSystemMemory(Config, _memoryService);
-
-        _memoryService.UpdateMessageLimit(Config.Server.MessageLimit);
-
-        var provider = GetCurrentProvider();
-        var apiKey = provider?.ApiKey ?? "";
-        var baseUrl = provider?.BaseUrl ?? "";
-        var model = provider?.CurrentModel ?? "";
-
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", apiKey);
-
-        ScheduledTaskService = new ScheduledTaskService();
-
-        FunctionRegistry = new FunctionRegistry(Config, _memoryService, ScheduledTaskService);
-
-        // MCP
-        try
-        {
-            var mcpConfigs = McpConfigLoader.Load();
-            if (mcpConfigs.Any(c => c.Enabled))
-            {
-                McpClientService = new McpClientService();
-                McpClientService.ConnectAllAsync(mcpConfigs).GetAwaiter().GetResult();
-                FunctionRegistry.SetMcpService(McpClientService);
-            }
-        }
-        catch (Exception ex)
-        {
-            ColorLog.Error("MCP", $"MCP 初始化失败: {ex.Message}");
-        }
-
-        ContactService = new ContactService();
-        LlmService = new LLMService(_httpClient, baseUrl, model, _memoryService, FunctionRegistry, systemMemory, Config.Server.MaxTokens, TokenStatsService);
-        ScheduledTaskService.SetLlmService(LlmService);
-
-        if (Config.Channel.Email.Enabled)
-        {
-            EmailService = new EmailService(
-                Config.Channel.Email.ImapHost, Config.Channel.Email.ImapPort,
-                Config.Channel.Email.SmtpHost, Config.Channel.Email.SmtpPort,
-                Config.Channel.Email.Address, Config.Channel.Email.Password);
-            FunctionRegistry.SetEmailService(EmailService);
-        }
-
-        FunctionRegistry.SetShellSessionService(_shellSessionService);
-        FunctionRegistry.SetContactService(ContactService);
-
-        if (Config.Channel.ILink.Enabled)
-        {
-            ILinkBridge = new ILinkBridgeService(Config.Channel.ILink.Token, Config.Server.MessageSplitDelimiters);
-            FunctionRegistry.SetILinkBridgeService(ILinkBridge);
-        }
-
-        _cts = new CancellationTokenSource();
-
-        if (Config.Channel.Telegram.Enabled)
-        {
-            Bot = new TelegramBotClient(Config.Channel.Telegram.BotToken, cancellationToken: _cts.Token);
-            var messageHelper = new MessageHelper(Bot, Config.Server.MessageSplitDelimiters);
-            ActivityMonitor = new ActivityMonitor(LlmService, Bot, _wsManager, Config.Channel.Telegram.AllowedUsers[0], Config);
-
-            var emailNotificationDispatcher = new EmailNotificationDispatcher(
-                Config.Channel.Email.Notification,
-                _wsManager,
-                Bot,
-                Config.Channel.Telegram.AllowedUsers[0],
-                ILinkBridge);
-
-
-            if (EmailService != null)
-            {
-                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, LlmService);
-            }
-
-            TelegramHandler = new TelegramBotHandler(Config, Bot, LlmService, _memoryService, FunctionRegistry, messageHelper, EmailManager, ActivityMonitor, ILinkBridge, _cts.Token);
-        }
-        else
-        {
-            var emailNotificationDispatcher = new EmailNotificationDispatcher(
-                Config.Channel.Email.Notification,
-                _wsManager,
-                null,
-                0,
-                ILinkBridge);
-
-
-            if (EmailService != null)
-            {
-                EmailManager = new EmailManager(EmailService, emailNotificationDispatcher, LlmService);
-            }
-        }
-
-        if (Config.Channel.ILink.Enabled && ILinkBridge != null)
-        {
-            ILinkHandler = new ILinkMessageHandler(Config, LlmService, _memoryService, ILinkBridge, _cts.Token);
-        }
-
         ChannelStatuses["telegram"] = new ChannelStatus { Name = "telegram", Enabled = Config.Channel.Telegram.Enabled, Status = "stopped" };
         ChannelStatuses["http"] = new ChannelStatus { Name = "http", Enabled = true, Status = "running" };
         ChannelStatuses["webSocket"] = new ChannelStatus { Name = "webSocket", Enabled = true, Status = "running" };
@@ -197,7 +104,7 @@ public class Gateway : IDisposable
 
     private async Task StartChannelsAsync()
     {
-        var ct = _cts!.Token;
+        var ct = _services!.Cts!.Token;
 
         if (Config.Channel.Email.Enabled && EmailService != null && EmailManager != null)
         {
@@ -219,13 +126,9 @@ public class Gateway : IDisposable
             if (Config.Channel.Email.Enabled)
             {
                 if (EmailService == null)
-                {
                     ColorLog.Warning("EMAIL", "邮件频道未启动: EmailService 未初始化");
-                }
                 else if (EmailManager == null)
-                {
                     ColorLog.Warning("EMAIL", "邮件频道未启动: EmailManager 未初始化");
-                }
                 ChannelStatuses["email"].Status = "stopped";
             }
             else
@@ -274,13 +177,9 @@ public class Gateway : IDisposable
             if (Config.Channel.ILink.Enabled)
             {
                 if (ILinkBridge == null)
-                {
                     ColorLog.Warning("ILINK", "iLink 频道未启动: ILinkBridge 未初始化");
-                }
                 else if (ILinkHandler == null)
-                {
                     ColorLog.Warning("ILINK", "iLink 频道未启动: ILinkHandler 未初始化");
-                }
                 ChannelStatuses["iLink"].Status = "stopped";
             }
             else
@@ -294,18 +193,17 @@ public class Gateway : IDisposable
 
     private async Task StopChannelsAsync()
     {
-        if (McpClientService != null)
+        if (_services?.McpClientService != null)
         {
-            try { await McpClientService.DisconnectAllAsync(); } catch { }
-            McpClientService = null;
+            try { await _services.McpClientService.DisconnectAllAsync(); } catch { }
         }
 
-        if (_cts != null)
+        if (_services?.Cts != null)
         {
-            await _cts.CancelAsync();
+            await _services.Cts.CancelAsync();
             await Task.Delay(500);
-            _cts.Dispose();
-            _cts = null;
+            _services.Cts.Dispose();
+            _services.Cts = null;
         }
 
         IsRunning = false;
@@ -327,9 +225,8 @@ public class Gateway : IDisposable
     public void Dispose()
     {
         _shellSessionService.Dispose();
-        _httpClient?.Dispose();
-        ILinkBridge?.Dispose();
-        McpClientService?.Dispose();
+        _httpClient.Dispose();
+        _services?.Dispose();
     }
 }
 
