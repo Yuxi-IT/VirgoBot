@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Disclosure, Surface, ListBox } from '@heroui/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useI18n } from '../../i18n';
 import type { Message } from './types';
 
@@ -7,9 +9,10 @@ interface Props {
   message: Message;
   onDelete: (id: number) => void;
   showTime: boolean;
+  markdownEnabled: boolean;
 }
 
-export default function ChatBubble({ message, onDelete, showTime }: Props) {
+export default function ChatBubble({ message, onDelete, showTime, markdownEnabled }: Props) {
   const { t } = useI18n();
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
@@ -92,6 +95,14 @@ export default function ChatBubble({ message, onDelete, showTime }: Props) {
               该错误通常由旧会话的历史消息格式不兼容导致，请新建会话后重试。
             </div>
           )}
+        </div>
+      );
+    }
+
+    if (!isUser && markdownEnabled) {
+      return (
+        <div className="markdown-body prose prose-sm prose-invert max-w-none break-words [&_pre]:bg-default-100 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:bg-default-100 [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4 [&_blockquote]:border-l-2 [&_blockquote]:border-default-300 [&_blockquote]:pl-3 [&_blockquote]:text-default-500 [&_table]:border-collapse [&_th]:border [&_th]:border-default-300 [&_th]:px-2 [&_th]:py-1 [&_td]:border [&_td]:border-default-300 [&_td]:px-2 [&_td]:py-1 [&_p]:my-1 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:my-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
         </div>
       );
     }

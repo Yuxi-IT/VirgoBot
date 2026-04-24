@@ -1,7 +1,11 @@
 namespace VirgoBot.Utilities;
 
+using System.Text.RegularExpressions;
+
 public static class MessageSplitter
 {
+    private static readonly Regex CodeBlockRegex = new(@"```[\s\S]*?```", RegexOptions.Compiled);
+
     public static string[] SplitMessage(string text, string delimiters)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -10,6 +14,12 @@ public static class MessageSplitter
         }
 
         if (string.IsNullOrWhiteSpace(delimiters))
+        {
+            return new[] { text };
+        }
+
+        // Skip splitting if text contains code blocks
+        if (CodeBlockRegex.IsMatch(text))
         {
             return new[] { text };
         }

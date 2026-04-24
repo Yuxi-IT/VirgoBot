@@ -9,15 +9,17 @@ interface Props {
   voiceFeedback: boolean;
   splitEnabled: boolean;
   showTime: boolean;
+  markdownEnabled: boolean;
   onSend: (text: string) => void;
   onToggleVoiceFeedback: () => void;
   onToggleSplit: () => void;
   onToggleShowTime: () => void;
+  onToggleMarkdown: () => void;
 }
 
 export default function ChatInput({
-  sending, voiceFeedback, splitEnabled, showTime,
-  onSend, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime
+  sending, voiceFeedback, splitEnabled, showTime, markdownEnabled,
+  onSend, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime, onToggleMarkdown
 }: Props) {
   const { t } = useI18n();
   const [text, setText] = useState('');
@@ -122,6 +124,14 @@ export default function ChatInput({
           </Switch.Control>
           <Switch.Content>
             <Label className="text-sm">{t('chatPage.showTime')}</Label>
+          </Switch.Content>
+        </Switch>
+        <Switch isSelected={markdownEnabled} onChange={onToggleMarkdown}>
+          <Switch.Control>
+            <Switch.Thumb />
+          </Switch.Control>
+          <Switch.Content>
+            <Label className="text-sm">{t('chatPage.markdown')}</Label>
           </Switch.Content>
         </Switch>
       </div>

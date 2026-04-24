@@ -35,6 +35,7 @@ function ChatPage() {
   const [splitDelimiters, setSplitDelimiters] = useState('。|！|？|?|\n\n|\n');
   const [splitEnabled, setSplitEnabled] = useState(() => readFlag('chat.splitEnabled', true));
   const [showTime, setShowTime] = useState(() => readFlag('chat.showTime', true));
+  const [markdownEnabled, setMarkdownEnabled] = useState(() => readFlag('chat.markdownEnabled', true));
   const [activeTab, setActiveTab] = useState('chat');
 
   const toggleFlag = (key: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
@@ -253,6 +254,7 @@ function ChatPage() {
                 voiceFeedback={voiceFeedback}
                 splitEnabled={splitEnabled}
                 showTime={showTime}
+                markdownEnabled={markdownEnabled}
                 splitDelimiters={splitDelimiters}
                 onSend={sendMessage}
                 onDeleteMessage={deleteMessage}
@@ -260,6 +262,7 @@ function ChatPage() {
                 onToggleVoiceFeedback={() => toggleFlag('chat.voiceFeedback', setVoiceFeedback)}
                 onToggleSplit={() => toggleFlag('chat.splitEnabled', setSplitEnabled)}
                 onToggleShowTime={() => toggleFlag('chat.showTime', setShowTime)}
+                onToggleMarkdown={() => toggleFlag('chat.markdownEnabled', setMarkdownEnabled)}
               />
             </Tabs.Panel>
 

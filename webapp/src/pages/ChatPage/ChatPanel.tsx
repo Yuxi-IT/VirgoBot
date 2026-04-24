@@ -15,6 +15,7 @@ interface Props {
   voiceFeedback: boolean;
   splitEnabled: boolean;
   showTime: boolean;
+  markdownEnabled: boolean;
   splitDelimiters: string;
   onSend: (text: string) => void;
   onDeleteMessage: (id: number) => void;
@@ -22,17 +23,20 @@ interface Props {
   onToggleVoiceFeedback: () => void;
   onToggleSplit: () => void;
   onToggleShowTime: () => void;
+  onToggleMarkdown: () => void;
 }
 
 function splitMessage(text: string, delimiters: string): string[] {
   if (!delimiters) return [text];
+  // Skip splitting if text contains multi-line code blocks
+  if (/```[\s\S]*```/.test(text)) return [text];
   const parts = text.split(new RegExp(delimiters.split('|').map(d => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')));
   return parts.map(p => p.trim()).filter(Boolean);
 }
 
 export default function ChatPanel({
-  messages, loading, sending, page, totalPages, voiceFeedback, splitEnabled, showTime, splitDelimiters,
-  onSend, onDeleteMessage, onPageChange, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime
+  messages, loading, sending, page, totalPages, voiceFeedback, splitEnabled, showTime, markdownEnabled, splitDelimiters,
+  onSend, onDeleteMessage, onPageChange, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime, onToggleMarkdown
 }: Props) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -98,11 +102,12 @@ export default function ChatPanel({
                       message={{ ...msg, content: part }}
                       onDelete={onDeleteMessage}
                       showTime={showTime}
+                      markdownEnabled={markdownEnabled}
                     />
                   ));
                 }
               }
-              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} showTime={showTime} />;
+              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} showTime={showTime} markdownEnabled={markdownEnabled} />;
             })}
           </>
         )}
@@ -113,10 +118,12 @@ export default function ChatPanel({
         voiceFeedback={voiceFeedback}
         splitEnabled={splitEnabled}
         showTime={showTime}
+        markdownEnabled={markdownEnabled}
         onSend={onSend}
         onToggleVoiceFeedback={onToggleVoiceFeedback}
         onToggleSplit={onToggleSplit}
         onToggleShowTime={onToggleShowTime}
+        onToggleMarkdown={onToggleMarkdown}
       />
     </div>
   );
