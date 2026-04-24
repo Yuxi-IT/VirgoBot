@@ -58,15 +58,25 @@ public class ServiceContainer : IDisposable
         container.ScheduledTaskService = new ScheduledTaskService();
         container.FunctionRegistry = new FunctionRegistry(container.Config, memoryService, container.ScheduledTaskService);
 
-        // MCP
+        // MCP — connect in background to avoid blocking startup
         try
         {
             var mcpConfigs = McpConfigLoader.Load();
             if (mcpConfigs.Any(c => c.Enabled))
             {
                 container.McpClientService = new McpClientService();
-                container.McpClientService.ConnectAllAsync(mcpConfigs).GetAwaiter().GetResult();
-                container.FunctionRegistry.SetMcpService(container.McpClientService);
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await container.McpClientService.ConnectAllAsync(mcpConfigs);
+                        container.FunctionRegistry.SetMcpService(container.McpClientService);
+                    }
+                    catch (Exception ex)
+                    {
+                        ColorLog.Error("MCP", $"MCP 后台连接失败: {ex.Message}");
+                    }
+                });
             }
         }
         catch (Exception ex)

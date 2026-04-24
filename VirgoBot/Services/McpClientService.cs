@@ -290,10 +290,8 @@ public class McpClientService : IDisposable
 
     public async Task ConnectAllAsync(List<McpServerConfig> configs)
     {
-        foreach (var config in configs.Where(c => c.Enabled))
-        {
-            await ConnectWithRetryAsync(config);
-        }
+        var tasks = configs.Where(c => c.Enabled).Select(ConnectWithRetryAsync);
+        await Task.WhenAll(tasks);
     }
 
     private async Task ConnectWithRetryAsync(McpServerConfig config)
