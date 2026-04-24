@@ -12,6 +12,7 @@ const Skills = lazy(() => import('../pages/SkillsPage'));
 const Tasks = lazy(() => import('../pages/TasksPage'));
 const Channel = lazy(() => import('../pages/ChannelPage'));
 const Providers = lazy(() => import('../pages/ProvidersPage'));
+const Mcp = lazy(() => import('../pages/McpPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
 function Loading() {
@@ -38,6 +39,7 @@ function AppRoutes() {
         <Route path="/tasks" element={<PageTransition><Suspense fallback={<Loading />}><Tasks /></Suspense></PageTransition>} />
         <Route path="/channel" element={<PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition>} />
         <Route path="/providers" element={<PageTransition><Suspense fallback={<Loading />}><Providers /></Suspense></PageTransition>} />
+        <Route path="/mcp" element={<PageTransition><Suspense fallback={<Loading />}><Mcp /></Suspense></PageTransition>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>
