@@ -74,6 +74,21 @@ public class LLMService
 
         var result = await response.Content.ReadAsStringAsync();
 
+        if (!response.IsSuccessStatusCode)
+        {
+            // 尝试从 JSON 响应中提取错误信息，失败则直接返回 HTTP 状态码
+            try
+            {
+                using var errDoc = JsonDocument.Parse(result);
+                var error = TryGetErrorMessage(errDoc.RootElement) ?? $"HTTP {(int)response.StatusCode}";
+                return $"错误: {error}";
+            }
+            catch
+            {
+                return $"错误: HTTP {(int)response.StatusCode}";
+            }
+        }
+
         using var doc = JsonDocument.Parse(result);
 
         if (doc.RootElement.TryGetProperty("usage", out var usage))
@@ -81,12 +96,6 @@ public class LLMService
             var promptTk = usage.TryGetProperty("prompt_tokens", out var pt) ? pt.GetInt32() : 0;
             var completionTk = usage.TryGetProperty("completion_tokens", out var ct) ? ct.GetInt32() : 0;
             _tokenStats?.Record(promptTk, completionTk);
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var error = TryGetErrorMessage(doc.RootElement) ?? $"HTTP {(int)response.StatusCode}";
-            return $"错误: {error}";
         }
 
         if (!doc.RootElement.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)

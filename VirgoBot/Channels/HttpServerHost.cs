@@ -331,7 +331,16 @@ public class HttpServerHost
 
     private async Task ProcessWebSocketMessage(WebSocket ws, string msg)
     {
-        var req = JsonSerializer.Deserialize<JsonElement>(msg);
+        JsonElement req;
+        try
+        {
+            req = JsonSerializer.Deserialize<JsonElement>(msg);
+        }
+        catch (JsonException ex)
+        {
+            ColorLog.Error("WS", $"收到无效 JSON: {ex.Message}");
+            return;
+        }
 
         if (req.TryGetProperty("type", out var typeEl))
         {
