@@ -54,6 +54,7 @@ public class StdioMcpTransport : IMcpTransport
         _process = Process.Start(psi) ?? throw new Exception("Failed to start process");
         _stdin = _process.StandardInput;
         _stdin.AutoFlush = true;
+        _stdin.NewLine = "\n"; // MCP protocol expects LF, not CRLF
         _stdout = _process.StandardOutput;
 
         // Drain stderr asynchronously to prevent buffer deadlock.
@@ -306,26 +307,31 @@ public class McpClientService : IDisposable
 
     private async Task ConnectWithRetryAsync(McpServerConfig config)
     {
+        McpConnection? conn = null;
         try
         {
-            var conn = new McpConnection(config);
+            conn = new McpConnection(config);
             await conn.ConnectAsync();
             _connections[config.Name] = conn;
             ColorLog.Success("MCP", $"已连接: {config.Name} ({conn.Tools.Count} 个工具)");
         }
         catch (Exception ex)
         {
+            // Clean up failed connection before retry
+            if (conn != null) try { await conn.DisconnectAsync(); } catch { }
+
             ColorLog.Error("MCP", $"连接失败 [{config.Name}]: {ex.Message}，尝试重连...");
-            // Retry once
+            McpConnection? retryConn = null;
             try
             {
-                var conn = new McpConnection(config);
-                await conn.ConnectAsync();
-                _connections[config.Name] = conn;
-                ColorLog.Success("MCP", $"重连成功: {config.Name} ({conn.Tools.Count} 个工具)");
+                retryConn = new McpConnection(config);
+                await retryConn.ConnectAsync();
+                _connections[config.Name] = retryConn;
+                ColorLog.Success("MCP", $"重连成功: {config.Name} ({retryConn.Tools.Count} 个工具)");
             }
             catch (Exception retryEx)
             {
+                if (retryConn != null) try { await retryConn.DisconnectAsync(); } catch { }
                 ColorLog.Error("MCP", $"重连失败 [{config.Name}]: {retryEx.Message}");
                 _connections[config.Name] = new McpConnection(config)
                 {
