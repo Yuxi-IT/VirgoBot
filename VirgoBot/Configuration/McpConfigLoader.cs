@@ -12,6 +12,7 @@ public class McpServerConfig
     public Dictionary<string, string> Env { get; set; } = new();
     public string Url { get; set; } = "";
     public bool Enabled { get; set; } = true;
+    public int TimeoutSeconds { get; set; } = 30;
 }
 
 public static class McpConfigLoader
