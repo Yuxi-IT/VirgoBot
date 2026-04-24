@@ -31,6 +31,7 @@ public class HttpServerHost
     private readonly ScheduledTaskService _taskService;
     private readonly VoiceApiHandler _voiceApiHandler;
     private readonly ProviderApiHandler _providerApiHandler;
+    private readonly McpApiHandler _mcpApiHandler;
 
     // Public-facing port (TcpListener on 0.0.0.0) — no admin/URL ACL needed
     private const int PublicPort = 8765;
@@ -60,6 +61,7 @@ public class HttpServerHost
         _taskApiHandler = new ScheduledTaskApiHandler(_taskService);
         _voiceApiHandler = new VoiceApiHandler();
         _providerApiHandler = new ProviderApiHandler(gateway);
+        _mcpApiHandler = new McpApiHandler(gateway);
     }
 
     public async Task StartAsync()
@@ -455,6 +457,14 @@ public class HttpServerHost
         if (path?.StartsWith("/api/providers/") == true && path.EndsWith("/models") && method == "GET") { await _providerApiHandler.HandleGetModelsRequest(ctx); return; }
         if (path?.StartsWith("/api/providers/") == true && method == "PUT") { await _providerApiHandler.HandleUpdateProviderRequest(ctx); return; }
         if (path?.StartsWith("/api/providers/") == true && method == "DELETE") { await _providerApiHandler.HandleDeleteProviderRequest(ctx); return; }
+
+        // MCP routes
+        if (path == "/api/mcp/servers" && method == "GET") { await _mcpApiHandler.HandleGetServersRequest(ctx); return; }
+        if (path == "/api/mcp/servers" && method == "POST") { await _mcpApiHandler.HandleCreateServerRequest(ctx); return; }
+        if (path?.StartsWith("/api/mcp/servers/") == true && path.EndsWith("/restart") && method == "POST") { await _mcpApiHandler.HandleRestartServerRequest(ctx); return; }
+        if (path?.StartsWith("/api/mcp/servers/") == true && path.EndsWith("/tools") && method == "GET") { await _mcpApiHandler.HandleGetToolsRequest(ctx); return; }
+        if (path?.StartsWith("/api/mcp/servers/") == true && method == "PUT") { await _mcpApiHandler.HandleUpdateServerRequest(ctx); return; }
+        if (path?.StartsWith("/api/mcp/servers/") == true && method == "DELETE") { await _mcpApiHandler.HandleDeleteServerRequest(ctx); return; }
 
         // Static file serving — webapp directory next to the executable
         if (method == "GET" && await TryServeStaticFile(ctx, path))
