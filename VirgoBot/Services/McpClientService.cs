@@ -388,8 +388,9 @@ public class McpConnection
         try
         {
             var readTask = reader.ReadLineAsync();
-            var completedTask = await Task.WhenAny(readTask.AsTask(), Task.Delay(timeout, cts.Token));
-            if (completedTask == readTask.AsTask())
+            var delayTask = Task.Delay(timeout, cts.Token);
+            var completedTask = await Task.WhenAny(readTask, delayTask);
+            if (completedTask == readTask)
             {
                 cts.Cancel();
                 return await readTask;
