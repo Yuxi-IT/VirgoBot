@@ -35,6 +35,7 @@ public class McpApiHandler
                 Status = status?.Status ?? (c.Enabled ? "disconnected" : "disabled"),
                 ToolCount = status?.ToolCount ?? 0,
                 Error = status?.Error,
+                Logs = status?.Logs ?? new List<string>(),
             };
         }).ToList();
 

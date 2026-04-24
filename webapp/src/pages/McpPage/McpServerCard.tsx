@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, Button, Chip, Spinner } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-import { ArrowsRotateRight, Pencil, TrashBin, ChevronDown, ChevronUp } from '@gravity-ui/icons';
+import { ArrowsRotateRight, Pencil, TrashBin, ChevronDown, ChevronUp, FileText } from '@gravity-ui/icons';
 import type { McpServer, McpTool, McpToolsResponse } from './types';
 
 interface Props {
@@ -16,6 +16,7 @@ export default function McpServerCard({ server: s, onEdit, onDelete, onRestart }
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [tools, setTools] = useState<McpTool[] | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
 
   const statusColor = (status: string): 'success' | 'warning' | 'danger' | 'default' | 'accent' => {
     switch (status) {
@@ -48,6 +49,8 @@ export default function McpServerCard({ server: s, onEdit, onDelete, onRestart }
     }
   };
 
+  const hasLogs = s.logs && s.logs.length > 0;
+
   return (
     <Card>
       <div className="p-4">
@@ -76,31 +79,47 @@ export default function McpServerCard({ server: s, onEdit, onDelete, onRestart }
         <p className="text-sm text-gray-500 mt-1">
           {s.transport === 'stdio' ? `${s.command} ${s.args.join(' ')}` : s.url}
         </p>
-        {s.status === 'connected' && s.toolCount > 0 && (
-          <div className="mt-3">
+
+        <div className="flex gap-2 mt-3">
+          {s.status === 'connected' && s.toolCount > 0 && (
             <Button size="sm" variant="secondary" onPress={toggleTools}>
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               {t('mcp.viewTools')} ({s.toolCount})
             </Button>
-            {expanded && (
-              <div className="mt-3 space-y-2">
-                {tools ? (
-                  tools.map(tool => (
-                    <div key={tool.name} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                      <p className="font-mono text-sm font-semibold">{tool.name}</p>
-                      {tool.description && <p className="text-sm text-gray-500 mt-1">{tool.description}</p>}
-                      {tool.inputSchema && (
-                        <pre className="text-xs bg-gray-100 dark:bg-gray-800 rounded p-2 mt-2 overflow-x-auto">
-                          {JSON.stringify(tool.inputSchema, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <Spinner size="sm" />
-                )}
-              </div>
+          )}
+          {hasLogs && (
+            <Button size="sm" variant="secondary" onPress={() => setShowLogs(!showLogs)}>
+              <FileText className="w-4 h-4" />
+              {t('mcp.viewLogs')} ({s.logs!.length})
+            </Button>
+          )}
+        </div>
+
+        {expanded && (
+          <div className="mt-3 space-y-2">
+            {tools ? (
+              tools.map(tool => (
+                <div key={tool.name} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                  <p className="font-mono text-sm font-semibold">{tool.name}</p>
+                  {tool.description && <p className="text-sm text-gray-500 mt-1">{tool.description}</p>}
+                  {tool.inputSchema && (
+                    <pre className="text-xs bg-gray-100 dark:bg-gray-800 rounded p-2 mt-2 overflow-x-auto">
+                      {JSON.stringify(tool.inputSchema, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              ))
+            ) : (
+              <Spinner size="sm" />
             )}
+          </div>
+        )}
+
+        {showLogs && hasLogs && (
+          <div className="mt-3">
+            <pre className="text-xs bg-gray-100 dark:bg-gray-800 rounded-lg p-3 max-h-60 overflow-auto font-mono whitespace-pre-wrap">
+              {s.logs!.join('\n')}
+            </pre>
           </div>
         )}
       </div>

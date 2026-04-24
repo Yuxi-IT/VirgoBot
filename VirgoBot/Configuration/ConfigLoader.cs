@@ -154,7 +154,8 @@ public static class ConfigLoader
 
         if (!File.Exists(rulePath))
         {
-            File.WriteAllText(rulePath, "");
+            var defaultRule = LoadEmbeddedRule();
+            File.WriteAllText(rulePath, defaultRule);
             ColorLog.Info("RULE", $"已创建默认规则文件: {rulePath}");
         }
 
@@ -197,5 +198,14 @@ public static class ConfigLoader
         var json = JsonSerializer.Serialize(config, JsonOptions);
         File.WriteAllText(configPath, json);
         ColorLog.Success("CONFIG", "配置已保存");
+    }
+
+    private static string LoadEmbeddedRule()
+    {
+        var assembly = typeof(ConfigLoader).Assembly;
+        using var stream = assembly.GetManifestResourceStream("VirgoBot.Resource.RULE.md");
+        if (stream == null) return "";
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }

@@ -9,6 +9,7 @@ export interface McpServer {
   status: string;
   toolCount: number;
   error?: string;
+  logs?: string[];
 }
 
 export interface McpTool {

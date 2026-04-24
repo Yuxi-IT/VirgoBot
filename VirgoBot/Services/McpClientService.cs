@@ -23,8 +23,13 @@ public class StdioMcpTransport : IMcpTransport
     private StreamWriter? _stdin;
     private StreamReader? _stdout;
     private readonly McpServerConfig _config;
+    private readonly Action<string>? _onStderr;
 
-    public StdioMcpTransport(McpServerConfig config) => _config = config;
+    public StdioMcpTransport(McpServerConfig config, Action<string>? onStderr = null)
+    {
+        _config = config;
+        _onStderr = onStderr;
+    }
 
     public async Task StartAsync()
     {
@@ -63,7 +68,10 @@ public class StdioMcpTransport : IMcpTransport
         _process.ErrorDataReceived += (_, e) =>
         {
             if (!string.IsNullOrEmpty(e.Data))
+            {
                 ColorLog.Info("MCP", $"[{_config.Name}] {e.Data}");
+                _onStderr?.Invoke(e.Data);
+            }
         };
         _process.BeginErrorReadLine();
     }
@@ -162,15 +170,28 @@ public class McpConnection
     public McpConnectionStatus Status { get; set; } = McpConnectionStatus.Disconnected;
     public string? ErrorMessage { get; set; }
     public List<McpToolInfo> Tools { get; } = new();
+    public List<string> Logs { get; } = new();
 
+    private const int MaxLogEntries = 200;
     private IMcpTransport? _transport;
     private int _requestId;
 
     public McpConnection(McpServerConfig config) => Config = config;
 
+    public void AddLog(string message)
+    {
+        var entry = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        lock (Logs)
+        {
+            Logs.Add(entry);
+            if (Logs.Count > MaxLogEntries) Logs.RemoveAt(0);
+        }
+    }
+
     public async Task ConnectAsync()
     {
         Status = McpConnectionStatus.Connecting;
+        AddLog("开始连接...");
         try
         {
             _transport = Config.Transport == "stdio"
@@ -180,17 +201,19 @@ public class McpConnection
             await InitializeAsync();
             await DiscoverToolsAsync();
             Status = McpConnectionStatus.Connected;
+            AddLog($"连接成功，发现 {Tools.Count} 个工具");
         }
-        catch
+        catch (Exception ex)
         {
             Status = McpConnectionStatus.Error;
+            AddLog($"连接失败: {ex.Message}");
             throw;
         }
     }
 
     private async Task<StdioMcpTransport> CreateStdioTransport()
     {
-        var t = new StdioMcpTransport(Config);
+        var t = new StdioMcpTransport(Config, msg => AddLog($"[stderr] {msg}"));
         await t.StartAsync();
         return t;
     }
@@ -286,6 +309,7 @@ public class McpServerStatus
     public string Transport { get; set; } = "";
     public int ToolCount { get; set; }
     public string? Error { get; set; }
+    public List<string> Logs { get; set; } = new();
 }
 
 public class McpToolInfo
@@ -325,6 +349,10 @@ public class McpClientService : IDisposable
             try
             {
                 retryConn = new McpConnection(config);
+                // Carry over logs from first attempt
+                if (conn != null)
+                    foreach (var log in conn.Logs) retryConn.Logs.Add(log);
+                retryConn.AddLog("尝试重连...");
                 await retryConn.ConnectAsync();
                 _connections[config.Name] = retryConn;
                 ColorLog.Success("MCP", $"重连成功: {config.Name} ({retryConn.Tools.Count} 个工具)");
@@ -333,11 +361,18 @@ public class McpClientService : IDisposable
             {
                 if (retryConn != null) try { await retryConn.DisconnectAsync(); } catch { }
                 ColorLog.Error("MCP", $"重连失败 [{config.Name}]: {retryEx.Message}");
-                _connections[config.Name] = new McpConnection(config)
+                var errorConn = new McpConnection(config)
                 {
                     Status = McpConnectionStatus.Error,
                     ErrorMessage = retryEx.Message
                 };
+                // Carry over all logs
+                if (conn != null)
+                    foreach (var log in conn.Logs) errorConn.Logs.Add(log);
+                if (retryConn != null)
+                    foreach (var log in retryConn.Logs) errorConn.Logs.Add(log);
+                errorConn.AddLog($"重连失败: {retryEx.Message}");
+                _connections[config.Name] = errorConn;
             }
         }
     }
@@ -389,6 +424,7 @@ public class McpClientService : IDisposable
             Transport = kv.Value.Config.Transport,
             ToolCount = kv.Value.Tools.Count,
             Error = kv.Value.ErrorMessage,
+            Logs = kv.Value.Logs.ToList(),
         }).ToList();
     }
 
@@ -402,6 +438,7 @@ public class McpClientService : IDisposable
             Transport = conn.Config.Transport,
             ToolCount = conn.Tools.Count,
             Error = conn.ErrorMessage,
+            Logs = conn.Logs.ToList(),
         };
     }
 

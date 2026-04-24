@@ -499,5 +499,7 @@ export default {
     updateSuccess: '服务器已更新',
     deleteSuccess: '服务器已删除',
     nameRequired: '服务器名称不能为空',
+    viewLogs: '查看日志',
+    noLogs: '暂无日志',
   },
 };

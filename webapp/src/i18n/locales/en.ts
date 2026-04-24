@@ -499,5 +499,7 @@ export default {
     updateSuccess: 'Server updated',
     deleteSuccess: 'Server deleted',
     nameRequired: 'Server name is required',
+    viewLogs: 'View Logs',
+    noLogs: 'No logs available',
   },
 };
