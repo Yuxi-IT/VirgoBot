@@ -36,6 +36,9 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
       if (task.onceAt) return new Date(task.onceAt).toLocaleString();
       if (task.onceDelayMinutes) return `${task.onceDelayMinutes} ${t('tasks.minutes')}`;
       return '-';
+    } else if (task.scheduleType === 'message_count') {
+      const role = task.messageCountRole === 'user' ? t('tasks.roleUser') : t('tasks.roleAssistant');
+      return `${t('tasks.every')} ${task.messageCountTarget} ${t('tasks.messagesOf')} ${role} (${task.messageCountCurrent}/${task.messageCountTarget})`;
     }
     return '-';
   };

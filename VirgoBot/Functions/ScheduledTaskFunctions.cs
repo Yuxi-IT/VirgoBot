@@ -11,7 +11,8 @@ public static class ScheduledTaskFunctions
         yield return new FunctionDefinition(
             "manage_scheduled_tasks",
             "管理定时任务。支持的操作：list(列出所有任务)、get(获取指定任务)、create(创建任务)、update(更新任务)、delete(删除任务)、toggle(启用/禁用任务)。" +
-            "scheduleType 支持：interval(按间隔重复)、daily(每天指定时间)、once(一次性任务，执行后自动关闭)。" +
+            "scheduleType 支持：interval(按间隔重复)、daily(每天指定时间)、once(一次性任务，执行后自动关闭)、message_count(按对话轮数触发)。" +
+            "message_count 类型需设置 messageCountTarget(触发轮数) 和 messageCountRole(user 或 assistant)。" +
             "一次性任务可通过 onceDelayMinutes(多少分钟后执行) 或 onceAt(指定 ISO 8601 时间) 设置执行时机。",
             new
             {
@@ -31,11 +32,13 @@ public static class ScheduledTaskFunctions
                             description = new { type = "string" },
                             enabled = new { type = "boolean" },
                             taskType = new { type = "string", description = "http | shell | text" },
-                            scheduleType = new { type = "string", description = "interval | daily | once" },
+                            scheduleType = new { type = "string", description = "interval | daily | once | message_count" },
                             intervalMinutes = new { type = "integer" },
                             dailyTime = new { type = "string", description = "HH:mm 格式" },
                             onceDelayMinutes = new { type = "integer", description = "一次性任务：多少分钟后执行" },
                             onceAt = new { type = "string", description = "一次性任务：ISO 8601 指定执行时间" },
+                            messageCountTarget = new { type = "integer", description = "message_count 类型：每多少条消息触发" },
+                            messageCountRole = new { type = "string", description = "message_count 类型：计数角色 user | assistant" },
                             taskRequirement = new { type = "string" },
                             httpMethod = new { type = "string" },
                             httpUrl = new { type = "string" },
@@ -68,7 +71,12 @@ public static class ScheduledTaskFunctions
         var tasks = svc.GetAllTasks();
         if (tasks.Count == 0) return "当前没有定时任务。";
         var lines = tasks.Select(t =>
-            $"- [{(t.Enabled ? "启用" : "禁用")}] {t.Name} (id={t.Id}, scheduleType={t.ScheduleType}, taskType={t.TaskType}, nextRun={t.NextRunTime?.ToLocalTime():yyyy-MM-dd HH:mm:ss})");
+        {
+            var schedule = t.ScheduleType == "message_count"
+                ? $"每{t.MessageCountTarget}条{t.MessageCountRole}消息, 当前{t.MessageCountCurrent}/{t.MessageCountTarget}"
+                : $"nextRun={t.NextRunTime?.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+            return $"- [{(t.Enabled ? "启用" : "禁用")}] {t.Name} (id={t.Id}, scheduleType={t.ScheduleType}, taskType={t.TaskType}, {schedule})";
+        });
         return string.Join("\n", lines);
     }
 
@@ -127,6 +135,8 @@ public static class ScheduledTaskFunctions
             task.OnceDelayMinutes = odm.GetInt32();
         if (el.TryGetProperty("onceAt", out var oa) && oa.ValueKind != JsonValueKind.Null)
             task.OnceAt = DateTime.Parse(oa.GetString()!).ToUniversalTime();
+        if (el.TryGetProperty("messageCountTarget", out var mct)) task.MessageCountTarget = mct.GetInt32();
+        if (el.TryGetProperty("messageCountRole", out var mcr)) task.MessageCountRole = mcr.GetString() ?? "user";
         if (el.TryGetProperty("taskRequirement", out var tr)) task.TaskRequirement = tr.GetString() ?? "";
         if (el.TryGetProperty("httpMethod", out var hm)) task.HttpMethod = hm.GetString() ?? "GET";
         if (el.TryGetProperty("httpUrl", out var hu)) task.HttpUrl = hu.GetString() ?? "";

@@ -24,6 +24,7 @@ public class ScheduledTaskService
         Directory.CreateDirectory(configDir);
         _tasksFilePath = Path.Combine(configDir, TasksFileName);
         LoadTasks();
+        EnsureDefaultTasks();
         StartAllEnabledTasks();
     }
 
@@ -183,6 +184,13 @@ public class ScheduledTaskService
     {
         StopTask(task.Id);
 
+        // message_count 类型不需要 Timer，由 NotifyMessage 驱动
+        if (task.ScheduleType == "message_count")
+        {
+            ColorLog.Info("TASK", $"消息计数任务已就绪: {task.Name} (每{task.MessageCountTarget}条{task.MessageCountRole}消息触发, 当前计数: {task.MessageCountCurrent})");
+            return;
+        }
+
         if (task.ScheduleType == "once")
         {
             var delay = CalculateOnceDelay(task);
@@ -263,6 +271,12 @@ public class ScheduledTaskService
 
     private void CalculateNextRunTime(ScheduledTask task)
     {
+        if (task.ScheduleType == "message_count")
+        {
+            // 消息计数任务没有固定的下次执行时间
+            task.NextRunTime = null;
+            return;
+        }
         if (task.ScheduleType == "once")
         {
             if (task.OnceAt.HasValue)
@@ -385,6 +399,75 @@ public class ScheduledTaskService
         {
             ColorLog.Error("TASK", $"执行文本指令失败: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 消息通知：每次用户或助手发送消息时调用，驱动 message_count 类型的定时任务
+    /// </summary>
+    public void NotifyMessage(string role)
+    {
+        List<ScheduledTask> tasksToExecute;
+
+        lock (_lock)
+        {
+            tasksToExecute = new List<ScheduledTask>();
+
+            foreach (var task in _tasks)
+            {
+                if (!task.Enabled || task.ScheduleType != "message_count") continue;
+                if (!string.Equals(task.MessageCountRole, role, StringComparison.OrdinalIgnoreCase)) continue;
+
+                task.MessageCountCurrent++;
+
+                if (task.MessageCountCurrent >= task.MessageCountTarget)
+                {
+                    task.MessageCountCurrent = 0;
+                    tasksToExecute.Add(task);
+                }
+            }
+
+            if (tasksToExecute.Count > 0)
+                SaveTasks();
+        }
+
+        // 在锁外异步执行任务
+        foreach (var task in tasksToExecute)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await ExecuteTask(task);
+                }
+                catch (Exception ex)
+                {
+                    ColorLog.Error("TASK", $"消息计数任务执行失败: {task.Name} - {ex.Message}");
+                }
+            });
+        }
+    }
+
+    private void EnsureDefaultTasks()
+    {
+        if (_tasks.Count > 0) return;
+
+        var defaultTask = new ScheduledTask
+        {
+            Name = "用户画像总结",
+            Description = "每10轮用户对话自动总结用户特征并保存到Soul",
+            Enabled = true,
+            TaskType = "text",
+            ScheduleType = "message_count",
+            MessageCountTarget = 10,
+            MessageCountRole = "user",
+            TextInstruction = "请根据最近的对话内容，总结用户的性格特点、说话方式、最近在做的事情，以及你对用户的评价。" +
+                "用简洁的条目形式写出来，然后调用 append_soul 工具将总结保存到 Soul 中。" +
+                "注意：不要重复已有的 Soul 内容，只补充新的观察。如果没有新的发现则不需要保存。"
+        };
+
+        _tasks.Add(defaultTask);
+        SaveTasks();
+        ColorLog.Success("TASK", "已自动创建默认任务: 用户画像总结（每10轮用户对话）");
     }
 
     public void Dispose()

@@ -20,7 +20,7 @@ public class ScheduledTask
     public string TaskType { get; set; } = "http"; // "http", "shell", or "text"
 
     [JsonPropertyName("scheduleType")]
-    public string ScheduleType { get; set; } = "interval"; // "interval", "daily", "once"
+    public string ScheduleType { get; set; } = "interval"; // "interval", "daily", "once", "message_count"
 
     [JsonPropertyName("intervalMinutes")]
     public int IntervalMinutes { get; set; } = 60;
@@ -39,6 +39,15 @@ public class ScheduledTask
     [JsonPropertyName("onceAt")]
     public DateTime? OnceAt { get; set; }
 
+    // 按对话轮数触发
+    [JsonPropertyName("messageCountTarget")]
+    public int MessageCountTarget { get; set; } = 10;
+
+    [JsonPropertyName("messageCountRole")]
+    public string MessageCountRole { get; set; } = "user"; // "user" or "assistant"
+
+    [JsonPropertyName("messageCountCurrent")]
+    public int MessageCountCurrent { get; set; } = 0;
     [JsonPropertyName("taskRequirement")]
     public string TaskRequirement { get; set; } = "";
 

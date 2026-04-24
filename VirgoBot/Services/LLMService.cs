@@ -16,6 +16,7 @@ public class LLMService
     private readonly string _systemMemory;
     private readonly int _maxTokens;
     private readonly TokenStatsService? _tokenStats;
+    private ScheduledTaskService? _scheduledTaskService;
 
     public LLMService(
         HttpClient http,
@@ -37,6 +38,11 @@ public class LLMService
         _tokenStats = tokenStats;
     }
 
+    public void SetScheduledTaskService(ScheduledTaskService service)
+    {
+        _scheduledTaskService = service;
+    }
+
     public async Task<string> AskAsync(
         string? prompt,
         Action<string>? onProgress = null,
@@ -46,6 +52,7 @@ public class LLMService
         if (!string.IsNullOrWhiteSpace(prompt))
         {
             _memory.SaveMessage("user", $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}");
+            _scheduledTaskService?.NotifyMessage("user");
         }
 
         var memoryMessages = _memory.LoadMessages();
@@ -214,6 +221,7 @@ public class LLMService
         {
             _memory.SaveMessage("assistant", assistantText);
         }
+        _scheduledTaskService?.NotifyMessage("assistant");
         _memory.ClearOldMessages();
         return assistantText;
     }

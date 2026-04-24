@@ -21,12 +21,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
   const [formDescription, setFormDescription] = useState('');
   const [formEnabled, setFormEnabled] = useState(true);
   const [formTaskType, setFormTaskType] = useState<'http' | 'shell' | 'text'>('http');
-  const [formScheduleType, setFormScheduleType] = useState<'interval' | 'daily' | 'once'>('interval');
+  const [formScheduleType, setFormScheduleType] = useState<'interval' | 'daily' | 'once' | 'message_count'>('interval');
   const [formIntervalMinutes, setFormIntervalMinutes] = useState(60);
   const [formDailyTime, setFormDailyTime] = useState('09:00');
   const [formOnceMode, setFormOnceMode] = useState<'delay' | 'at'>('delay');
   const [formOnceDelayMinutes, setFormOnceDelayMinutes] = useState(30);
   const [formOnceAt, setFormOnceAt] = useState('');
+  const [formMessageCountTarget, setFormMessageCountTarget] = useState(10);
+  const [formMessageCountRole, setFormMessageCountRole] = useState<'user' | 'assistant'>('user');
   const [formTaskRequirement, setFormTaskRequirement] = useState('');
   const [formHttpMethod, setFormHttpMethod] = useState('GET');
   const [formHttpUrl, setFormHttpUrl] = useState('');
@@ -54,6 +56,8 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormOnceMode('delay');
     setFormOnceDelayMinutes(30);
     setFormOnceAt('');
+    setFormMessageCountTarget(10);
+    setFormMessageCountRole('user');
     setFormTaskRequirement('');
     setFormHttpMethod('GET');
     setFormHttpUrl('');
@@ -74,13 +78,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     if (task.scheduleType === 'once') {
       if (task.onceAt) {
         setFormOnceMode('at');
-        // 转为 datetime-local 格式 (YYYY-MM-DDTHH:mm)
         setFormOnceAt(new Date(task.onceAt).toISOString().slice(0, 16));
       } else {
         setFormOnceMode('delay');
         setFormOnceDelayMinutes(task.onceDelayMinutes ?? 30);
       }
     }
+    setFormMessageCountTarget(task.messageCountTarget || 10);
+    setFormMessageCountRole((task.messageCountRole as 'user' | 'assistant') || 'user');
     setFormTaskRequirement(task.taskRequirement);
     setFormHttpMethod(task.httpMethod);
     setFormHttpUrl(task.httpUrl);
@@ -139,6 +144,8 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
       intervalMinutes: formIntervalMinutes,
       dailyTime: formDailyTime,
       cronExpression: '',
+      messageCountTarget: formMessageCountTarget,
+      messageCountRole: formMessageCountRole,
       taskRequirement: formTaskRequirement,
       httpMethod: formHttpMethod,
       httpUrl: formHttpUrl,
@@ -218,25 +225,13 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                 <div>
                   <Label>{t('tasks.taskType')}</Label>
                   <div className="flex gap-2 mt-2">
-                    <Button
-                      size="sm"
-                      variant={formTaskType === 'http' ? 'primary' : 'secondary'}
-                      onPress={() => setFormTaskType('http')}
-                    >
+                    <Button size="sm" variant={formTaskType === 'http' ? 'primary' : 'secondary'} onPress={() => setFormTaskType('http')}>
                       {t('tasks.http')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={formTaskType === 'shell' ? 'primary' : 'secondary'}
-                      onPress={() => setFormTaskType('shell')}
-                    >
+                    <Button size="sm" variant={formTaskType === 'shell' ? 'primary' : 'secondary'} onPress={() => setFormTaskType('shell')}>
                       {t('tasks.shell')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={formTaskType === 'text' ? 'primary' : 'secondary'}
-                      onPress={() => setFormTaskType('text')}
-                    >
+                    <Button size="sm" variant={formTaskType === 'text' ? 'primary' : 'secondary'} onPress={() => setFormTaskType('text')}>
                       {t('tasks.text')}
                     </Button>
                   </div>
@@ -244,27 +239,18 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
 
                 <div>
                   <Label>{t('tasks.scheduleType')}</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      size="sm"
-                      variant={formScheduleType === 'interval' ? 'primary' : 'secondary'}
-                      onPress={() => setFormScheduleType('interval')}
-                    >
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    <Button size="sm" variant={formScheduleType === 'interval' ? 'primary' : 'secondary'} onPress={() => setFormScheduleType('interval')}>
                       {t('tasks.interval')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={formScheduleType === 'daily' ? 'primary' : 'secondary'}
-                      onPress={() => setFormScheduleType('daily')}
-                    >
+                    <Button size="sm" variant={formScheduleType === 'daily' ? 'primary' : 'secondary'} onPress={() => setFormScheduleType('daily')}>
                       {t('tasks.daily')}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={formScheduleType === 'once' ? 'primary' : 'secondary'}
-                      onPress={() => setFormScheduleType('once')}
-                    >
-                      一次性
+                    <Button size="sm" variant={formScheduleType === 'once' ? 'primary' : 'secondary'} onPress={() => setFormScheduleType('once')}>
+                      {t('tasks.once')}
+                    </Button>
+                    <Button size="sm" variant={formScheduleType === 'message_count' ? 'primary' : 'secondary'} onPress={() => setFormScheduleType('message_count')}>
+                      {t('tasks.messageCount')}
                     </Button>
                   </div>
                 </div>
@@ -286,28 +272,49 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                 {formScheduleType === 'once' && (
                   <div className="space-y-3">
                     <div>
-                      <Label>执行时机</Label>
+                      <Label>{t('tasks.onceTiming')}</Label>
                       <div className="flex gap-2 mt-2">
                         <Button size="sm" variant={formOnceMode === 'delay' ? 'primary' : 'secondary'} onPress={() => setFormOnceMode('delay')}>
-                          延迟执行
+                          {t('tasks.onceDelay')}
                         </Button>
                         <Button size="sm" variant={formOnceMode === 'at' ? 'primary' : 'secondary'} onPress={() => setFormOnceMode('at')}>
-                          指定时间
+                          {t('tasks.onceAt')}
                         </Button>
                       </div>
                     </div>
                     {formOnceMode === 'delay' ? (
                       <TextField value={String(formOnceDelayMinutes)} onChange={v => setFormOnceDelayMinutes(Number(v) || 1)}>
-                        <Label>延迟分钟数</Label>
+                        <Label>{t('tasks.onceDelayMinutes')}</Label>
                         <Input type="number" min="1" placeholder="30" />
                       </TextField>
                     ) : (
                       <TextField value={formOnceAt} onChange={setFormOnceAt}>
-                        <Label>执行时间</Label>
+                        <Label>{t('tasks.onceAtTime')}</Label>
                         <Input type="datetime-local" />
                       </TextField>
                     )}
-                    <p className="text-xs text-gray-400">一次性任务执行完成后会自动关闭</p>
+                    <p className="text-xs text-gray-400">{t('tasks.onceHint')}</p>
+                  </div>
+                )}
+
+                {formScheduleType === 'message_count' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label>{t('tasks.messageCountRole')}</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" variant={formMessageCountRole === 'user' ? 'primary' : 'secondary'} onPress={() => setFormMessageCountRole('user')}>
+                          {t('tasks.roleUser')}
+                        </Button>
+                        <Button size="sm" variant={formMessageCountRole === 'assistant' ? 'primary' : 'secondary'} onPress={() => setFormMessageCountRole('assistant')}>
+                          {t('tasks.roleAssistant')}
+                        </Button>
+                      </div>
+                    </div>
+                    <TextField value={String(formMessageCountTarget)} onChange={v => setFormMessageCountTarget(Number(v) || 10)}>
+                      <Label>{t('tasks.messageCountTarget')}</Label>
+                      <Input type="number" min="1" placeholder="10" />
+                    </TextField>
+                    <p className="text-xs text-gray-400">{t('tasks.messageCountHint')}</p>
                   </div>
                 )}
 
@@ -317,40 +324,23 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                       <Label>{t('tasks.httpMethod')}</Label>
                       <div className="flex gap-1 mt-2">
                         {HTTP_METHODS.map(m => (
-                          <Button
-                            key={m}
-                            size="sm"
-                            variant={formHttpMethod === m ? 'primary' : 'secondary'}
-                            onPress={() => setFormHttpMethod(m)}
-                          >
+                          <Button key={m} size="sm" variant={formHttpMethod === m ? 'primary' : 'secondary'} onPress={() => setFormHttpMethod(m)}>
                             {m}
                           </Button>
                         ))}
                       </div>
                     </div>
-
                     <TextField value={formHttpUrl} onChange={setFormHttpUrl}>
                       <Label>{t('tasks.httpUrl')}</Label>
                       <Input placeholder={t('tasks.urlPlaceholder')} />
                     </TextField>
-
                     <TextField value={formHttpHeadersText} onChange={setFormHttpHeadersText}>
                       <Label>{t('tasks.httpHeaders')}</Label>
-                      <TextArea
-                        value={formHttpHeadersText}
-                        onChange={(e) => setFormHttpHeadersText(e.target.value)}
-                        placeholder={t('tasks.httpHeadersHint')}
-                        rows={3}
-                      />
+                      <TextArea value={formHttpHeadersText} onChange={(e) => setFormHttpHeadersText(e.target.value)} placeholder={t('tasks.httpHeadersHint')} rows={3} />
                     </TextField>
-
                     <TextField value={formHttpBody} onChange={setFormHttpBody}>
                       <Label>{t('tasks.httpBody')}</Label>
-                      <TextArea
-                        value={formHttpBody}
-                        onChange={(e) => setFormHttpBody(e.target.value)}
-                        rows={4}
-                      />
+                      <TextArea value={formHttpBody} onChange={(e) => setFormHttpBody(e.target.value)} rows={4} />
                     </TextField>
                   </div>
                 )}
@@ -358,25 +348,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                 {formTaskType === 'shell' && (
                   <TextField value={formShellCommand} onChange={setFormShellCommand}>
                     <Label>{t('tasks.shellCommand')}</Label>
-                    <TextArea
-                      value={formShellCommand}
-                      onChange={(e) => setFormShellCommand(e.target.value)}
-                      placeholder={t('tasks.commandPlaceholder')}
-                      rows={4}
-                      className="font-mono"
-                    />
+                    <TextArea value={formShellCommand} onChange={(e) => setFormShellCommand(e.target.value)} placeholder={t('tasks.commandPlaceholder')} rows={4} className="font-mono" />
                   </TextField>
                 )}
 
                 {formTaskType === 'text' && (
                   <TextField value={formTextInstruction} onChange={setFormTextInstruction}>
                     <Label>{t('tasks.textInstruction')}</Label>
-                    <TextArea
-                      value={formTextInstruction}
-                      onChange={(e) => setFormTextInstruction(e.target.value)}
-                      placeholder={t('tasks.textInstructionPlaceholder')}
-                      rows={4}
-                    />
+                    <TextArea value={formTextInstruction} onChange={(e) => setFormTextInstruction(e.target.value)} placeholder={t('tasks.textInstructionPlaceholder')} rows={4} />
                   </TextField>
                 )}
               </div>
