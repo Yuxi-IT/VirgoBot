@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Modal, Button, TextField, Label, Input, TextArea, Switch } from '@heroui/react';
+import { Modal, Button, TextField, Label, Input, TextArea, Switch, Spinner } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import type { McpServer } from './types';
 
@@ -12,9 +12,10 @@ interface Props {
     args: string[]; env: Record<string, string>;
     url: string; enabled: boolean;
   }) => void;
+  saving: boolean;
 }
 
-export default function McpFormModal({ isOpen, editingServer, onClose, onSave }: Props) {
+export default function McpFormModal({ isOpen, editingServer, onClose, onSave, saving }: Props) {
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [transport, setTransport] = useState('stdio');
@@ -131,8 +132,11 @@ export default function McpFormModal({ isOpen, editingServer, onClose, onSave }:
               </div>
             </Modal.Body>
             <Modal.Footer>
-              <Button variant="secondary" onPress={onClose}>{t('common.cancel')}</Button>
-              <Button onPress={handleSubmit}>{t('common.save')}</Button>
+              <Button variant="secondary" onPress={onClose} isDisabled={saving}>{t('common.cancel')}</Button>
+              <Button onPress={handleSubmit} isDisabled={saving || !name.trim()}>
+                {saving ? <Spinner size="sm" className="mr-1" /> : null}
+                {t('common.save')}
+              </Button>
             </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>

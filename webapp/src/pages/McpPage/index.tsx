@@ -15,6 +15,8 @@ function McpPage() {
   const [editingServer, setEditingServer] = useState<McpServer | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deletingName, setDeletingName] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { loadServers(); }, []);
 
@@ -31,6 +33,7 @@ function McpPage() {
     args: string[]; env: Record<string, string>;
     url: string; enabled: boolean;
   }) => {
+    setSaving(true);
     try {
       if (editingServer) {
         await api.put(`/api/mcp/servers/${encodeURIComponent(editingServer.name)}`, payload);
@@ -42,17 +45,18 @@ function McpPage() {
       setShowForm(false);
       setEditingServer(null);
       await loadServers();
-    } catch { toast.danger(t('common.error')); }
+    } catch { toast.danger(t('common.error')); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
     if (!deletingName) return;
+    setDeleting(true);
     try {
       await api.del(`/api/mcp/servers/${encodeURIComponent(deletingName)}`);
       toast.success(t('mcp.deleteSuccess'));
       setDeletingName(null);
       await loadServers();
-    } catch { toast.danger(t('common.error')); }
+    } catch { toast.danger(t('common.error')); } finally { setDeleting(false); }
   };
 
   const handleRestart = async (name: string) => {
@@ -112,6 +116,7 @@ function McpPage() {
         editingServer={editingServer}
         onClose={() => { setShowForm(false); setEditingServer(null); }}
         onSave={handleSave}
+        saving={saving}
       />
 
       {/* Delete Confirm Modal */}
@@ -126,8 +131,11 @@ function McpPage() {
                 <p>{t('mcp.deleteConfirm')}</p>
               </Modal.Body>
               <Modal.Footer>
-                <Button variant="secondary" onPress={() => setDeletingName(null)}>{t('common.cancel')}</Button>
-                <Button variant="danger" onPress={handleDelete}>{t('common.delete')}</Button>
+                <Button variant="secondary" onPress={() => setDeletingName(null)} isDisabled={deleting}>{t('common.cancel')}</Button>
+                <Button variant="danger" onPress={handleDelete} isDisabled={deleting}>
+                  {deleting ? <Spinner size="sm" className="mr-1" /> : null}
+                  {t('common.delete')}
+                </Button>
               </Modal.Footer>
             </Modal.Dialog>
           </Modal.Container>
