@@ -19,6 +19,8 @@ export interface SkillInfo {
   parameterCount: number;
   skillType?: string;
   subSkillCount?: number;
+  allowedTools?: string[];
+  model?: string;
 }
 
 export interface SkillsResponse {
@@ -31,6 +33,7 @@ export interface SkillDetailResponse {
   data: {
     fileName: string;
     content: string;
+    skillType?: string;
   };
 }
 

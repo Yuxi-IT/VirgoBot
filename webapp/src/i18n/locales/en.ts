@@ -232,6 +232,13 @@ export default {
     importFailed: 'Failed to import skill',
     skillTypeJson: 'JSON',
     skillTypeSkillMd: 'SKILL.md',
+    chooseType: 'Choose Skill Type',
+    jsonSkillDesc: 'Command or HTTP call, for tool integration',
+    skillMdDesc: 'Standard SKILL.md format, compatible with OpenClaw / Claude Code',
+    dirName: 'Directory name (used as skill identifier)',
+    skillMdHint: 'Standard YAML frontmatter + Markdown instructions, supports $ARGUMENTS substitution',
+    detail: 'Detail',
+    subSkills: 'sub-skills',
   },
   agent: {
     title: 'Agent Management',

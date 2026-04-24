@@ -86,6 +86,9 @@ public class SkillApiHandler
 
         foreach (var subDir in Directory.GetDirectories(dir))
         {
+            var dirName = Path.GetFileName(subDir);
+            if (dirName.StartsWith("_")) continue;
+
             var skillMdPath = Path.Combine(subDir, "SKILL.md");
             if (!File.Exists(skillMdPath)) continue;
 
@@ -95,7 +98,6 @@ public class SkillApiHandler
                 var parsed = VirgoBot.Functions.SkillMdParser.Parse(mdContent);
                 if (parsed == null) continue;
 
-                var dirName = Path.GetFileName(subDir);
                 skills.Add(new
                 {
                     fileName = dirName + "/SKILL.md",
@@ -105,7 +107,9 @@ public class SkillApiHandler
                     mode = "skill.md",
                     parameterCount = 0,
                     skillType = "skill.md",
-                    subSkillCount = 0
+                    subSkillCount = 0,
+                    allowedTools = parsed.AllowedTools,
+                    model = parsed.Model ?? ""
                 });
             }
             catch
@@ -152,6 +156,33 @@ public class SkillApiHandler
         var dir = AppConstants.SkillsDirectory;
         Directory.CreateDirectory(dir);
 
+        // SKILL.md 格式
+        if (body.SkillType == "skill.md")
+        {
+            var skillDir = Path.Combine(dir, body.Name);
+            if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
+            {
+                await SendErrorResponse(ctx, 409, "Skill already exists");
+                return;
+            }
+
+            Directory.CreateDirectory(skillDir);
+            var mdContent = body.Content;
+            if (string.IsNullOrWhiteSpace(mdContent))
+            {
+                // 从结构化字段生成 SKILL.md
+                var allowedTools = body.AllowedTools ?? new List<string>();
+                mdContent = VirgoBot.Functions.SkillMdParser.Generate(
+                    body.Name, body.Description ?? "", body.Body ?? "",
+                    allowedTools, body.Model);
+            }
+            await File.WriteAllTextAsync(Path.Combine(skillDir, "SKILL.md"), mdContent);
+            ColorLog.Success("SKILL", $"SKILL.md 已创建: {body.Name}");
+            await SendJsonResponse(ctx, new { success = true, message = "Skill created" });
+            return;
+        }
+
+        // JSON 格式
         var fileName = $"{body.Name}.json";
         var filePath = Path.Combine(dir, fileName);
 
@@ -457,6 +488,11 @@ public class SkillApiHandler
     {
         public string? Name { get; init; }
         public string? Content { get; init; }
+        public string? SkillType { get; init; }
+        public string? Description { get; init; }
+        public string? Body { get; init; }
+        public List<string>? AllowedTools { get; init; }
+        public string? Model { get; init; }
     }
 
     public record ImportUrlRequest

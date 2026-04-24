@@ -232,6 +232,13 @@ export default {
     importFailed: '技能导入失败',
     skillTypeJson: 'JSON',
     skillTypeSkillMd: 'SKILL.md',
+    chooseType: '选择 Skill 类型',
+    jsonSkillDesc: '命令行或 HTTP 调用，适合工具集成',
+    skillMdDesc: '标准 SKILL.md 格式，兼容 OpenClaw / Claude Code',
+    dirName: '目录名称（用作 Skill 标识）',
+    skillMdHint: '标准 YAML frontmatter + Markdown 指令，支持 $ARGUMENTS 参数替换',
+    detail: '详情',
+    subSkills: '个子功能',
   },
   agent: {
     title: '智能体管理',

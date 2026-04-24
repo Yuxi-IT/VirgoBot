@@ -44,6 +44,10 @@ public static class SkillLoader
 
         foreach (var subDir in Directory.GetDirectories(dir))
         {
+            var dirName = Path.GetFileName(subDir);
+            if (dirName.StartsWith("_"))
+                continue;
+
             var skillMdPath = Path.Combine(subDir, "SKILL.md");
             if (!File.Exists(skillMdPath))
                 continue;
@@ -70,8 +74,7 @@ public static class SkillLoader
         if (parsed == null)
             throw new InvalidOperationException("SKILL.md 缺少有效的 frontmatter (name/description)");
 
-        var skillDirName = Path.GetFileName(skillDir);
-
+        // 构建 LLM 可见的描述：frontmatter description + body 指令
         var fullDescription = string.IsNullOrWhiteSpace(parsed.Body)
             ? parsed.Description
             : $"{parsed.Description}\n\n---\n{parsed.Body}";
@@ -81,18 +84,61 @@ public static class SkillLoader
             ["type"] = "object",
             ["properties"] = new Dictionary<string, object>
             {
-                ["input"] = new Dictionary<string, string>
+                ["arguments"] = new Dictionary<string, string>
                 {
                     ["type"] = "string",
-                    ["description"] = "传递给 Skill 的输入内容"
+                    ["description"] = "传递给 Skill 的参数（对应 $ARGUMENTS）"
                 }
             }
         };
 
+        // 读取 skill 目录下的辅助文件列表（scripts/, templates/, data/）
+        var auxiliaryFiles = new List<string>();
+        foreach (var subDir in new[] { "scripts", "templates", "data" })
+        {
+            var subPath = Path.Combine(skillDir, subDir);
+            if (Directory.Exists(subPath))
+            {
+                foreach (var f in Directory.GetFiles(subPath, "*", SearchOption.AllDirectories))
+                    auxiliaryFiles.Add(Path.GetRelativePath(skillDir, f));
+            }
+        }
+
         return new FunctionDefinition(parsed.Name, fullDescription, inputSchema, input =>
         {
-            var userInput = input.TryGetProperty("input", out var inp) ? inp.GetString() ?? "" : "";
-            return Task.FromResult($"[Skill '{parsed.Name}' 已激活] 输入: {userInput}");
+            var arguments = input.TryGetProperty("arguments", out var arg) ? arg.GetString() ?? "" : "";
+
+            // $ARGUMENTS 替换
+            var resolvedBody = (parsed.Body ?? "").Replace("$ARGUMENTS", arguments);
+
+            var result = new System.Text.StringBuilder();
+            result.AppendLine($"[Skill '{parsed.Name}' 已激活]");
+
+            if (!string.IsNullOrWhiteSpace(arguments))
+                result.AppendLine($"参数: {arguments}");
+
+            result.AppendLine();
+            result.AppendLine("--- Skill 指令 ---");
+            result.AppendLine(resolvedBody);
+
+            if (auxiliaryFiles.Count > 0)
+            {
+                result.AppendLine();
+                result.AppendLine("--- 可用辅助文件 ---");
+                foreach (var f in auxiliaryFiles)
+                    result.AppendLine($"  {f}");
+            }
+
+            if (parsed.AllowedTools.Count > 0)
+            {
+                result.AppendLine();
+                result.AppendLine($"允许的工具: {string.Join(", ", parsed.AllowedTools)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(parsed.Model))
+                result.AppendLine($"推荐模型: {parsed.Model}");
+
+            return Task.FromResult(result.ToString());
         });
     }
 
@@ -420,6 +466,18 @@ public static class SkillLoader
 
         var multiJson = JsonSerializer.Serialize(multiExample, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(dir, "_example_multi.json"), multiJson);
+
+        // 标准 SKILL.md 示例（兼容 OpenClaw / Claude Code）
+        var exampleSkillMdDir = Path.Combine(dir, "_example-skill-md");
+        Directory.CreateDirectory(exampleSkillMdDir);
+        var skillMdContent = SkillMdParser.Generate(
+            name: "example-skill-md",
+            description: "这是一个标准 SKILL.md 格式的示例，以下划线开头的目录不会被加载",
+            body: "请根据用户的输入 $ARGUMENTS 执行相应操作。\n\n## 步骤\n1. 分析用户输入\n2. 执行操作\n3. 返回结果",
+            allowedTools: new List<string> { "Read", "Write", "Bash" },
+            model: "sonnet"
+        );
+        File.WriteAllText(Path.Combine(exampleSkillMdDir, "SKILL.md"), skillMdContent);
     }
 
     private class SkillParameter

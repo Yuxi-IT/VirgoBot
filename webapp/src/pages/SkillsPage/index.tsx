@@ -24,6 +24,7 @@ function SkillsPage() {
   const deleteModal = useOverlayState();
   const importModal = useOverlayState();
   const skillMdModal = useOverlayState();
+  const addTypeModal = useOverlayState();
 
   const [editingSkillMd, setEditingSkillMd] = useState<SkillInfo | null>(null);
 
@@ -51,8 +52,19 @@ function SkillsPage() {
   };
 
   const openAddModal = () => {
+    addTypeModal.open();
+  };
+
+  const handleAddJson = () => {
+    addTypeModal.close();
     setEditingSkill(null);
     formModal.open();
+  };
+
+  const handleAddSkillMd = () => {
+    addTypeModal.close();
+    setEditingSkillMd(null);
+    skillMdModal.open();
   };
 
   const openEditModal = (skill: SkillInfo) => {
@@ -216,6 +228,43 @@ function SkillsPage() {
           onSaved={loadSkillsAndRestart}
         />
 
+        {/* Add type selection modal */}
+        <Modal>
+          <Modal.Backdrop isOpen={addTypeModal.isOpen} onOpenChange={addTypeModal.toggle}>
+            <Modal.Container size="lg">
+              <Modal.Dialog>
+                <Modal.Header>
+                  <Modal.Heading>{t('skills.chooseType')}</Modal.Heading>
+                </Modal.Header>
+                <Modal.Body>
+                  <div className="grid grid-cols-2 gap-4 p-2">
+                    <button
+                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors text-left"
+                      onClick={handleAddJson}
+                    >
+                      <div className="font-medium mb-1">JSON Skill</div>
+                      <div className="text-sm text-gray-500">{t('skills.jsonSkillDesc')}</div>
+                    </button>
+                    <button
+                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-green-500 dark:hover:border-green-400 transition-colors text-left"
+                      onClick={handleAddSkillMd}
+                    >
+                      <div className="font-medium mb-1">SKILL.md</div>
+                      <div className="text-sm text-gray-500">{t('skills.skillMdDesc')}</div>
+                    </button>
+                  </div>
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button variant="secondary" onPress={addTypeModal.close}>
+                    {t('common.cancel')}
+                  </Button>
+                </Modal.Footer>
+              </Modal.Dialog>
+            </Modal.Container>
+          </Modal.Backdrop>
+        </Modal>
+
+        {/* Import from URL modal */}
         <Modal>
           <Modal.Backdrop isOpen={importModal.isOpen} onOpenChange={importModal.toggle}>
             <Modal.Container size="lg">
@@ -242,6 +291,7 @@ function SkillsPage() {
           </Modal.Backdrop>
         </Modal>
 
+        {/* Delete confirmation modal */}
         <Modal>
           <Modal.Backdrop isOpen={deleteModal.isOpen} onOpenChange={deleteModal.toggle}>
             <Modal.Container size="lg">

@@ -50,8 +50,7 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                     <Table.Column>{t('skills.name')}</Table.Column>
                     <Table.Column>{t('skills.description')}</Table.Column>
                     <Table.Column>{t('skills.mode')}</Table.Column>
-                    <Table.Column>{t('skills.commandOrUrl')}</Table.Column>
-                    <Table.Column>{t('skills.parameterCount')}</Table.Column>
+                    <Table.Column>{t('skills.detail')}</Table.Column>
                     <Table.Column>{t('common.actions')}</Table.Column>
                   </Table.Header>
                   <Table.Body>
@@ -76,23 +75,32 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                         </Table.Cell>
                         <Table.Cell>
                           {skill.mode === 'skill.md' ? (
-                            <Chip size="sm" variant="soft" color="success">
-                              <span className="font-mono text-xs">OpenClaw</span>
-                            </Chip>
+                            <div className="flex flex-wrap gap-1">
+                              {skill.model && (
+                                <Chip size="sm" variant="soft" color="accent">
+                                  <span className="font-mono text-xs">{skill.model}</span>
+                                </Chip>
+                              )}
+                              {skill.allowedTools && skill.allowedTools.length > 0 && (
+                                <Chip size="sm" variant="soft" color="success">
+                                  <span className="font-mono text-xs">{skill.allowedTools.length} tools</span>
+                                </Chip>
+                              )}
+                              {!skill.model && (!skill.allowedTools || skill.allowedTools.length === 0) && (
+                                <Chip size="sm" variant="soft" color="success">
+                                  <span className="font-mono text-xs">Standard</span>
+                                </Chip>
+                              )}
+                            </div>
                           ) : skill.mode === 'multi' ? (
                             <Chip size="sm" variant="soft" color="warning">
-                              <span className="font-mono text-xs">{skill.subSkillCount} 个子功能</span>
+                              <span className="font-mono text-xs">{skill.subSkillCount} {t('skills.subSkills')}</span>
                             </Chip>
                           ) : (
                             <Chip size="sm" variant="soft">
                               <span className="font-mono text-xs">{skill.command.length > 30 ? skill.command.substring(0, 30) + '...' : skill.command}</span>
                             </Chip>
                           )}
-                        </Table.Cell>
-                        <Table.Cell>
-                          <Chip size="sm" color="accent">
-                            {skill.mode === 'multi' ? skill.subSkillCount ?? 0 : skill.parameterCount}
-                          </Chip>
                         </Table.Cell>
                         <Table.Cell>
                           <div className="flex gap-2">

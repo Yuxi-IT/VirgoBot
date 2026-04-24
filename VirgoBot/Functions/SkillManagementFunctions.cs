@@ -7,14 +7,15 @@ public static class SkillManagementFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串。支持两种格式：1) 单功能 skill，包含 name、description、parameters、command 或 http 字段；2) 多子功能 skill，包含 name、description 和 subSkills 数组，每个子功能有独立的 name、description、parameters、command 或 http，子功能注册时名称为 父名_子名，如 office_word_read。参数格式：parameters 是数组，每项包含 {name, type, description, required}，例如 [{\"name\":\"city\",\"type\":\"string\",\"description\":\"城市名\",\"required\":true}]。在 command 和 http.url 中用 {{参数名}} 双大括号引用参数值，例如 command: \"curl wttr.in/{{city}}\"，http.url: \"https://api.example.com/{{id}}\"。注意必须用双大括号 {{}} 而非单大括号 {}。", new
+        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。支持两种格式：\n1) JSON skill：文件名.json，包含 name、description、parameters、command/http 字段，支持 subSkills 多子功能；\n2) SKILL.md 标准格式（兼容 OpenClaw / Claude Code）：目录型 skills/名称/SKILL.md，YAML frontmatter 含 name、description、allowed-tools、model，Markdown 正文作为指令，支持 $ARGUMENTS 参数替换。\n创建 SKILL.md 时 skill_name 为目录名，skill_content 为完整 SKILL.md 内容。\nJSON skill 中参数用 {{参数名}} 双大括号引用。", new
         {
             type = "object",
             properties = new
             {
                 action = new { type = "string", description = "操作类型：list、get、create、update、delete" },
-                skill_name = new { type = "string", description = "skill 文件名(不含.json后缀)，用于 get/create/update/delete 操作" },
-                skill_content = new { type = "string", description = "完整的 skill JSON 内容，用于 create 和 update 操作" }
+                skill_name = new { type = "string", description = "skill 名称（JSON 不含.json后缀，SKILL.md 为目录名），用于 get/create/update/delete 操作" },
+                skill_content = new { type = "string", description = "完整的 skill 内容（JSON 字符串或 SKILL.md Markdown），用于 create 和 update 操作" },
+                skill_type = new { type = "string", description = "skill 类型：json（默认）或 skill.md" }
             },
             required = new[] { "action" }
         }, async input =>
@@ -24,6 +25,7 @@ public static class SkillManagementFunctions
                 var action = input.TryGetProperty("action", out var a) ? a.GetString() ?? "list" : "list";
                 var skillName = input.TryGetProperty("skill_name", out var sn) ? sn.GetString() ?? "" : "";
                 var skillContent = input.TryGetProperty("skill_content", out var sc) ? sc.GetString() ?? "" : "";
+                var skillType = input.TryGetProperty("skill_type", out var st) ? st.GetString() ?? "json" : "json";
 
                 var dir = AppConstants.SkillsDirectory;
                 Directory.CreateDirectory(dir);
@@ -31,9 +33,9 @@ public static class SkillManagementFunctions
                 return action.ToLower() switch
                 {
                     "list" => ListSkills(dir),
-                    "get" => GetSkill(dir, skillName),
-                    "create" => CreateSkill(dir, skillName, skillContent),
-                    "update" => UpdateSkill(dir, skillName, skillContent),
+                    "get" => GetSkill(dir, skillName, skillType),
+                    "create" => CreateSkill(dir, skillName, skillContent, skillType),
+                    "update" => UpdateSkill(dir, skillName, skillContent, skillType),
                     "delete" => DeleteSkill(dir, skillName),
                     _ => "无效的操作类型，支持: list, get, create, update, delete"
                 };
@@ -120,26 +122,51 @@ public static class SkillManagementFunctions
         return JsonSerializer.Serialize(new { success = true, count = skills.Count, skills }, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    private static string GetSkill(string dir, string skillName)
+    private static string GetSkill(string dir, string skillName, string skillType)
     {
         if (string.IsNullOrWhiteSpace(skillName))
             return "错误: skill_name 参数不能为空";
 
+        // 先检查 SKILL.md 目录
+        var skillMdPath = Path.Combine(dir, skillName, "SKILL.md");
+        if (File.Exists(skillMdPath))
+        {
+            var content = File.ReadAllText(skillMdPath);
+            return JsonSerializer.Serialize(new { success = true, fileName = $"{skillName}/SKILL.md", content, skillType = "skill.md" }, new JsonSerializerOptions { WriteIndented = true });
+        }
+
+        // 再检查 JSON
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (!File.Exists(filePath))
             return $"错误: Skill '{skillName}' 不存在";
 
-        var content = File.ReadAllText(filePath);
-        return JsonSerializer.Serialize(new { success = true, fileName = $"{skillName}.json", content }, new JsonSerializerOptions { WriteIndented = true });
+        var jsonContent = File.ReadAllText(filePath);
+        return JsonSerializer.Serialize(new { success = true, fileName = $"{skillName}.json", content = jsonContent, skillType = "json" }, new JsonSerializerOptions { WriteIndented = true });
     }
 
-    private static string CreateSkill(string dir, string skillName, string skillContent)
+    private static string CreateSkill(string dir, string skillName, string skillContent, string skillType)
     {
         if (string.IsNullOrWhiteSpace(skillName))
             return "错误: skill_name 参数不能为空";
 
         if (string.IsNullOrWhiteSpace(skillContent))
             return "错误: skill_content 参数不能为空";
+
+        if (skillType == "skill.md")
+        {
+            var skillDir = Path.Combine(dir, skillName);
+            if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
+                return $"错误: Skill '{skillName}' 已存在，请使用 update 操作";
+
+            // 验证 SKILL.md 格式
+            var parsed = SkillMdParser.Parse(skillContent);
+            if (parsed == null)
+                return "错误: SKILL.md 格式无效，需要包含 YAML frontmatter (---) 和至少 name 字段";
+
+            Directory.CreateDirectory(skillDir);
+            File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), skillContent);
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) 创建成功" });
+        }
 
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (File.Exists(filePath))
@@ -157,13 +184,25 @@ public static class SkillManagementFunctions
         }
     }
 
-    private static string UpdateSkill(string dir, string skillName, string skillContent)
+    private static string UpdateSkill(string dir, string skillName, string skillContent, string skillType)
     {
         if (string.IsNullOrWhiteSpace(skillName))
             return "错误: skill_name 参数不能为空";
 
         if (string.IsNullOrWhiteSpace(skillContent))
             return "错误: skill_content 参数不能为空";
+
+        // 先检查 SKILL.md 目录
+        var skillMdPath = Path.Combine(dir, skillName, "SKILL.md");
+        if (File.Exists(skillMdPath))
+        {
+            var parsed = SkillMdParser.Parse(skillContent);
+            if (parsed == null)
+                return "错误: SKILL.md 格式无效，需要包含 YAML frontmatter (---) 和至少 name 字段";
+
+            File.WriteAllText(skillMdPath, skillContent);
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) 更新成功" });
+        }
 
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (!File.Exists(filePath))
@@ -185,6 +224,14 @@ public static class SkillManagementFunctions
     {
         if (string.IsNullOrWhiteSpace(skillName))
             return "错误: skill_name 参数不能为空";
+
+        // 先检查 SKILL.md 目录
+        var skillDir = Path.Combine(dir, skillName);
+        if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
+        {
+            Directory.Delete(skillDir, recursive: true);
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) 删除成功" });
+        }
 
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (!File.Exists(filePath))
