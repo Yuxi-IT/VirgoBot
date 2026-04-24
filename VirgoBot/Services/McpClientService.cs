@@ -28,16 +28,27 @@ public class StdioMcpTransport : IMcpTransport
 
     public async Task StartAsync()
     {
+        var command = _config.Command;
+        var args = _config.Args.ToList();
+
+        // On Windows, .cmd/.bat files (like npm, npx, pnpm) can't be started directly
+        // with UseShellExecute=false. Route through cmd.exe.
+        if (OperatingSystem.IsWindows() && !command.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            args.InsertRange(0, ["/c", command]);
+            command = "cmd.exe";
+        }
+
         var psi = new ProcessStartInfo
         {
-            FileName = _config.Command,
+            FileName = command,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        foreach (var arg in _config.Args) psi.ArgumentList.Add(arg);
+        foreach (var arg in args) psi.ArgumentList.Add(arg);
         foreach (var (key, value) in _config.Env) psi.Environment[key] = value;
 
         _process = Process.Start(psi) ?? throw new Exception("Failed to start process");
