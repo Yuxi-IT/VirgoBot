@@ -7,7 +7,7 @@ public static class SkillManagementFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串。支持两种格式：1) 单功能 skill，包含 name、description、parameters、command 或 http 字段；2) 多子功能 skill，包含 name、description 和 subSkills 数组，每个子功能有独立的 name、description、parameters、command 或 http，子功能注册时名称为 父名_子名，如 office_word_read。", new
+        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。skill_content 必须是完整的 JSON 字符串。支持两种格式：1) 单功能 skill，包含 name、description、parameters、command 或 http 字段；2) 多子功能 skill，包含 name、description 和 subSkills 数组，每个子功能有独立的 name、description、parameters、command 或 http，子功能注册时名称为 父名_子名，如 office_word_read。参数格式：parameters 是数组，每项包含 {name, type, description, required}，例如 [{\"name\":\"city\",\"type\":\"string\",\"description\":\"城市名\",\"required\":true}]。在 command 和 http.url 中用 {{参数名}} 双大括号引用参数值，例如 command: \"curl wttr.in/{{city}}\"，http.url: \"https://api.example.com/{{id}}\"。注意必须用双大括号 {{}} 而非单大括号 {}。", new
         {
             type = "object",
             properties = new
