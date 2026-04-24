@@ -300,7 +300,7 @@ public class HttpServerHost
             }
 
             // Forward to internal HttpListener
-            using var httpClient = new HttpClient();
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
             var requestLine = lines[0].Split(' ');
             if (requestLine.Length < 3) return;
 
