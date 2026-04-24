@@ -97,9 +97,18 @@ public class LLMService
         var message = choices[0].GetProperty("message");
         var assistantText = ExtractAssistantText(message);
 
+        // Extract reasoning_content (DeepSeek thinking mode)
+        string? reasoningContent = null;
+        if (message.TryGetProperty("reasoning_content", out var reasoningEl))
+        {
+            reasoningContent = ExtractTextContent(reasoningEl);
+            if (string.IsNullOrWhiteSpace(reasoningContent)) reasoningContent = null;
+        }
+
         try
         {
-            ColorLog.Debug("API", $"思考：{ExtractTextContent(message.GetProperty("reasoning_content"))}");
+            if (reasoningContent != null)
+                ColorLog.Debug("API", $"思考：{reasoningContent}");
             ColorLog.Debug("API", $"输出：{assistantText}");
             ColorLog.Debug("API", $"模型：{ExtractTextContent(doc.RootElement.GetProperty("model"))}");
         }
@@ -117,7 +126,7 @@ public class LLMService
             toolCalls.ValueKind == JsonValueKind.Array &&
             toolCalls.GetArrayLength() > 0)
         {
-            _memory.SaveMessage("assistant", BuildAssistantToolCallMemory(assistantText, toolCalls));
+            _memory.SaveMessage("assistant", BuildAssistantToolCallMemory(assistantText, toolCalls, reasoningContent));
 
             var toolCallItems = toolCalls.EnumerateArray().Select(tc =>
             {
@@ -184,7 +193,15 @@ public class LLMService
             return await AskAsync(null, onProgress, onSticker, onSwitchChat);
         }
 
-        _memory.SaveMessage("assistant", assistantText);
+        if (reasoningContent != null)
+        {
+            // Save as structured object to preserve reasoning_content
+            _memory.SaveMessage("assistant", new { text = assistantText, reasoning_content = reasoningContent });
+        }
+        else
+        {
+            _memory.SaveMessage("assistant", assistantText);
+        }
         _memory.ClearOldMessages();
         return assistantText;
     }
@@ -228,10 +245,36 @@ public class LLMService
                     }
                     else
                     {
-                        var text = ExtractTextContent(content);
+                        // Check for structured assistant message with reasoning_content
+                        string? reasoning = null;
+                        string text;
+                        if (content.ValueKind == JsonValueKind.Object &&
+                            content.TryGetProperty("reasoning_content", out var rcEl))
+                        {
+                            reasoning = ExtractTextContent(rcEl);
+                            text = content.TryGetProperty("text", out var tEl)
+                                ? ExtractTextContent(tEl) : string.Empty;
+                        }
+                        else
+                        {
+                            text = ExtractTextContent(content);
+                        }
+
                         if (!string.IsNullOrWhiteSpace(text))
                         {
-                            messages.Add(new { role = "assistant", content = text });
+                            if (!string.IsNullOrWhiteSpace(reasoning))
+                            {
+                                messages.Add(new
+                                {
+                                    role = "assistant",
+                                    content = text,
+                                    reasoning_content = reasoning
+                                });
+                            }
+                            else
+                            {
+                                messages.Add(new { role = "assistant", content = text });
+                            }
                         }
                     }
                     break;
@@ -379,6 +422,7 @@ public class LLMService
 
         var textParts = new List<string>();
         var toolCalls = new List<object>();
+        string? reasoningContent = null;
 
         foreach (var item in content.EnumerateArray())
         {
@@ -395,6 +439,10 @@ public class LLMService
                 {
                     textParts.Add(text);
                 }
+            }
+            else if (type == "reasoning" && item.TryGetProperty("content", out var rcValue))
+            {
+                reasoningContent = rcValue.GetString();
             }
             else if (type == "tool_use")
             {
@@ -422,19 +470,41 @@ public class LLMService
             return false;
         }
 
-        message = new
+        if (!string.IsNullOrWhiteSpace(reasoningContent))
         {
-            role = "assistant",
-            content = textParts.Count == 0 ? null : string.Join("\n", textParts),
-            tool_calls = toolCalls
-        };
+            message = new
+            {
+                role = "assistant",
+                content = textParts.Count == 0 ? null : string.Join("\n", textParts),
+                reasoning_content = reasoningContent,
+                tool_calls = toolCalls
+            };
+        }
+        else
+        {
+            message = new
+            {
+                role = "assistant",
+                content = textParts.Count == 0 ? null : string.Join("\n", textParts),
+                tool_calls = toolCalls
+            };
+        }
 
         return true;
     }
 
-    private static object BuildAssistantToolCallMemory(string assistantText, JsonElement toolCalls)
+    private static object BuildAssistantToolCallMemory(string assistantText, JsonElement toolCalls, string? reasoningContent)
     {
         var content = new List<object>();
+
+        if (!string.IsNullOrWhiteSpace(reasoningContent))
+        {
+            content.Add(new
+            {
+                type = "reasoning",
+                content = reasoningContent
+            });
+        }
 
         if (!string.IsNullOrWhiteSpace(assistantText))
         {

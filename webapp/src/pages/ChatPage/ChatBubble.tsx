@@ -81,6 +81,21 @@ export default function ChatBubble({ message, onDelete, showTime }: Props) {
       );
     }
 
+    // Detect error messages from assistant
+    if (!isUser && !isTool && message.content.startsWith('错误:')) {
+      const isReasoningError = message.content.includes('reasoning_content');
+      return (
+        <div>
+          <div className="whitespace-pre-wrap break-words text-danger">{message.content}</div>
+          {isReasoningError && (
+            <div className="mt-1 text-xs text-default-500">
+              该错误通常由旧会话的历史消息格式不兼容导致，请新建会话后重试。
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return <div className="whitespace-pre-wrap break-words">{isUser ? message.content.split('\n').slice(0, -1).join('\n') : message.content}</div>;
   };
 

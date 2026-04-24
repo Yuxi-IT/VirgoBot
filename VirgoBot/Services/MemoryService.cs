@@ -304,6 +304,9 @@ public class MemoryService : IDisposable
                 }
                 else if (content.ValueKind == JsonValueKind.String)
                     contentText = content.GetString() ?? "";
+                else if (content.ValueKind == JsonValueKind.Object &&
+                         content.TryGetProperty("text", out var objTextEl))
+                    contentText = objTextEl.GetString() ?? "";
                 else
                     contentText = contentJson;
             }

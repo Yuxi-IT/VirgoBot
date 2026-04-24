@@ -9,10 +9,11 @@ interface Props {
   onSwitch: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onModelsUpdated: (models: string[]) => void;
   switching: boolean;
 }
 
-export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, onDelete, switching }: Props) {
+export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, onDelete, onModelsUpdated, switching }: Props) {
   const [fetchingModels, setFetchingModels] = useState(false);
   const [models, setModels] = useState<string[]>(provider.models ?? []);
 
@@ -22,12 +23,25 @@ export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, on
       const res = await api.get<ModelsResponse>(`/api/providers/${encodeURIComponent(provider.name)}/models`);
       if (res.success) {
         setModels(res.data);
+        // Save models to backend config
+        await api.put(`/api/providers/${encodeURIComponent(provider.name)}`, { models: res.data });
+        onModelsUpdated(res.data);
         toast.success(`获取到 ${res.data.length} 个模型`);
       }
     } catch {
       toast.danger('获取模型列表失败');
     } finally {
       setFetchingModels(false);
+    }
+  };
+
+  const selectModel = async (model: string) => {
+    try {
+      await api.put(`/api/providers/${encodeURIComponent(provider.name)}`, { currentModel: model });
+      onModelsUpdated(models); // trigger parent refresh
+      toast.success(`已切换模型为 ${model}`);
+    } catch {
+      toast.danger('切换模型失败');
     }
   };
 
@@ -70,7 +84,15 @@ export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, on
         {models.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1">
             {models.slice(0, 20).map(m => (
-              <Chip key={m} size="sm">{m}</Chip>
+              <Chip
+                key={m}
+                size="sm"
+                color={m === provider.currentModel ? 'accent' : undefined}
+                className="cursor-pointer"
+                onClick={() => selectModel(m)}
+              >
+                {m}
+              </Chip>
             ))}
             {models.length > 20 && <Chip size="sm">+{models.length - 20}</Chip>}
           </div>

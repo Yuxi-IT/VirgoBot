@@ -4,7 +4,7 @@ import { PRESET_PROVIDERS } from './types';
 
 interface Props {
   isOpen: boolean;
-  editingProvider?: { name: string; apiKey: string; baseUrl: string; currentModel: string; protocol: string } | null;
+  editingProvider?: { name: string; apiKey: string; baseUrl: string; currentModel: string; models?: string[]; protocol: string } | null;
   onClose: () => void;
   onSave: (data: { name: string; apiKey: string; baseUrl: string; currentModel: string; protocol: string }) => void;
   saving: boolean;
@@ -17,6 +17,8 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
   const [baseUrl, setBaseUrl] = useState('');
   const [currentModel, setCurrentModel] = useState('');
   const [protocol, setProtocol] = useState('openai');
+
+  const models = editingProvider?.models ?? [];
 
   useEffect(() => {
     if (isOpen) {
@@ -83,10 +85,30 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
                 <Label>Base URL</Label>
                 <Input />
               </TextField>
-              <TextField value={currentModel} onChange={setCurrentModel}>
-                <Label>模型</Label>
-                <Input placeholder="例如 gpt-4o" />
-              </TextField>
+              {isEdit && models.length > 0 ? (
+                <div>
+                  <Label>模型</Label>
+                  <div className="mt-1">
+                    <Select selectedKey={currentModel} onSelectionChange={(key) => setCurrentModel(String(key))}>
+                      <Select.Trigger>
+                        <Select.Value />
+                      </Select.Trigger>
+                      <Select.Popover className="max-h-60">
+                        <ListBox>
+                          {models.map(m => (
+                            <ListBox.Item key={m} id={m} textValue={m}>{m}</ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  </div>
+                </div>
+              ) : (
+                <TextField value={currentModel} onChange={setCurrentModel}>
+                  <Label>模型</Label>
+                  <Input placeholder="例如 gpt-4o" />
+                </TextField>
+              )}
               <div>
                 <Label>协议</Label>
                 <div className="mt-1">

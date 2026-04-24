@@ -96,6 +96,7 @@ function ProvidersPage() {
               onSwitch={() => handleSwitch(p.name)}
               onEdit={() => setEditingProvider(p)}
               onDelete={() => handleDelete(p.name)}
+              onModelsUpdated={() => loadProviders()}
             />
           ))}
           {providers.length === 0 && (
