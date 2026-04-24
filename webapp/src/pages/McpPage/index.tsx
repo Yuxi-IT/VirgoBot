@@ -302,7 +302,7 @@ function McpPage() {
                     <Label>{t('mcp.transport')}</Label>
                     <div className="flex gap-2 mt-2">
                       <Button size="sm" variant={formTransport === 'stdio' ? 'primary' : 'secondary'} onPress={() => setFormTransport('stdio')}>
-                        stdio
+                        Stdio
                       </Button>
                       <Button size="sm" variant={formTransport === 'sse' ? 'primary' : 'secondary'} onPress={() => setFormTransport('sse')}>
                         Streamable HTTP
@@ -314,12 +314,15 @@ function McpPage() {
                     <>
                       <TextField value={formCommand} onChange={setFormCommand}>
                         <Label>{t('mcp.command')}</Label>
+                        <br/>
                         <Input placeholder="npx" />
                       </TextField>
                       <div>
                         <Label>{t('mcp.args')}</Label>
+                        <br/>
                         <TextArea
                           value={formArgsText}
+                          fullWidth
                           onChange={(e) => setFormArgsText(e.target.value)}
                           placeholder={t('mcp.argsHint')}
                           rows={2}
@@ -327,8 +330,10 @@ function McpPage() {
                       </div>
                       <div>
                         <Label>{t('mcp.env')}</Label>
+                        <br/>
                         <TextArea
                           value={formEnvText}
+                          fullWidth
                           onChange={(e) => setFormEnvText(e.target.value)}
                           placeholder={t('mcp.envHint')}
                           rows={2}

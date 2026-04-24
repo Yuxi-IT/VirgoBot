@@ -227,7 +227,7 @@ function ChatPage() {
             size='lg'
             isIconOnly
           >
-            {sidebarOpen ? <ArrowRight /> : <ArrowLeft />}
+            {sidebarOpen ? <ArrowLeft /> : <ArrowRight />}
           </Button>
 
           <Tabs selectedKey={activeTab} onSelectionChange={(key) => setActiveTab(String(key))} className="flex-1 min-h-0 flex flex-col">
