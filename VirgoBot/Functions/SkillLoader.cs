@@ -222,10 +222,10 @@ public static class SkillLoader
             var command = node.GetProperty("command").GetString()
                 ?? throw new InvalidOperationException("Skill 缺少 command 字段");
 
-            return new FunctionDefinition(name, description, inputSchema, input =>
+            return new FunctionDefinition(name, description, inputSchema, async input =>
             {
                 var resolvedCommand = ResolveCommand(command, parameters, input);
-                return Task.FromResult(ExecuteShell(resolvedCommand));
+                return await ExecuteShellAsync(resolvedCommand);
             });
         }
     }
@@ -362,11 +362,14 @@ public static class SkillLoader
         }
     }
 
-    private static string ExecuteShell(string command)
+    private static async Task<string> ExecuteShellAsync(string command)
     {
         try
         {
             var isWindows = OperatingSystem.IsWindows();
+            var outputBuffer = new StringBuilder();
+            var bufferLock = new object();
+
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -376,22 +379,69 @@ public static class SkillLoader
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                },
+                EnableRaisingEvents = true
+            };
+
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data == null) return;
+                lock (bufferLock) { outputBuffer.AppendLine(e.Data); }
+            };
+
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data == null) return;
+                lock (bufferLock) { outputBuffer.AppendLine("[stderr] " + e.Data); }
             };
 
             process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
-            var output = process.StandardOutput.ReadToEnd();
-            var error = process.StandardError.ReadToEnd();
+            var maxWaitMs = CommandTimeoutSeconds * 1000;
+            var idleTimeoutMs = 3000;
+            var stopwatch = Stopwatch.StartNew();
+            var lastLength = 0;
+            var idleStart = stopwatch.ElapsedMilliseconds;
 
-            if (!process.WaitForExit(CommandTimeoutSeconds * 1000))
+            while (stopwatch.ElapsedMilliseconds < maxWaitMs)
             {
-                process.Kill(true);
-                return $"命令执行超时({CommandTimeoutSeconds}秒)";
+                await Task.Delay(100);
+
+                if (process.HasExited)
+                {
+                    await Task.Delay(200);
+                    break;
+                }
+
+                int currentLength;
+                lock (bufferLock) { currentLength = outputBuffer.Length; }
+
+                if (currentLength != lastLength)
+                {
+                    lastLength = currentLength;
+                    idleStart = stopwatch.ElapsedMilliseconds;
+                }
+                else if (currentLength > 0 && stopwatch.ElapsedMilliseconds - idleStart >= idleTimeoutMs)
+                {
+                    break;
+                }
             }
 
-            return string.IsNullOrEmpty(error) ? output : $"{output}\n错误: {error}";
+            if (!process.HasExited)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+            }
+
+            string result;
+            lock (bufferLock) { result = outputBuffer.ToString(); }
+
+            process.Dispose();
+            return string.IsNullOrWhiteSpace(result) ? "(无输出)" : result;
         }
         catch (Exception ex)
         {

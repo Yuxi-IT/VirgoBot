@@ -188,6 +188,9 @@ public class LLMService
             var results = await Task.WhenAll(tasks);
             totalSw.Stop();
 
+            if (totalSw.ElapsedMilliseconds > 120_000)
+                ColorLog.Warning("TOOL", $"工具执行总耗时过长: {totalSw.ElapsedMilliseconds}ms");
+
             foreach (var r in results)
             {
                 _memory.SaveMessage("tool", new
