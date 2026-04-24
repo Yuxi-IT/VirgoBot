@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Modal, Button, TextField, Label, Input, Select, ListBox, Spinner } from '@heroui/react';
+import { useI18n } from '../../i18n';
 import { PRESET_PROVIDERS } from './types';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ProviderFormModal({ isOpen, editingProvider, onClose, onSave, saving }: Props) {
+  const { t } = useI18n();
   const isEdit = !!editingProvider;
   const [name, setName] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -50,13 +52,13 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
       <Modal.Container>
         <Modal.Dialog>
           <Modal.Header>
-            <Modal.Heading>{isEdit ? '编辑供应商' : '新建供应商'}</Modal.Heading>
+            <Modal.Heading>{isEdit ? t('providers.editProvider') : t('providers.addProvider')}</Modal.Heading>
           </Modal.Header>
           <Modal.Body>
             <div className="space-y-4">
               {!isEdit && (
                 <div>
-                  <Label>预设模板</Label>
+                  <Label>{t('providers.preset')}</Label>
                   <div className="mt-1">
                     <Select onSelectionChange={(key) => handlePresetChange(String(key))}>
                       <Select.Trigger>
@@ -74,12 +76,12 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
                 </div>
               )}
               <TextField value={name} onChange={setName} isDisabled={isEdit} isRequired>
-                <Label>名称</Label>
+                <Label>{t('providers.name')}</Label>
                 <Input />
               </TextField>
               <TextField value={apiKey} onChange={setApiKey}>
                 <Label>API Key</Label>
-                <Input type="password" placeholder={isEdit ? '留空则不修改' : '输入 API Key'} />
+                <Input type="password" placeholder={isEdit ? t('providers.apiKeyUnchanged') : t('providers.apiKeyPlaceholder')} />
               </TextField>
               <TextField value={baseUrl} onChange={setBaseUrl} isRequired>
                 <Label>Base URL</Label>
@@ -87,7 +89,7 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
               </TextField>
               {isEdit && models.length > 0 ? (
                 <div>
-                  <Label>模型</Label>
+                  <Label>{t('providers.model')}</Label>
                   <div className="mt-1">
                     <Select selectedKey={currentModel} onSelectionChange={(key) => setCurrentModel(String(key))}>
                       <Select.Trigger>
@@ -105,12 +107,12 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
                 </div>
               ) : (
                 <TextField value={currentModel} onChange={setCurrentModel}>
-                  <Label>模型</Label>
+                  <Label>{t('providers.model')}</Label>
                   <Input placeholder="例如 gpt-4o" />
                 </TextField>
               )}
               <div>
-                <Label>协议</Label>
+                <Label>{t('providers.protocol')}</Label>
                 <div className="mt-1">
                   <Select selectedKey={protocol} onSelectionChange={(key) => setProtocol(String(key))}>
                     <Select.Trigger>
@@ -129,10 +131,10 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
             </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onPress={onClose} isDisabled={saving}>取消</Button>
+            <Button variant="secondary" onPress={onClose} isDisabled={saving}>{t('common.cancel')}</Button>
             <Button onPress={handleSubmit} isDisabled={saving || !name.trim()}>
               {saving ? <Spinner size="sm" className="mr-2" /> : null}
-              {isEdit ? '更新' : '创建'}
+              {isEdit ? t('providers.update') : t('providers.create')}
             </Button>
           </Modal.Footer>
         </Modal.Dialog>

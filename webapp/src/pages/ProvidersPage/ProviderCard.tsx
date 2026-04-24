@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, Button, Chip, Spinner, toast } from '@heroui/react';
+import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import type { ProviderInfo, ModelsResponse } from './types';
 
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, onDelete, onModelsUpdated, switching }: Props) {
+  const { t } = useI18n();
   const [fetchingModels, setFetchingModels] = useState(false);
   const [models, setModels] = useState<string[]>(provider.models ?? []);
 
@@ -23,13 +25,12 @@ export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, on
       const res = await api.get<ModelsResponse>(`/api/providers/${encodeURIComponent(provider.name)}/models`);
       if (res.success) {
         setModels(res.data);
-        // Save models to backend config
         await api.put(`/api/providers/${encodeURIComponent(provider.name)}`, { models: res.data });
         onModelsUpdated(res.data);
-        toast.success(`获取到 ${res.data.length} 个模型`);
+        toast.success(t('providers.fetchModelsSuccess').replace('{n}', String(res.data.length)));
       }
     } catch {
-      toast.danger('获取模型列表失败');
+      toast.danger(t('providers.fetchModelsFailed'));
     } finally {
       setFetchingModels(false);
     }
@@ -38,10 +39,10 @@ export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, on
   const selectModel = async (model: string) => {
     try {
       await api.put(`/api/providers/${encodeURIComponent(provider.name)}`, { currentModel: model });
-      onModelsUpdated(models); // trigger parent refresh
-      toast.success(`已切换模型为 ${model}`);
+      onModelsUpdated(models);
+      toast.success(t('providers.modelSwitchSuccess').replace('{name}', model));
     } catch {
-      toast.danger('切换模型失败');
+      toast.danger(t('providers.modelSwitchFailed'));
     }
   };
 
@@ -52,33 +53,33 @@ export default function ProviderCard({ provider, isCurrent, onSwitch, onEdit, on
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold">{provider.name}</span>
             <Chip size="sm">{provider.protocol}</Chip>
-            {isCurrent && <Chip size="sm" color="accent">当前</Chip>}
+            {isCurrent && <Chip size="sm" color="accent">{t('providers.current')}</Chip>}
           </div>
           <div className="flex gap-2">
             {!isCurrent && (
               <Button size="sm" onPress={onSwitch} isDisabled={switching}>
                 {switching ? <Spinner size="sm" className="mr-1" /> : null}
-                切换
+                {t('providers.switch')}
               </Button>
             )}
-            <Button size="sm" variant="secondary" onPress={onEdit}>编辑</Button>
+            <Button size="sm" variant="secondary" onPress={onEdit}>{t('common.edit')}</Button>
             {!isCurrent && (
-              <Button size="sm" variant="danger" onPress={onDelete}>删除</Button>
+              <Button size="sm" variant="danger" onPress={onDelete}>{t('common.delete')}</Button>
             )}
           </div>
         </div>
         <div className="mt-2 text-sm text-default-500 space-y-1">
           <div>Base URL: {provider.baseUrl}</div>
           <div>API Key: {provider.apiKey}</div>
-          <div>模型: {provider.currentModel || '未设置'}</div>
+          <div>{t('providers.model')}: {provider.currentModel || t('providers.notSet')}</div>
         </div>
         <div className="mt-3 flex items-center gap-2">
           <Button size="sm" variant="secondary" onPress={fetchModels} isDisabled={fetchingModels}>
             {fetchingModels ? <Spinner size="sm" className="mr-1" /> : null}
-            获取模型列表
+            {t('providers.fetchModels')}
           </Button>
           {models.length > 0 && (
-            <span className="text-xs text-default-400">{models.length} 个模型</span>
+            <span className="text-xs text-default-400">{t('providers.modelCount').replace('{n}', String(models.length))}</span>
           )}
         </div>
         {models.length > 0 && (
