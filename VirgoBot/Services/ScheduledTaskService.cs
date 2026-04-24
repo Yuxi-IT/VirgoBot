@@ -24,7 +24,6 @@ public class ScheduledTaskService
         Directory.CreateDirectory(configDir);
         _tasksFilePath = Path.Combine(configDir, TasksFileName);
         LoadTasks();
-        EnsureDefaultTasks();
         StartAllEnabledTasks();
     }
 
@@ -392,7 +391,7 @@ public class ScheduledTaskService
 
         try
         {
-            var response = await _llmService.AskAsync($"系统消息：定时任务触发\n内容：{task.TextInstruction}");
+            var response = await _llmService.AskAsync($"系统消息：定时任务触发\n内容：{task.TextInstruction}", isSystemTask: true);
             ColorLog.Success("TASK", $"AI 响应: {response.Substring(0, Math.Min(200, response.Length))}");
         }
         catch (Exception ex)
@@ -426,8 +425,8 @@ public class ScheduledTaskService
                 }
             }
 
-            if (tasksToExecute.Count > 0)
-                SaveTasks();
+            // 每次计数变化都持久化，避免重启丢失进度
+            SaveTasks();
         }
 
         // 在锁外异步执行任务

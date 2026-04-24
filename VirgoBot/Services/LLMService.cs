@@ -17,6 +17,14 @@ public class LLMService
     private readonly int _maxTokens;
     private readonly TokenStatsService? _tokenStats;
     private ScheduledTaskService? _scheduledTaskService;
+    private int _userMessageCount;
+    private volatile bool _isSummarizing;
+    private const int UserProfileSummaryInterval = 10;
+    private const string UserProfileSummaryInstruction =
+        "系统消息：用户画像定时总结触发\n" +
+        "请根据最近的对话内容，总结用户的性格特点、说话方式、最近在做的事情，以及你对用户的评价。" +
+        "用简洁的条目形式写出来，然后调用 append_soul 工具将总结保存到 Soul 中。" +
+        "注意：不要重复已有的 Soul 内容，只补充新的观察。如果没有新的发现则不需要保存。";
 
     public LLMService(
         HttpClient http,
@@ -47,12 +55,44 @@ public class LLMService
         string? prompt,
         Action<string>? onProgress = null,
         Func<string, Task>? onSticker = null,
-        Func<string, Task>? onSwitchChat = null)
+        Func<string, Task>? onSwitchChat = null,
+        bool isSystemTask = false)
     {
         if (!string.IsNullOrWhiteSpace(prompt))
         {
-            _memory.SaveMessage("user", $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}");
-            _scheduledTaskService?.NotifyMessage("user");
+            if (isSystemTask)
+            {
+                _memory.SaveMessage("user", prompt);
+            }
+            else
+            {
+                _memory.SaveMessage("user", $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}");
+                _scheduledTaskService?.NotifyMessage("user");
+
+                _userMessageCount++;
+                if (_userMessageCount >= UserProfileSummaryInterval && !_isSummarizing)
+                {
+                    _userMessageCount = 0;
+                    _ = Task.Run(async () =>
+                    {
+                        _isSummarizing = true;
+                        try
+                        {
+                            ColorLog.Info("TASK", "触发用户画像总结");
+                            var result = await AskAsync(UserProfileSummaryInstruction, isSystemTask: true);
+                            ColorLog.Success("TASK", $"用户画像总结完成: {Truncate(result, 200)}");
+                        }
+                        catch (Exception ex)
+                        {
+                            ColorLog.Error("TASK", $"用户画像总结失败: {ex.Message}");
+                        }
+                        finally
+                        {
+                            _isSummarizing = false;
+                        }
+                    });
+                }
+            }
         }
 
         var memoryMessages = _memory.LoadMessages();
