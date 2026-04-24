@@ -19,6 +19,7 @@ public class HttpServerHost
     private readonly MemoryService _memoryService;
     private readonly LogService _logService;
     private readonly ILinkLoginService _iLinkLoginService;
+    private readonly RouteRegistry _routes = new();
 
     private readonly ContactApiHandler _contactApiHandler;
     private readonly ConfigApiHandler _configApiHandler;
@@ -62,6 +63,114 @@ public class HttpServerHost
         _voiceApiHandler = new VoiceApiHandler();
         _providerApiHandler = new ProviderApiHandler(gateway);
         _mcpApiHandler = new McpApiHandler(gateway);
+
+        RegisterRoutes();
+    }
+
+    /// <summary>Wraps a handler that only needs HttpListenerContext (ignores routeParams).</summary>
+    private static Func<HttpListenerContext, Dictionary<string, string>, Task> R(Func<HttpListenerContext, Task> handler)
+        => (ctx, _) => handler(ctx);
+
+    private void RegisterRoutes()
+    {
+        // Chat
+        _routes.Register("POST", "/chat", R(HandleChatRequest));
+
+        // Status / Messages / Logs
+        _routes.Register("GET", "/api/status", R(_statusApiHandler.HandleStatusRequest));
+        _routes.Register("GET", "/api/token-stats", R(_statusApiHandler.HandleTokenStatsRequest));
+        _routes.Register("GET", "/api/messages", R(_statusApiHandler.HandleGetMessagesRequest));
+        _routes.Register("DELETE", "/api/messages/{id}", R(_statusApiHandler.HandleDeleteMessageRequest));
+        _routes.Register("GET", "/api/logs", R(_statusApiHandler.HandleGetLogsRequest));
+        _routes.Register("DELETE", "/api/logs", R(_statusApiHandler.HandleClearLogsRequest));
+
+        // Contacts
+        _routes.Register("GET", "/api/contacts", R(_contactApiHandler.HandleGetContactsRequest));
+        _routes.Register("POST", "/api/contacts", R(_contactApiHandler.HandleAddContactRequest));
+        _routes.Register("PUT", "/api/contacts/{id}", R(_contactApiHandler.HandleUpdateContactRequest));
+        _routes.Register("DELETE", "/api/contacts/{id}", R(_contactApiHandler.HandleDeleteContactRequest));
+
+        // Config
+        _routes.Register("GET", "/api/config", R(_configApiHandler.HandleGetConfigRequest));
+        _routes.Register("PUT", "/api/config", R(_configApiHandler.HandleUpdateConfigRequest));
+        _routes.Register("GET", "/api/config/system-memory", R(_configApiHandler.HandleGetSystemMemoryRequest));
+        _routes.Register("PUT", "/api/config/system-memory", R(_configApiHandler.HandleUpdateSystemMemoryRequest));
+        _routes.Register("GET", "/api/config/soul", R(_configApiHandler.HandleGetSoulRequest));
+        _routes.Register("PUT", "/api/config/soul", R(_configApiHandler.HandleUpdateSoulRequest));
+        _routes.Register("GET", "/api/config/rule", R(_configApiHandler.HandleGetRuleRequest));
+        _routes.Register("PUT", "/api/config/rule", R(_configApiHandler.HandleUpdateRuleRequest));
+        _routes.Register("PUT", "/api/config/agent", R(_agentApiHandler.HandleSwitchAgentRequest));
+        _routes.Register("GET", "/api/config/channels", R(_channelApiHandler.HandleGetChannelsConfigRequest));
+        _routes.Register("PUT", "/api/config/channels", R(_channelApiHandler.HandleUpdateChannelsConfigRequest));
+
+        // Skills (specific routes before parameterized)
+        _routes.Register("GET", "/api/skills", R(_skillApiHandler.HandleGetSkillsRequest));
+        _routes.Register("POST", "/api/skills", R(_skillApiHandler.HandleCreateSkillRequest));
+        _routes.Register("POST", "/api/skills/import", R(_skillApiHandler.HandleImportSkillZipRequest));
+        _routes.Register("POST", "/api/skills/import-url", R(_skillApiHandler.HandleImportSkillZipFromUrlRequest));
+        _routes.Register("GET", "/api/skills/{name}", R(_skillApiHandler.HandleGetSkillRequest));
+        _routes.Register("PUT", "/api/skills/{name}", R(_skillApiHandler.HandleUpdateSkillRequest));
+        _routes.Register("DELETE", "/api/skills/{name}", R(_skillApiHandler.HandleDeleteSkillRequest));
+
+        // Tasks (specific routes before parameterized)
+        _routes.Register("GET", "/api/tasks", R(_taskApiHandler.HandleGetTasksRequest));
+        _routes.Register("POST", "/api/tasks", R(_taskApiHandler.HandleCreateTaskRequest));
+        _routes.Register("POST", "/api/tasks/{id}/toggle", R(_taskApiHandler.HandleToggleTaskRequest));
+        _routes.Register("GET", "/api/tasks/{id}", R(_taskApiHandler.HandleGetTaskRequest));
+        _routes.Register("PUT", "/api/tasks/{id}", R(_taskApiHandler.HandleUpdateTaskRequest));
+        _routes.Register("DELETE", "/api/tasks/{id}", R(_taskApiHandler.HandleDeleteTaskRequest));
+
+        // Gateway
+        _routes.Register("POST", "/api/gateway/restart", R(_statusApiHandler.HandleGatewayRestartRequest));
+        _routes.Register("GET", "/api/gateway/status", R(_statusApiHandler.HandleGatewayStatusRequest));
+
+        // Agents (specific routes before parameterized)
+        _routes.Register("GET", "/api/agents", R(_agentApiHandler.HandleGetAgentsRequest));
+        _routes.Register("POST", "/api/agents", R(_agentApiHandler.HandleCreateAgentRequest));
+        _routes.Register("POST", "/api/agents/generate", R(_agentApiHandler.HandleGenerateAgentRequest));
+        _routes.Register("GET", "/api/agents/{name}", R(_agentApiHandler.HandleGetAgentRequest));
+        _routes.Register("PUT", "/api/agents/{name}", R(_agentApiHandler.HandleUpdateAgentRequest));
+        _routes.Register("DELETE", "/api/agents/{name}", R(_agentApiHandler.HandleDeleteAgentRequest));
+
+        // iLink
+        _routes.Register("POST", "/api/ilink/login/start", R(_channelApiHandler.HandleStartILinkLoginRequest));
+        _routes.Register("GET", "/api/ilink/login/status", R(_channelApiHandler.HandleGetILinkLoginStatusRequest));
+
+        // Soul
+        _routes.Register("GET", "/api/soul", R(_agentApiHandler.HandleGetSoulEntriesRequest));
+        _routes.Register("POST", "/api/soul", R(_agentApiHandler.HandleAddSoulEntryRequest));
+        _routes.Register("PUT", "/api/soul/{id}", R(_agentApiHandler.HandleUpdateSoulEntryRequest));
+        _routes.Register("DELETE", "/api/soul/{id}", R(_agentApiHandler.HandleDeleteSoulEntryRequest));
+
+        // Sessions (specific routes before parameterized)
+        _routes.Register("GET", "/api/sessions", R(_sessionApiHandler.HandleGetSessionsRequest));
+        _routes.Register("POST", "/api/sessions", R(_sessionApiHandler.HandleCreateSessionRequest));
+        _routes.Register("PUT", "/api/sessions/switch", R(_sessionApiHandler.HandleSwitchSessionRequest));
+        _routes.Register("PUT", "/api/sessions/rename", R(_sessionApiHandler.HandleRenameSessionRequest));
+        _routes.Register("POST", "/api/sessions/generate-name", R(_sessionApiHandler.HandleGenerateSessionNameRequest));
+        _routes.Register("DELETE", "/api/sessions/{name}", R(_sessionApiHandler.HandleDeleteSessionRequest));
+
+        // Voice
+        _routes.Register("GET", "/api/voice/config", R(_voiceApiHandler.HandleGetConfigRequest));
+        _routes.Register("PUT", "/api/voice/config", R(_voiceApiHandler.HandleUpdateConfigRequest));
+        _routes.Register("POST", "/api/voice/asr", R(_voiceApiHandler.HandleAsrRequest));
+        _routes.Register("POST", "/api/voice/tts", R(_voiceApiHandler.HandleTtsRequest));
+
+        // Providers (specific routes before parameterized)
+        _routes.Register("GET", "/api/providers", R(_providerApiHandler.HandleGetProvidersRequest));
+        _routes.Register("POST", "/api/providers", R(_providerApiHandler.HandleCreateProviderRequest));
+        _routes.Register("PUT", "/api/providers/current", R(_providerApiHandler.HandleSwitchCurrentProviderRequest));
+        _routes.Register("GET", "/api/providers/{name}/models", R(_providerApiHandler.HandleGetModelsRequest));
+        _routes.Register("PUT", "/api/providers/{name}", R(_providerApiHandler.HandleUpdateProviderRequest));
+        _routes.Register("DELETE", "/api/providers/{name}", R(_providerApiHandler.HandleDeleteProviderRequest));
+
+        // MCP (specific routes before parameterized)
+        _routes.Register("GET", "/api/mcp/servers", R(_mcpApiHandler.HandleGetServersRequest));
+        _routes.Register("POST", "/api/mcp/servers", R(_mcpApiHandler.HandleCreateServerRequest));
+        _routes.Register("POST", "/api/mcp/servers/{name}/restart", R(_mcpApiHandler.HandleRestartServerRequest));
+        _routes.Register("GET", "/api/mcp/servers/{name}/tools", R(_mcpApiHandler.HandleGetToolsRequest));
+        _routes.Register("PUT", "/api/mcp/servers/{name}", R(_mcpApiHandler.HandleUpdateServerRequest));
+        _routes.Register("DELETE", "/api/mcp/servers/{name}", R(_mcpApiHandler.HandleDeleteServerRequest));
     }
 
     public async Task StartAsync()
@@ -387,84 +496,16 @@ public class HttpServerHost
         ctx.Response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         ctx.Response.Headers.Add("Access-Control-Allow-Headers", "*");
 
-        var path = ctx.Request.Url?.AbsolutePath;
+        var path = ctx.Request.Url?.AbsolutePath ?? "/";
         var method = ctx.Request.HttpMethod;
 
         if (method == "OPTIONS") { ctx.Response.StatusCode = 200; return; }
 
-        if (path == "/chat" && method == "POST") { await HandleChatRequest(ctx); return; }
-        if (path == "/api/status" && method == "GET") { await _statusApiHandler.HandleStatusRequest(ctx); return; }
-        if (path == "/api/token-stats" && method == "GET") { await _statusApiHandler.HandleTokenStatsRequest(ctx); return; }
-        if (path == "/api/messages" && method == "GET") { await _statusApiHandler.HandleGetMessagesRequest(ctx); return; }
-        if (path == "/api/contacts" && method == "GET") { await _contactApiHandler.HandleGetContactsRequest(ctx); return; }
-        if (path == "/api/contacts" && method == "POST") { await _contactApiHandler.HandleAddContactRequest(ctx); return; }
-        if (path?.StartsWith("/api/contacts/") == true && method == "PUT") { await _contactApiHandler.HandleUpdateContactRequest(ctx); return; }
-        if (path?.StartsWith("/api/contacts/") == true && method == "DELETE") { await _contactApiHandler.HandleDeleteContactRequest(ctx); return; }
-        if (path == "/api/config" && method == "GET") { await _configApiHandler.HandleGetConfigRequest(ctx); return; }
-        if (path == "/api/config" && method == "PUT") { await _configApiHandler.HandleUpdateConfigRequest(ctx); return; }
-        if (path == "/api/config/system-memory" && method == "GET") { await _configApiHandler.HandleGetSystemMemoryRequest(ctx); return; }
-        if (path == "/api/config/system-memory" && method == "PUT") { await _configApiHandler.HandleUpdateSystemMemoryRequest(ctx); return; }
-        if (path == "/api/config/soul" && method == "GET") { await _configApiHandler.HandleGetSoulRequest(ctx); return; }
-        if (path == "/api/config/soul" && method == "PUT") { await _configApiHandler.HandleUpdateSoulRequest(ctx); return; }
-        if (path == "/api/config/rule" && method == "GET") { await _configApiHandler.HandleGetRuleRequest(ctx); return; }
-        if (path == "/api/config/rule" && method == "PUT") { await _configApiHandler.HandleUpdateRuleRequest(ctx); return; }
-        if (path == "/api/logs" && method == "GET") { await _statusApiHandler.HandleGetLogsRequest(ctx); return; }
-        if (path == "/api/logs" && method == "DELETE") { await _statusApiHandler.HandleClearLogsRequest(ctx); return; }
-        if (path == "/api/skills" && method == "GET") { await _skillApiHandler.HandleGetSkillsRequest(ctx); return; }
-        if (path == "/api/skills" && method == "POST") { await _skillApiHandler.HandleCreateSkillRequest(ctx); return; }
-        if (path == "/api/skills/import" && method == "POST") { await _skillApiHandler.HandleImportSkillZipRequest(ctx); return; }
-        if (path == "/api/skills/import-url" && method == "POST") { await _skillApiHandler.HandleImportSkillZipFromUrlRequest(ctx); return; }
-        if (path?.StartsWith("/api/skills/") == true && method == "GET") { await _skillApiHandler.HandleGetSkillRequest(ctx); return; }
-        if (path?.StartsWith("/api/skills/") == true && method == "PUT") { await _skillApiHandler.HandleUpdateSkillRequest(ctx); return; }
-        if (path?.StartsWith("/api/skills/") == true && method == "DELETE") { await _skillApiHandler.HandleDeleteSkillRequest(ctx); return; }
-        if (path == "/api/tasks" && method == "GET") { await _taskApiHandler.HandleGetTasksRequest(ctx); return; }
-        if (path == "/api/tasks" && method == "POST") { await _taskApiHandler.HandleCreateTaskRequest(ctx); return; }
-        if (path?.StartsWith("/api/tasks/") == true && path.EndsWith("/toggle") && method == "POST") { await _taskApiHandler.HandleToggleTaskRequest(ctx); return; }
-        if (path?.StartsWith("/api/tasks/") == true && method == "GET") { await _taskApiHandler.HandleGetTaskRequest(ctx); return; }
-        if (path?.StartsWith("/api/tasks/") == true && method == "PUT") { await _taskApiHandler.HandleUpdateTaskRequest(ctx); return; }
-        if (path?.StartsWith("/api/tasks/") == true && method == "DELETE") { await _taskApiHandler.HandleDeleteTaskRequest(ctx); return; }
-        if (path == "/api/gateway/restart" && method == "POST") { await _statusApiHandler.HandleGatewayRestartRequest(ctx); return; }
-        if (path == "/api/gateway/status" && method == "GET") { await _statusApiHandler.HandleGatewayStatusRequest(ctx); return; }
-        if (path == "/api/agents" && method == "GET") { await _agentApiHandler.HandleGetAgentsRequest(ctx); return; }
-        if (path == "/api/agents" && method == "POST") { await _agentApiHandler.HandleCreateAgentRequest(ctx); return; }
-        if (path == "/api/agents/generate" && method == "POST") { await _agentApiHandler.HandleGenerateAgentRequest(ctx); return; }
-        if (path?.StartsWith("/api/agents/") == true && method == "GET") { await _agentApiHandler.HandleGetAgentRequest(ctx); return; }
-        if (path?.StartsWith("/api/agents/") == true && method == "PUT") { await _agentApiHandler.HandleUpdateAgentRequest(ctx); return; }
-        if (path?.StartsWith("/api/agents/") == true && method == "DELETE") { await _agentApiHandler.HandleDeleteAgentRequest(ctx); return; }
-        if (path == "/api/config/agent" && method == "PUT") { await _agentApiHandler.HandleSwitchAgentRequest(ctx); return; }
-        if (path == "/api/ilink/login/start" && method == "POST") { await _channelApiHandler.HandleStartILinkLoginRequest(ctx); return; }
-        if (path == "/api/ilink/login/status" && method == "GET") { await _channelApiHandler.HandleGetILinkLoginStatusRequest(ctx); return; }
-        if (path == "/api/soul" && method == "GET") { await _agentApiHandler.HandleGetSoulEntriesRequest(ctx); return; }
-        if (path == "/api/soul" && method == "POST") { await _agentApiHandler.HandleAddSoulEntryRequest(ctx); return; }
-        if (path?.StartsWith("/api/soul/") == true && method == "PUT") { await _agentApiHandler.HandleUpdateSoulEntryRequest(ctx); return; }
-        if (path?.StartsWith("/api/soul/") == true && method == "DELETE") { await _agentApiHandler.HandleDeleteSoulEntryRequest(ctx); return; }
-        if (path == "/api/config/channels" && method == "GET") { await _channelApiHandler.HandleGetChannelsConfigRequest(ctx); return; }
-        if (path == "/api/config/channels" && method == "PUT") { await _channelApiHandler.HandleUpdateChannelsConfigRequest(ctx); return; }
-        if (path == "/api/sessions" && method == "GET") { await _sessionApiHandler.HandleGetSessionsRequest(ctx); return; }
-        if (path == "/api/sessions" && method == "POST") { await _sessionApiHandler.HandleCreateSessionRequest(ctx); return; }
-        if (path == "/api/sessions/switch" && method == "PUT") { await _sessionApiHandler.HandleSwitchSessionRequest(ctx); return; }
-        if (path?.StartsWith("/api/sessions/") == true && method == "DELETE") { await _sessionApiHandler.HandleDeleteSessionRequest(ctx); return; }
-        if (path == "/api/sessions/rename" && method == "PUT") { await _sessionApiHandler.HandleRenameSessionRequest(ctx); return; }
-        if (path == "/api/sessions/generate-name" && method == "POST") { await _sessionApiHandler.HandleGenerateSessionNameRequest(ctx); return; }
-        if (path?.StartsWith("/api/messages/") == true && method == "DELETE") { await _statusApiHandler.HandleDeleteMessageRequest(ctx); return; }
-        if (path == "/api/voice/config" && method == "GET") { await _voiceApiHandler.HandleGetConfigRequest(ctx); return; }
-        if (path == "/api/voice/config" && method == "PUT") { await _voiceApiHandler.HandleUpdateConfigRequest(ctx); return; }
-        if (path == "/api/voice/asr" && method == "POST") { await _voiceApiHandler.HandleAsrRequest(ctx); return; }
-        if (path == "/api/voice/tts" && method == "POST") { await _voiceApiHandler.HandleTtsRequest(ctx); return; }
-        if (path == "/api/providers" && method == "GET") { await _providerApiHandler.HandleGetProvidersRequest(ctx); return; }
-        if (path == "/api/providers" && method == "POST") { await _providerApiHandler.HandleCreateProviderRequest(ctx); return; }
-        if (path == "/api/providers/current" && method == "PUT") { await _providerApiHandler.HandleSwitchCurrentProviderRequest(ctx); return; }
-        if (path?.StartsWith("/api/providers/") == true && path.EndsWith("/models") && method == "GET") { await _providerApiHandler.HandleGetModelsRequest(ctx); return; }
-        if (path?.StartsWith("/api/providers/") == true && method == "PUT") { await _providerApiHandler.HandleUpdateProviderRequest(ctx); return; }
-        if (path?.StartsWith("/api/providers/") == true && method == "DELETE") { await _providerApiHandler.HandleDeleteProviderRequest(ctx); return; }
-
-        // MCP routes
-        if (path == "/api/mcp/servers" && method == "GET") { await _mcpApiHandler.HandleGetServersRequest(ctx); return; }
-        if (path == "/api/mcp/servers" && method == "POST") { await _mcpApiHandler.HandleCreateServerRequest(ctx); return; }
-        if (path?.StartsWith("/api/mcp/servers/") == true && path.EndsWith("/restart") && method == "POST") { await _mcpApiHandler.HandleRestartServerRequest(ctx); return; }
-        if (path?.StartsWith("/api/mcp/servers/") == true && path.EndsWith("/tools") && method == "GET") { await _mcpApiHandler.HandleGetToolsRequest(ctx); return; }
-        if (path?.StartsWith("/api/mcp/servers/") == true && method == "PUT") { await _mcpApiHandler.HandleUpdateServerRequest(ctx); return; }
-        if (path?.StartsWith("/api/mcp/servers/") == true && method == "DELETE") { await _mcpApiHandler.HandleDeleteServerRequest(ctx); return; }
+        if (_routes.TryMatch(method, path, out var handler, out var routeParams))
+        {
+            await handler!(ctx, routeParams);
+            return;
+        }
 
         // Static file serving — webapp directory next to the executable
         if (method == "GET" && await TryServeStaticFile(ctx, path))
