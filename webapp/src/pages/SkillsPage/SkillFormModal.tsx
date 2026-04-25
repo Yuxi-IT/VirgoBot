@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button, Modal, TextField, Label, Input, toast, Checkbox, TextArea } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
-import type { SkillParam, SkillJson, SubSkillJson, SkillInfo, SkillDetailResponse } from './types';
+import type { SkillParam, SkillJson, SubSkillJson, SkillInfo, SkillDetailResponse, ScrapeFieldDef } from './types';
 import { TrashBin, Plus } from '@gravity-ui/icons';
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
@@ -18,13 +18,15 @@ interface SkillFormModalProps {
 interface SubSkillState {
   name: string;
   description: string;
-  mode: 'command' | 'http';
+  mode: 'command' | 'http' | 'scrape';
   command: string;
   httpMethod: string;
   httpUrl: string;
   httpHeadersText: string;
   httpBody: string;
   params: SkillParam[];
+  scrapeRootSelector: string;
+  scrapeFields: ScrapeFieldDef[];
 }
 
 function emptySubSkill(): SubSkillState {
@@ -38,6 +40,8 @@ function emptySubSkill(): SubSkillState {
     httpHeadersText: '',
     httpBody: '',
     params: [],
+    scrapeRootSelector: '',
+    scrapeFields: [],
   };
 }
 
@@ -58,6 +62,78 @@ function parseHeadersText(text: string): Record<string, string> {
 
 function headersToText(headers: Record<string, string>): string {
   return Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join('\n');
+}
+
+// ---- Scrape fields editor ----
+
+interface ScrapeFieldsEditorProps {
+  rootSelector: string;
+  fields: ScrapeFieldDef[];
+  onRootSelectorChange: (v: string) => void;
+  onFieldsChange: (v: ScrapeFieldDef[]) => void;
+}
+
+const ATTRIBUTE_OPTIONS = ['text', 'html', 'attr:href', 'attr:src', 'attr:alt', 'attr:title', 'attr:class'];
+
+function ScrapeFieldsEditor({ rootSelector, fields, onRootSelectorChange, onFieldsChange }: ScrapeFieldsEditorProps) {
+  const { t } = useI18n();
+
+  const addField = () => onFieldsChange([...fields, { name: '', selector: '', attribute: 'text' }]);
+  const updateField = (i: number, patch: Partial<ScrapeFieldDef>) => {
+    const updated = [...fields];
+    updated[i] = { ...updated[i], ...patch };
+    onFieldsChange(updated);
+  };
+  const removeField = (i: number) => onFieldsChange(fields.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+      <TextField isRequired value={rootSelector} onChange={onRootSelectorChange}>
+        <Label className="text-xs">{t('skills.scrapeRootSelector')}</Label>
+        <Input placeholder=".list-item" className="font-mono" />
+      </TextField>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs">{t('skills.scrapeFields')}</Label>
+          <Button size="sm" variant="secondary" onPress={addField}>{t('skills.addField')}</Button>
+        </div>
+        {fields.length === 0 ? (
+          <p className="text-xs text-gray-400">{t('common.noData')}</p>
+        ) : (
+          <div className="space-y-2">
+            {fields.map((field, i) => (
+              <div key={i} className="flex gap-2 items-end p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
+                <div className="flex-1">
+                  <TextField value={field.name} onChange={v => updateField(i, { name: v })}>
+                    <Label className="text-xs">{t('skills.fieldName')}</Label>
+                    <Input placeholder="title" className="font-mono" />
+                  </TextField>
+                </div>
+                <div className="flex-1">
+                  <TextField value={field.selector} onChange={v => updateField(i, { selector: v })}>
+                    <Label className="text-xs">{t('skills.fieldSelector')}</Label>
+                    <Input placeholder=".title" className="font-mono" />
+                  </TextField>
+                </div>
+                <div className="flex-1">
+                  <TextField value={field.attribute} onChange={v => updateField(i, { attribute: v })}>
+                    <Label className="text-xs">{t('skills.fieldAttribute')}</Label>
+                    <Input placeholder="text / html / attr:src" className="font-mono" list="attr-options" />
+                  </TextField>
+                  <datalist id="attr-options">
+                    {ATTRIBUTE_OPTIONS.map(o => <option key={o} value={o} />)}
+                  </datalist>
+                </div>
+                <Button size="sm" isIconOnly variant="danger" onPress={() => removeField(i)}>
+                  <TrashBin />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ---- Sub-skill editor ----
@@ -111,6 +187,9 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
           <Button size="sm" variant={sub.mode === 'http' ? 'primary' : 'secondary'} onPress={() => set({ mode: 'http' })}>
             {t('skills.modeHttp')}
           </Button>
+          <Button size="sm" variant={sub.mode === 'scrape' ? 'primary' : 'secondary'} onPress={() => set({ mode: 'scrape' })}>
+            {t('skills.modeScrape')}
+          </Button>
         </div>
       </div>
 
@@ -156,6 +235,14 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
                 rows={3}
               />
             </div>
+          )}
+          {sub.mode === 'scrape' && (
+            <ScrapeFieldsEditor
+              rootSelector={sub.scrapeRootSelector}
+              fields={sub.scrapeFields}
+              onRootSelectorChange={v => set({ scrapeRootSelector: v })}
+              onFieldsChange={v => set({ scrapeFields: v })}
+            />
           )}
         </div>
       )}
@@ -213,11 +300,13 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
   // single skill state
   const [formCommand, setFormCommand] = useState('');
   const [formParams, setFormParams] = useState<SkillParam[]>([]);
-  const [formMode, setFormMode] = useState<'command' | 'http'>('command');
+  const [formMode, setFormMode] = useState<'command' | 'http' | 'scrape'>('command');
   const [formHttpMethod, setFormHttpMethod] = useState('GET');
   const [formHttpUrl, setFormHttpUrl] = useState('');
   const [formHttpHeadersText, setFormHttpHeadersText] = useState('');
   const [formHttpBody, setFormHttpBody] = useState('');
+  const [formScrapeRootSelector, setFormScrapeRootSelector] = useState('');
+  const [formScrapeFields, setFormScrapeFields] = useState<ScrapeFieldDef[]>([]);
 
   // multi skill state
   const [subSkills, setSubSkills] = useState<SubSkillState[]>([emptySubSkill()]);
@@ -244,6 +333,8 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
     setFormHttpUrl('');
     setFormHttpHeadersText('');
     setFormHttpBody('');
+    setFormScrapeRootSelector('');
+    setFormScrapeFields([]);
     setSubSkills([emptySubSkill()]);
   };
 
@@ -265,32 +356,43 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
             return {
               name: s.name || '',
               description: s.description || '',
-              mode: s.mode === 'http' ? 'http' : 'command',
+              mode: s.mode === 'http' ? 'http' : s.mode === 'scrape' ? 'scrape' : 'command',
               command: s.command || '',
               httpMethod: s.http?.method || 'GET',
               httpUrl: s.http?.url || '',
               httpHeadersText: s.http?.headers ? headersToText(s.http.headers) : '',
               httpBody: s.http?.body || '',
               params,
+              scrapeRootSelector: s.scrape?.selector || '',
+              scrapeFields: s.scrape?.fields || [],
             } satisfies SubSkillState;
           }));
         } else {
           setFormSkillMode('single');
           setFormParams(parsed.parameters || []);
-          const mode = parsed.mode === 'http' ? 'http' : 'command';
+          const mode = parsed.mode === 'http' ? 'http' : parsed.mode === 'scrape' ? 'scrape' : 'command';
           setFormMode(mode);
-          if (mode === 'http' && parsed.http) {
+          if ((mode === 'http' || mode === 'scrape') && parsed.http) {
             setFormHttpMethod(parsed.http.method || 'GET');
             setFormHttpUrl(parsed.http.url || '');
             setFormHttpBody(parsed.http.body || '');
             setFormHttpHeadersText(parsed.http.headers ? headersToText(parsed.http.headers) : '');
             setFormCommand('');
+            if (mode === 'scrape' && parsed.scrape) {
+              setFormScrapeRootSelector(parsed.scrape.selector || '');
+              setFormScrapeFields(parsed.scrape.fields || []);
+            } else {
+              setFormScrapeRootSelector('');
+              setFormScrapeFields([]);
+            }
           } else {
             setFormCommand(parsed.command || '');
             setFormHttpMethod('GET');
             setFormHttpUrl('');
             setFormHttpHeadersText('');
             setFormHttpBody('');
+            setFormScrapeRootSelector('');
+            setFormScrapeFields([]);
           }
         }
       }
@@ -323,12 +425,12 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
         return;
       }
       const builtSubSkills: SubSkillJson[] = subSkills.map(s => {
-        if (s.mode === 'http') {
-          return {
+        if (s.mode === 'http' || s.mode === 'scrape') {
+          const sub: SubSkillJson = {
             name: s.name.trim(),
             description: s.description.trim(),
             parameters: s.params.filter(p => p.name.trim()),
-            mode: 'http',
+            mode: s.mode,
             http: {
               method: s.httpMethod,
               url: s.httpUrl.trim(),
@@ -336,6 +438,13 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
               body: s.httpBody,
             },
           };
+          if (s.mode === 'scrape') {
+            sub.scrape = {
+              selector: s.scrapeRootSelector.trim(),
+              fields: s.scrapeFields.filter(f => f.name.trim()),
+            };
+          }
+          return sub;
         }
         return {
           name: s.name.trim(),
@@ -355,16 +464,16 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
         setFormError(t('skills.commandRequired'));
         return;
       }
-      if (formMode === 'http' && !formHttpUrl.trim()) {
+      if ((formMode === 'http' || formMode === 'scrape') && !formHttpUrl.trim()) {
         setFormError(t('skills.urlRequired'));
         return;
       }
-      if (formMode === 'http') {
+      if (formMode === 'http' || formMode === 'scrape') {
         skillJson = {
           name: formName.trim(),
           description: formDescription.trim(),
           parameters: formParams.filter(p => p.name.trim()),
-          mode: 'http',
+          mode: formMode,
           http: {
             method: formHttpMethod,
             url: formHttpUrl.trim(),
@@ -372,6 +481,12 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
             body: formHttpBody,
           },
         };
+        if (formMode === 'scrape') {
+          skillJson.scrape = {
+            selector: formScrapeRootSelector.trim(),
+            fields: formScrapeFields.filter(f => f.name.trim()),
+          };
+        }
       } else {
         skillJson = {
           name: formName.trim(),
@@ -402,7 +517,8 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
 
   const isSaveDisabled = !formName.trim() ||
     (formSkillMode === 'single' && formMode === 'command' && !formCommand.trim()) ||
-    (formSkillMode === 'single' && formMode === 'http' && !formHttpUrl.trim());
+    (formSkillMode === 'single' && formMode === 'http' && !formHttpUrl.trim()) ||
+    (formSkillMode === 'single' && formMode === 'scrape' && (!formHttpUrl.trim() || !formScrapeRootSelector.trim()));
 
   return (
     <Modal>
@@ -465,6 +581,9 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                         <Button size="sm" variant={formMode === 'http' ? 'primary' : 'secondary'} onPress={() => setFormMode('http')}>
                           {t('skills.modeHttp')}
                         </Button>
+                        <Button size="sm" variant={formMode === 'scrape' ? 'primary' : 'secondary'} onPress={() => setFormMode('scrape')}>
+                          {t('skills.modeScrape')}
+                        </Button>
                       </div>
                     </div>
 
@@ -475,7 +594,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                       </TextField>
                     )}
 
-                    {formMode === 'http' && (
+                    {(formMode === 'http' || formMode === 'scrape') && (
                       <div className="space-y-4">
                         <div>
                           <Label>{t('skills.httpMethod')}</Label>
@@ -512,6 +631,14 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                               rows={4}
                             />
                           </div>
+                        )}
+                        {formMode === 'scrape' && (
+                          <ScrapeFieldsEditor
+                            rootSelector={formScrapeRootSelector}
+                            fields={formScrapeFields}
+                            onRootSelectorChange={setFormScrapeRootSelector}
+                            onFieldsChange={setFormScrapeFields}
+                          />
                         )}
                       </div>
                     )}

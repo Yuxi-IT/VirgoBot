@@ -247,6 +247,13 @@ export default {
     skillMdHint: 'Standard YAML frontmatter + Markdown instructions, supports $ARGUMENTS substitution',
     detail: 'Detail',
     subSkills: 'sub-skills',
+    modeScrape: 'Scrape',
+    scrapeRootSelector: 'Root Selector',
+    scrapeFields: 'Field Mapping',
+    addField: 'Add Field',
+    fieldName: 'Field Name',
+    fieldSelector: 'CSS Selector',
+    fieldAttribute: 'Extract Mode',
   },
   agent: {
     title: 'Agent Management',

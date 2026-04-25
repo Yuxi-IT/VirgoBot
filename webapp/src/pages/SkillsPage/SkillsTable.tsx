@@ -67,10 +67,10 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                         <Table.Cell>
                           <Chip
                             size="sm"
-                            color={skill.mode === 'http' ? 'accent' : skill.mode === 'skill.md' ? 'success' : skill.mode === 'multi' ? 'warning' : 'default'}
+                            color={skill.mode === 'http' ? 'accent' : skill.mode === 'scrape' ? 'accent' : skill.mode === 'skill.md' ? 'success' : skill.mode === 'multi' ? 'warning' : 'default'}
                             variant="soft"
                           >
-                            {skill.mode === 'http' ? 'HTTP' : skill.mode === 'skill.md' ? 'SKILL.md' : skill.mode === 'multi' ? 'Multi' : 'Command'}
+                            {skill.mode === 'http' ? 'HTTP' : skill.mode === 'scrape' ? 'Scrape' : skill.mode === 'skill.md' ? 'SKILL.md' : skill.mode === 'multi' ? 'Multi' : 'Command'}
                           </Chip>
                         </Table.Cell>
                         <Table.Cell>

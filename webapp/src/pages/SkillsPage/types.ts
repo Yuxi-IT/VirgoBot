@@ -10,6 +10,17 @@ export interface SkillHttpConfig {
   body: string;
 }
 
+export interface ScrapeFieldDef {
+  name: string;
+  selector: string;
+  attribute: string;
+}
+
+export interface SkillScrapeConfig {
+  selector: string;
+  fields: ScrapeFieldDef[];
+}
+
 export interface SkillInfo {
   fileName: string;
   name: string;
@@ -51,6 +62,7 @@ export interface SubSkillJson {
   command?: string;
   mode?: string;
   http?: SkillHttpConfig;
+  scrape?: SkillScrapeConfig;
 }
 
 export interface SkillJson {
@@ -60,5 +72,6 @@ export interface SkillJson {
   command?: string;
   mode?: string;
   http?: SkillHttpConfig;
+  scrape?: SkillScrapeConfig;
   subSkills?: SubSkillJson[];
 }

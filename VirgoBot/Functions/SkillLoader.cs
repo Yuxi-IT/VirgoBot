@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using HtmlAgilityPack;
+using HtmlAgilityPack.CssSelectors.NetCore;
 using VirgoBot.Configuration;
 using VirgoBot.Utilities;
 
@@ -216,6 +218,40 @@ public static class SkillLoader
 
             return new FunctionDefinition(name, description, inputSchema, async input =>
                 await ExecuteHttpAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input));
+        }
+        else if (mode == "scrape")
+        {
+            var httpEl = node.GetProperty("http");
+            var method = httpEl.GetProperty("method").GetString() ?? "GET";
+            var urlTemplate = httpEl.GetProperty("url").GetString() ?? "";
+
+            var headerTemplates = new Dictionary<string, string>();
+            if (httpEl.TryGetProperty("headers", out var headersEl) && headersEl.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var h in headersEl.EnumerateObject())
+                    headerTemplates[h.Name] = h.Value.GetString() ?? "";
+            }
+
+            var bodyTemplate = httpEl.TryGetProperty("body", out var bodyEl) ? bodyEl.GetString() ?? "" : "";
+
+            var scrapeEl = node.GetProperty("scrape");
+            var rootSelector = scrapeEl.GetProperty("selector").GetString() ?? "";
+            var fields = new List<ScrapeField>();
+            if (scrapeEl.TryGetProperty("fields", out var fieldsEl))
+            {
+                foreach (var f in fieldsEl.EnumerateArray())
+                {
+                    fields.Add(new ScrapeField
+                    {
+                        Name = f.GetProperty("name").GetString() ?? "",
+                        Selector = f.TryGetProperty("selector", out var sel) ? sel.GetString() ?? "" : "",
+                        Attribute = f.TryGetProperty("attribute", out var attr) ? attr.GetString() ?? "text" : "text"
+                    });
+                }
+            }
+
+            return new FunctionDefinition(name, description, inputSchema, async input =>
+                await ExecuteScrapeAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input, rootSelector, fields));
         }
         else
         {
@@ -517,6 +553,41 @@ public static class SkillLoader
         var multiJson = JsonSerializer.Serialize(multiExample, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(dir, "_example_multi.json"), multiJson);
 
+        // 网页抓取示例
+        var scrapeExample = new
+        {
+            name = "example_scrape_skill",
+            description = "这是一个网页抓取模式的示例 Skill，通过 CSS 选择器从 HTML 页面提取结构化数据",
+            mode = "scrape",
+            parameters = new[]
+            {
+                new { name = "page", type = "string", description = "页码", required = true }
+            },
+            http = new
+            {
+                method = "GET",
+                url = "https://example.com/list/{{page}}",
+                headers = new Dictionary<string, string>
+                {
+                    ["Accept"] = "text/html"
+                },
+                body = ""
+            },
+            scrape = new
+            {
+                selector = ".list-item",
+                fields = new[]
+                {
+                    new { name = "title", selector = ".title", attribute = "text" },
+                    new { name = "link", selector = "a", attribute = "attr:href" },
+                    new { name = "image", selector = "img", attribute = "attr:src" }
+                }
+            }
+        };
+
+        var scrapeJson = JsonSerializer.Serialize(scrapeExample, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(Path.Combine(dir, "_example_scrape.json"), scrapeJson);
+
         // 标准 SKILL.md 示例（兼容 OpenClaw / Claude Code）
         var exampleSkillMdDir = Path.Combine(dir, "_example-skill-md");
         Directory.CreateDirectory(exampleSkillMdDir);
@@ -528,6 +599,74 @@ public static class SkillLoader
             model: "sonnet"
         );
         File.WriteAllText(Path.Combine(exampleSkillMdDir, "SKILL.md"), skillMdContent);
+    }
+
+    private static async Task<string> ExecuteScrapeAsync(
+        string method, string urlTemplate,
+        Dictionary<string, string> headerTemplates, string bodyTemplate,
+        List<SkillParameter> parameters, JsonElement input,
+        string rootSelector, List<ScrapeField> fields)
+    {
+        try
+        {
+            var html = await ExecuteHttpAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input);
+
+            // 如果 HTTP 请求失败，直接返回错误信息
+            if (html.StartsWith("HTTP ") || html.StartsWith("HTTP 请求"))
+                return html;
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            var nodes = doc.DocumentNode.QuerySelectorAll(rootSelector);
+            var results = new List<Dictionary<string, string>>();
+
+            foreach (var node in nodes)
+            {
+                var item = new Dictionary<string, string>();
+                foreach (var field in fields)
+                {
+                    HtmlNode? target;
+                    if (string.IsNullOrEmpty(field.Selector))
+                        target = node;
+                    else
+                        target = node.QuerySelector(field.Selector);
+
+                    item[field.Name] = target != null ? ExtractValue(target, field.Attribute) : "";
+                }
+                results.Add(item);
+            }
+
+            return JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            return $"网页抓取失败: {ex.Message}";
+        }
+    }
+
+    private static string ExtractValue(HtmlNode node, string attribute)
+    {
+        if (string.IsNullOrEmpty(attribute) || attribute == "text")
+            return HtmlEntity.DeEntitize(node.InnerText).Trim();
+
+        if (attribute == "html")
+            return node.InnerHtml.Trim();
+
+        if (attribute.StartsWith("attr:"))
+        {
+            var attrName = attribute[5..];
+            return node.GetAttributeValue(attrName, "");
+        }
+
+        return node.InnerText.Trim();
+    }
+
+    private class ScrapeField
+    {
+        public string Name { get; set; } = "";
+        public string Selector { get; set; } = "";
+        public string Attribute { get; set; } = "text";
     }
 
     private class SkillParameter

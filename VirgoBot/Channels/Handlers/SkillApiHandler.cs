@@ -55,7 +55,7 @@ public class SkillApiHandler
                 var mode = root.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "command" : "command";
 
                 string command;
-                if (mode == "http" && root.TryGetProperty("http", out var httpEl))
+                if ((mode == "http" || mode == "scrape") && root.TryGetProperty("http", out var httpEl))
                 {
                     var method = httpEl.TryGetProperty("method", out var m) ? m.GetString() ?? "GET" : "GET";
                     var url = httpEl.TryGetProperty("url", out var u) ? u.GetString() ?? "" : "";

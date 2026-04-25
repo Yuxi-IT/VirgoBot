@@ -247,6 +247,13 @@ export default {
     skillMdHint: '标准 YAML frontmatter + Markdown 指令，支持 $ARGUMENTS 参数替换',
     detail: '详情',
     subSkills: '个子功能',
+    modeScrape: '网页抓取',
+    scrapeRootSelector: '根选择器',
+    scrapeFields: '字段映射',
+    addField: '添加字段',
+    fieldName: '字段名',
+    fieldSelector: 'CSS 选择器',
+    fieldAttribute: '提取方式',
   },
   agent: {
     title: '智能体管理',
