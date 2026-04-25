@@ -1,8 +1,9 @@
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { setTitle } from '../App';
 import { lazy, Suspense } from 'react';
 import { Spinner } from '@heroui/react';
+import { isAuthenticated } from '../services/api';
 
 const Dashboard = lazy(() => import('../pages/DashboardPage'));
 const Chat = lazy(() => import('../pages/ChatPage'));
@@ -13,6 +14,8 @@ const Tasks = lazy(() => import('../pages/TasksPage'));
 const Channel = lazy(() => import('../pages/ChannelPage'));
 const Providers = lazy(() => import('../pages/ProvidersPage'));
 const Mcp = lazy(() => import('../pages/McpPage'));
+const Security = lazy(() => import('../pages/SecurityPage'));
+const Login = lazy(() => import('../pages/LoginPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
 function Loading() {
@@ -23,6 +26,13 @@ function Loading() {
   );
 }
 
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   const location = useLocation();
 
@@ -31,15 +41,17 @@ function AppRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<PageTransition><Suspense fallback={<Loading />}><Dashboard /></Suspense></PageTransition>} />
-        <Route path="/chat" element={<PageTransition><Suspense fallback={<Loading />}><Chat /></Suspense></PageTransition>} />
-        <Route path="/contacts" element={<PageTransition><Suspense fallback={<Loading />}><Contacts /></Suspense></PageTransition>} />
-        <Route path="/settings" element={<PageTransition><Suspense fallback={<Loading />}><Settings /></Suspense></PageTransition>} />
-        <Route path="/skills" element={<PageTransition><Suspense fallback={<Loading />}><Skills /></Suspense></PageTransition>} />
-        <Route path="/tasks" element={<PageTransition><Suspense fallback={<Loading />}><Tasks /></Suspense></PageTransition>} />
-        <Route path="/channel" element={<PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition>} />
-        <Route path="/providers" element={<PageTransition><Suspense fallback={<Loading />}><Providers /></Suspense></PageTransition>} />
-        <Route path="/mcp" element={<PageTransition><Suspense fallback={<Loading />}><Mcp /></Suspense></PageTransition>} />
+        <Route path="/login" element={<Suspense fallback={<Loading />}><Login /></Suspense>} />
+        <Route path="/" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Dashboard /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/chat" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Chat /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/contacts" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Contacts /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/settings" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Settings /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/skills" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Skills /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/tasks" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Tasks /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/channel" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/providers" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Providers /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/mcp" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Mcp /></Suspense></PageTransition></AuthGuard>} />
+        <Route path="/security" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Security /></Suspense></PageTransition></AuthGuard>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { BottomNav } from './layout/BottomNav';
 import Navbar from './layout/Navbar';
 import AppRoutes from './routes';
@@ -13,6 +14,8 @@ export function setTitle(title: string){
 const Navigation = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+  const isLoginPage = location.pathname === '/login';
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -25,6 +28,10 @@ const Navigation = () => {
 
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  if (isLoginPage) {
+    return <AppRoutes />;
+  }
 
   return (
     <>
