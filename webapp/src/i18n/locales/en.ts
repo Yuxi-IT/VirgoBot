@@ -554,5 +554,13 @@ export default {
     copied: 'Copied to clipboard',
     notePlaceholder: 'Optional note',
     noKeys: 'No access keys yet',
+    changePassword: 'Change Password',
+    oldPassword: 'Current Password',
+    newPassword: 'New Password',
+    confirmPassword: 'Confirm New Password',
+    passwordMismatch: 'New passwords do not match',
+    allFieldsRequired: 'All fields are required',
+    passwordChanged: 'Password changed successfully',
+    oldPasswordWrong: 'Current password is incorrect',
   },
 };

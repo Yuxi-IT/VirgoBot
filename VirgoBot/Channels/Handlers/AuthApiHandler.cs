@@ -118,6 +118,25 @@ public class AuthApiHandler
         await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, data = new { key.Enabled } });
     }
 
+    public async Task HandleChangePasswordRequest(HttpListenerContext ctx)
+    {
+        var body = await HttpResponseHelper.ReadRequestBody<JsonElement>(ctx);
+        var oldPassword = body.GetProperty("oldPassword").GetString() ?? "";
+        var newPassword = body.GetProperty("newPassword").GetString() ?? "";
+
+        var oldHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(oldPassword)));
+        if (oldHash != _config.Auth.PasswordHash)
+        {
+            await HttpResponseHelper.SendErrorResponse(ctx, 400, "原密码错误");
+            return;
+        }
+
+        _config.Auth.PasswordHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(newPassword)));
+        ConfigLoader.Save(_config);
+        await HttpResponseHelper.SendJsonResponse(ctx, new { success = true });
+        ColorLog.Success("AUTH", "密码已修改");
+    }
+
     private static string GenerateJwt(string secret)
     {
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));

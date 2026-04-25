@@ -81,6 +81,7 @@ public class HttpServerHost
         _routes.Register("POST", "/api/access-keys", R(_authApiHandler.HandleCreateAccessKeyRequest));
         _routes.Register("DELETE", "/api/access-keys/{id}", R(_authApiHandler.HandleDeleteAccessKeyRequest));
         _routes.Register("PUT", "/api/access-keys/{id}/toggle", R(_authApiHandler.HandleToggleAccessKeyRequest));
+        _routes.Register("POST", "/api/auth/change-password", R(_authApiHandler.HandleChangePasswordRequest));
 
         // Chat
         _routes.Register("POST", "/chat", R(HandleChatRequest));

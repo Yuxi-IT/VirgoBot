@@ -554,5 +554,13 @@ export default {
     copied: '已复制到剪贴板',
     notePlaceholder: '可选备注',
     noKeys: '暂无密钥',
+    changePassword: '修改密码',
+    oldPassword: '当前密码',
+    newPassword: '新密码',
+    confirmPassword: '确认新密码',
+    passwordMismatch: '两次输入的新密码不一致',
+    allFieldsRequired: '所有字段均为必填',
+    passwordChanged: '密码修改成功',
+    oldPasswordWrong: '当前密码错误',
   },
 };

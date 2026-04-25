@@ -3,6 +3,7 @@ import { Tabs } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
 import AccessKeyTab from './AccessKeyTab';
+import ChangePasswordTab from './ChangePasswordTab';
 
 function SecurityPage() {
   const { t } = useI18n();
@@ -20,11 +21,19 @@ function SecurityPage() {
                 {t('security.accessKeys')}
                 <Tabs.Indicator />
               </Tabs.Tab>
+              <Tabs.Tab id="password">
+                {t('security.changePassword')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
             </Tabs.List>
           </Tabs.ListContainer>
 
           <Tabs.Panel id="accessKeys">
             <AccessKeyTab active={activeTab === 'accessKeys'} />
+          </Tabs.Panel>
+
+          <Tabs.Panel id="password">
+            <ChangePasswordTab />
           </Tabs.Panel>
         </Tabs>
       </div>
