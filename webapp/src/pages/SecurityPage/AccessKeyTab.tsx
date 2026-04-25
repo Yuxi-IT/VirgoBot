@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Card, Switch, Spinner, toast, TextField, Label, Input, TextArea } from '@heroui/react';
-import { Modal } from '@heroui/react';
+import { Button, Card, Switch, Spinner, toast, TextField, Label, Input, TextArea, Modal } from '@heroui/react';
 import { Plus, TrashBin, Copy } from '@gravity-ui/icons';
 import { api } from '../../services/api';
 import { useI18n } from '../../i18n';
@@ -108,7 +107,7 @@ function AccessKeyTab({ active }: { active: boolean }) {
         <p className="text-sm text-gray-500">
           WebSocket AccessKey
         </p>
-        <Button variant="primary" onClick={() => setShowCreate(true)}>
+        <Button variant="primary" onPress={() => setShowCreate(true)}>
           <Plus className="w-4 h-4 mr-1" />
           {t('security.createKey')}
         </Button>
@@ -152,7 +151,7 @@ function AccessKeyTab({ active }: { active: boolean }) {
                     <td className="p-3 text-center">
                       <Button
                         variant="danger"
-                        onClick={() => {
+                        onPress={() => {
                           setDeleteId(k.id);
                           setShowDeleteConfirm(true);
                         }}
@@ -169,89 +168,91 @@ function AccessKeyTab({ active }: { active: boolean }) {
       )}
 
       {/* Create Modal */}
-      <Modal isOpen={showCreate} onOpenChange={setShowCreate}>
-        <Modal.Backdrop />
-        <Modal.Container>
-          <Modal.Dialog>
-            <Modal.Header>{t('security.createKey')}</Modal.Header>
-            <Modal.Body>
-              <div className="flex flex-col gap-4">
-                <TextField>
-                  <Label>{t('security.name')}</Label>
-                  <Input
-                    value={createName}
-                    onChange={(e) => setCreateName(e.target.value)}
-                  />
-                </TextField>
-                <TextField>
-                  <Label>{t('security.note')}</Label>
-                  <TextArea
-                    value={createNote}
-                    onChange={(e) => setCreateNote(e.target.value)}
-                    placeholder={t('security.notePlaceholder')}
-                  />
-                </TextField>
-              </div>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowCreate(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button variant="primary" onClick={handleCreate} isDisabled={creating}>
-                {creating ? t('common.loading') : t('common.confirm')}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
+      <Modal>
+        <Modal.Backdrop isOpen={showCreate} onOpenChange={(open) => { if (!open) setShowCreate(false); }}>
+          <Modal.Container size="lg">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{t('security.createKey')}</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <div className="flex flex-col gap-4">
+                  <TextField value={createName} onChange={setCreateName}>
+                    <Label>{t('security.name')}</Label>
+                    <Input />
+                  </TextField>
+                  <TextField value={createNote} onChange={setCreateNote}>
+                    <Label>{t('security.note')}</Label>
+                    <TextArea placeholder={t('security.notePlaceholder')} />
+                  </TextField>
+                </div>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onPress={() => setShowCreate(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button variant="primary" onPress={handleCreate} isDisabled={creating}>
+                  {creating ? t('common.loading') : t('common.confirm')}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
 
       {/* Key Display Modal */}
-      <Modal isOpen={showKeyDisplay} onOpenChange={setShowKeyDisplay}>
-        <Modal.Backdrop />
-        <Modal.Container>
-          <Modal.Dialog>
-            <Modal.Header>{t('security.keyCreated')}</Modal.Header>
-            <Modal.Body>
-              <p className="text-sm text-gray-500 mb-3">
-                {t('security.keyCreatedHint')}
-              </p>
-              <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <code className="flex-1 text-sm font-mono break-all select-all">
-                  {newKeyValue}
-                </code>
-                <Button variant="ghost" onClick={() => copyToClipboard(newKeyValue)}>
-                  <Copy className="w-4 h-4" />
+      <Modal>
+        <Modal.Backdrop isOpen={showKeyDisplay} onOpenChange={(open) => { if (!open) setShowKeyDisplay(false); }}>
+          <Modal.Container>
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{t('security.keyCreated')}</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p className="text-sm text-gray-500 mb-3">
+                  {t('security.keyCreatedHint')}
+                </p>
+                <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  <code className="flex-1 text-sm font-mono break-all select-all">
+                    {newKeyValue}
+                  </code>
+                  <Button variant="ghost" onPress={() => copyToClipboard(newKeyValue)}>
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="primary" onPress={() => setShowKeyDisplay(false)}>
+                  {t('common.confirm')}
                 </Button>
-              </div>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="primary" onClick={() => setShowKeyDisplay(false)}>
-                {t('common.confirm')}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
 
       {/* Delete Confirm Modal */}
-      <Modal isOpen={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <Modal.Backdrop />
-        <Modal.Container>
-          <Modal.Dialog>
-            <Modal.Header>{t('security.deleteKey')}</Modal.Header>
-            <Modal.Body>
-              <p>{t('security.deleteConfirm')}</p>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button variant="danger" onClick={handleDelete}>
-                {t('common.delete')}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
+      <Modal>
+        <Modal.Backdrop isOpen={showDeleteConfirm} onOpenChange={(open) => { if (!open) setShowDeleteConfirm(false); }}>
+          <Modal.Container>
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>{t('security.deleteKey')}</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <p>{t('security.deleteConfirm')}</p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button variant="secondary" onPress={() => setShowDeleteConfirm(false)}>
+                  {t('common.cancel')}
+                </Button>
+                <Button variant="danger" onPress={handleDelete}>
+                  {t('common.delete')}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
       </Modal>
     </div>
   );
