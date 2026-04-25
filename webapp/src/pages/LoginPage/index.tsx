@@ -66,7 +66,7 @@ function LoginPage() {
             {error && (
               <p className="text-sm text-red-500">{error}</p>
             )}
-            <Button type="submit" variant="primary" isDisabled={loading || !username || !password}>
+            <Button className="mx-auto" type="submit" variant="primary" isDisabled={loading || !username || !password}>
               {loading ? t('common.loading') : t('auth.login')}
             </Button>
           </form>
