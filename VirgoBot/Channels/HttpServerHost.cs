@@ -33,6 +33,7 @@ public class HttpServerHost
     private readonly VoiceApiHandler _voiceApiHandler;
     private readonly ProviderApiHandler _providerApiHandler;
     private readonly McpApiHandler _mcpApiHandler;
+    private readonly AuthApiHandler _authApiHandler;
 
     // Public-facing port (TcpListener on 0.0.0.0) — no admin/URL ACL needed
     private const int PublicPort = 8765;
@@ -63,6 +64,7 @@ public class HttpServerHost
         _voiceApiHandler = new VoiceApiHandler();
         _providerApiHandler = new ProviderApiHandler(gateway);
         _mcpApiHandler = new McpApiHandler(gateway);
+        _authApiHandler = new AuthApiHandler(gateway.Config);
 
         RegisterRoutes();
     }
@@ -73,6 +75,13 @@ public class HttpServerHost
 
     private void RegisterRoutes()
     {
+        // Auth (login is public, rest require JWT — handled by middleware)
+        _routes.Register("POST", "/api/auth/login", R(_authApiHandler.HandleLoginRequest));
+        _routes.Register("GET", "/api/access-keys", R(_authApiHandler.HandleGetAccessKeysRequest));
+        _routes.Register("POST", "/api/access-keys", R(_authApiHandler.HandleCreateAccessKeyRequest));
+        _routes.Register("DELETE", "/api/access-keys/{id}", R(_authApiHandler.HandleDeleteAccessKeyRequest));
+        _routes.Register("PUT", "/api/access-keys/{id}/toggle", R(_authApiHandler.HandleToggleAccessKeyRequest));
+
         // Chat
         _routes.Register("POST", "/chat", R(HandleChatRequest));
 
@@ -312,12 +321,23 @@ public class HttpServerHost
             if (method == "GET" || method == "DELETE")
             {
                 var request = new HttpRequestMessage(new HttpMethod(method), url);
+                // Forward Authorization header
+                foreach (var line in lines)
+                {
+                    if (line.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var parts = line.Split(new[] { ':' }, 2);
+                        if (parts.Length == 2)
+                            request.Headers.TryAddWithoutValidation("Authorization", parts[1].Trim());
+                    }
+                }
                 response = await httpClient.SendAsync(request);
             }
             else if (method == "POST" || method == "PUT")
             {
                 var content = bodyBytes != null ? new ByteArrayContent(bodyBytes) : new ByteArrayContent(Array.Empty<byte>());
-                // Copy Content-Type header if present
+                var request = new HttpRequestMessage(new HttpMethod(method), url) { Content = content };
+                // Copy Content-Type and Authorization headers
                 foreach (var line in lines)
                 {
                     if (line.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
@@ -326,10 +346,14 @@ public class HttpServerHost
                         if (parts.Length == 2)
                             content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(parts[1].Trim());
                     }
+                    else if (line.StartsWith("Authorization:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var parts = line.Split(new[] { ':' }, 2);
+                        if (parts.Length == 2)
+                            request.Headers.TryAddWithoutValidation("Authorization", parts[1].Trim());
+                    }
                 }
-                response = method == "POST"
-                    ? await httpClient.PostAsync(url, content)
-                    : await httpClient.PutAsync(url, content);
+                response = await httpClient.SendAsync(request);
             }
             else if (method == "OPTIONS")
             {
@@ -373,6 +397,39 @@ public class HttpServerHost
 
     private async Task HandleRawWebSocket(TcpClient client, NetworkStream stream, string headerText, byte[] headerBytes)
     {
+        // Validate AccessKey from query parameter if auth is configured
+        var jwtSecret = _gateway.Config.Auth.JwtSecret;
+        if (!string.IsNullOrWhiteSpace(jwtSecret))
+        {
+            // Parse request line to get query string: "GET /path?key=xxx HTTP/1.1"
+            var requestLine = headerText.Split(new[] { "\r\n" }, StringSplitOptions.None)[0];
+            var pathPart = requestLine.Split(' ').ElementAtOrDefault(1) ?? "";
+            var queryIdx = pathPart.IndexOf('?');
+            var accessKey = "";
+            if (queryIdx >= 0)
+            {
+                var query = pathPart[(queryIdx + 1)..];
+                foreach (var param in query.Split('&'))
+                {
+                    var kv = param.Split('=', 2);
+                    if (kv[0] == "key" && kv.Length == 2)
+                    {
+                        accessKey = Uri.UnescapeDataString(kv[1]);
+                        break;
+                    }
+                }
+            }
+
+            var validKey = _gateway.Config.Auth.AccessKeys.Any(k => k.Enabled && k.Key == accessKey);
+            if (!validKey)
+            {
+                var reject = "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n";
+                await stream.WriteAsync(Encoding.UTF8.GetBytes(reject));
+                ColorLog.Warning("WS", "WebSocket 连接被拒绝: AccessKey 无效");
+                return;
+            }
+        }
+
         // Perform WebSocket handshake manually
         var key = "";
         foreach (var line in headerText.Split(new[] { "\r\n" }, StringSplitOptions.None))
@@ -500,6 +557,22 @@ public class HttpServerHost
         var method = ctx.Request.HttpMethod;
 
         if (method == "OPTIONS") { ctx.Response.StatusCode = 200; return; }
+
+        // JWT authentication for /api/ paths (except /api/auth/login)
+        if (path.StartsWith("/api/") && path != "/api/auth/login")
+        {
+            var jwtSecret = _gateway.Config.Auth.JwtSecret;
+            if (!string.IsNullOrWhiteSpace(jwtSecret))
+            {
+                var authHeader = ctx.Request.Headers["Authorization"];
+                var token = authHeader?.StartsWith("Bearer ") == true ? authHeader[7..] : "";
+                if (!AuthApiHandler.ValidateJwt(token, jwtSecret))
+                {
+                    await HttpResponseHelper.SendErrorResponse(ctx, 401, "Unauthorized");
+                    return;
+                }
+            }
+        }
 
         if (_routes.TryMatch(method, path, out var handler, out var routeParams))
         {

@@ -28,6 +28,25 @@ public class Config
     public string CurrentSession { get; set; } = "";
     public ServerConfig Server { get; set; } = new();
     public ChannelConfig Channel { get; set; } = new();
+    public AuthConfig Auth { get; set; } = new();
+}
+
+public class AuthConfig
+{
+    public string UsernameHash { get; set; } = "";
+    public string PasswordHash { get; set; } = "";
+    public string JwtSecret { get; set; } = "";
+    public List<AccessKeyConfig> AccessKeys { get; set; } = new();
+}
+
+public class AccessKeyConfig
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Key { get; set; } = "";
+    public string Note { get; set; } = "";
+    public bool Enabled { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class ServerConfig
