@@ -401,6 +401,9 @@ export default {
     createNewSession: '新建会话',
     confirmDelete: '确认删除',
     confirmDeleteDesc: '确定删除设定「{name}」？此操作不可撤销。',
+    noAccessKey: '没有可用的 Access Key',
+    noAccessKeyHint: '使用聊天功能前需要先创建一个 Access Key，请前往安全设置创建。',
+    goToSecurity: '前往安全设置',
   },
   tasks: {
     title: '定时任务',

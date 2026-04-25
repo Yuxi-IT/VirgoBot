@@ -45,7 +45,7 @@ public class AuthApiHandler
         {
             k.Id,
             k.Name,
-            key = k.Key.Length > 8 ? k.Key[..4] + "****" + k.Key[^4..] : "****",
+            k.Key,
             k.Note,
             k.Enabled,
             k.CreatedAt

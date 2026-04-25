@@ -30,8 +30,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
   if (res.status === 401) {
     clearToken();
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login';
+    if (!window.location.hash.startsWith('#/login')) {
+      window.location.hash = '#/login';
     }
     throw new Error('Unauthorized');
   }

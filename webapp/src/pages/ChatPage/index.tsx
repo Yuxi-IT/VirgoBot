@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Spinner, Tabs } from '@heroui/react';
+import { Button, Spinner, Tabs, Card } from '@heroui/react';
+import { useNavigate } from 'react-router-dom';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { api, BASE_URL } from '../../services/api';
 import SessionList from './SessionList';
@@ -7,7 +8,7 @@ import ChatPanel from './ChatPanel';
 import AgentPanel from './AgentPanel';
 import SoulPanel from './SoulPanel';
 import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from './types';
-import { ArrowLeft, ArrowRight } from '@gravity-ui/icons';
+import { ArrowLeft, ArrowRight, ShieldKeyhole } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 
 const PAGE_SIZE = 50;
@@ -22,6 +23,8 @@ function readFlag(key: string, defaultVal: boolean): boolean {
 
 function ChatPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
+  const [hasAccessKey, setHasAccessKey] = useState<boolean | null>(null);
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [currentSession, setCurrentSession] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -82,6 +85,13 @@ function ChatPage() {
     api.get<{ success: boolean; data: { server: { messageSplitDelimiters: string } } }>('/api/config')
       .then(res => { if (res.success) setSplitDelimiters(res.data.server.messageSplitDelimiters); })
       .catch(() => {});
+    // Check if any enabled AccessKey exists
+    api.get<{ success: boolean; data: { enabled: boolean }[] }>('/api/access-keys')
+      .then(res => {
+        if (res.success) setHasAccessKey(res.data.some(k => k.enabled));
+        else setHasAccessKey(false);
+      })
+      .catch(() => setHasAccessKey(false));
   }, [loadSessions]);
 
   useEffect(() => {
@@ -193,6 +203,25 @@ function ChatPage() {
     return (
       <DefaultLayout>
         <div className="flex items-center justify-center h-[60vh]"><Spinner size="lg" /></div>
+      </DefaultLayout>
+    );
+  }
+
+  if (hasAccessKey === false) {
+    return (
+      <DefaultLayout>
+        <div className="flex items-center justify-center h-[60vh]">
+          <Card className="max-w-md w-full">
+            <div className="p-8 text-center flex flex-col items-center gap-4">
+              <ShieldKeyhole className="w-12 h-12 text-gray-400" />
+              <h2 className="text-lg font-semibold">{t('chatPage.noAccessKey')}</h2>
+              <p className="text-sm text-gray-500">{t('chatPage.noAccessKeyHint')}</p>
+              <Button variant="primary" onPress={() => navigate('/security')}>
+                {t('chatPage.goToSecurity')}
+              </Button>
+            </div>
+          </Card>
+        </div>
       </DefaultLayout>
     );
   }

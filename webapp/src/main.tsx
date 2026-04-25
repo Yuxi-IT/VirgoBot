@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import { I18nProvider } from './i18n'
 import { ThemeProvider } from './theme'
 import { ImagePreviewProvider } from './components/ImagePreview'
@@ -18,12 +18,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider>
       <I18nProvider>
-        <BrowserRouter>
+        <HashRouter>
           <ImagePreviewProvider>
             <App />
             <Toast.Provider placement="bottom end" />
           </ImagePreviewProvider>
-        </BrowserRouter>
+        </HashRouter>
       </I18nProvider>
     </ThemeProvider>
   </React.StrictMode>,

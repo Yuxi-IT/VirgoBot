@@ -15,7 +15,7 @@ const Navigation = () => {
   const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const isLoginPage = location.pathname === '/login';
+  const isLoginPage = location.pathname === '/login' || location.hash === '#/login';
 
   useEffect(() => {
     const checkScreenSize = () => {

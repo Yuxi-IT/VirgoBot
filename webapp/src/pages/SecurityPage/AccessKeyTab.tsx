@@ -20,7 +20,7 @@ interface AccessKeyListResponse {
 
 interface AccessKeyCreateResponse {
   success: boolean;
-  data: AccessKey & { key: string };
+  data: AccessKey;
 }
 
 function AccessKeyTab({ active }: { active: boolean }) {
@@ -28,9 +28,7 @@ function AccessKeyTab({ active }: { active: boolean }) {
   const [keys, setKeys] = useState<AccessKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [showKeyDisplay, setShowKeyDisplay] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [newKeyValue, setNewKeyValue] = useState('');
   const [deleteId, setDeleteId] = useState('');
   const [createName, setCreateName] = useState('');
   const [createNote, setCreateNote] = useState('');
@@ -62,9 +60,7 @@ function AccessKeyTab({ active }: { active: boolean }) {
         note: createNote,
       });
       if (res.success) {
-        setNewKeyValue(res.data.key);
         setShowCreate(false);
-        setShowKeyDisplay(true);
         setCreateName('');
         setCreateNote('');
         toast.success(t('security.createSuccess'));
@@ -137,16 +133,24 @@ function AccessKeyTab({ active }: { active: boolean }) {
                 {keys.map((k) => (
                   <tr key={k.id} className="border-b border-gray-100 dark:border-gray-800">
                     <td className="p-3">{k.name}</td>
-                    <td className="p-3 font-mono text-xs">{k.key}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1">
+                        <code className="font-mono text-xs">{k.key}</code>
+                        <Button variant="ghost" size="sm" onPress={() => copyToClipboard(k.key)}>
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </td>
                     <td className="p-3 text-gray-500">{k.note || '-'}</td>
                     <td className="p-3 text-gray-500">
                       {new Date(k.createdAt).toLocaleDateString()}
                     </td>
                     <td className="p-3 text-center">
-                      <Switch
-                        isSelected={k.enabled}
-                        onChange={() => handleToggle(k.id)}
-                      />
+                      <Switch isSelected={k.enabled} onChange={() => handleToggle(k.id)}>
+                        <Switch.Control>
+                          <Switch.Thumb />
+                        </Switch.Control>
+                      </Switch>
                     </td>
                     <td className="p-3 text-center">
                       <Button
@@ -193,37 +197,6 @@ function AccessKeyTab({ active }: { active: boolean }) {
                 </Button>
                 <Button variant="primary" onPress={handleCreate} isDisabled={creating}>
                   {creating ? t('common.loading') : t('common.confirm')}
-                </Button>
-              </Modal.Footer>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
-
-      {/* Key Display Modal */}
-      <Modal>
-        <Modal.Backdrop isOpen={showKeyDisplay} onOpenChange={(open) => { if (!open) setShowKeyDisplay(false); }}>
-          <Modal.Container>
-            <Modal.Dialog>
-              <Modal.Header>
-                <Modal.Heading>{t('security.keyCreated')}</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body>
-                <p className="text-sm text-gray-500 mb-3">
-                  {t('security.keyCreatedHint')}
-                </p>
-                <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <code className="flex-1 text-sm font-mono break-all select-all">
-                    {newKeyValue}
-                  </code>
-                  <Button variant="ghost" onPress={() => copyToClipboard(newKeyValue)}>
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </div>
-              </Modal.Body>
-              <Modal.Footer>
-                <Button variant="primary" onPress={() => setShowKeyDisplay(false)}>
-                  {t('common.confirm')}
                 </Button>
               </Modal.Footer>
             </Modal.Dialog>

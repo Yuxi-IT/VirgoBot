@@ -401,6 +401,9 @@ export default {
     createNewSession: 'New Session',
     confirmDelete: 'Confirm Delete',
     confirmDeleteDesc: 'Delete agent "{name}"? This cannot be undone.',
+    noAccessKey: 'No Access Key Available',
+    noAccessKeyHint: 'You need to create an Access Key before using the chat. Go to Security settings to create one.',
+    goToSecurity: 'Go to Security',
   },
   tasks: {
     title: 'Scheduled Tasks',
