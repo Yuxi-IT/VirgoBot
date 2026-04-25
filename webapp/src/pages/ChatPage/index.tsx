@@ -25,6 +25,7 @@ function ChatPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [hasAccessKey, setHasAccessKey] = useState<boolean | null>(null);
+  const [accessKey, setAccessKey] = useState('');
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [currentSession, setCurrentSession] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -85,11 +86,18 @@ function ChatPage() {
     api.get<{ success: boolean; data: { server: { messageSplitDelimiters: string } } }>('/api/config')
       .then(res => { if (res.success) setSplitDelimiters(res.data.server.messageSplitDelimiters); })
       .catch(() => {});
-    // Check if any enabled AccessKey exists
-    api.get<{ success: boolean; data: { enabled: boolean }[] }>('/api/access-keys')
+    // Check if any enabled AccessKey exists and pick one for WebSocket
+    api.get<{ success: boolean; data: { key: string; enabled: boolean }[] }>('/api/access-keys')
       .then(res => {
-        if (res.success) setHasAccessKey(res.data.some(k => k.enabled));
-        else setHasAccessKey(false);
+        if (res.success) {
+          const enabled = res.data.filter(k => k.enabled);
+          setHasAccessKey(enabled.length > 0);
+          if (enabled.length > 0) {
+            setAccessKey(enabled[Math.floor(Math.random() * enabled.length)].key);
+          }
+        } else {
+          setHasAccessKey(false);
+        }
       })
       .catch(() => setHasAccessKey(false));
   }, [loadSessions]);
@@ -106,9 +114,10 @@ function ChatPage() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [loadMessages]);
 
-  // WebSocket connection
+  // WebSocket connection (wait for accessKey to be available)
   useEffect(() => {
-    const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/';
+    if (!accessKey) return;
+    const wsUrl = BASE_URL.replace(/^http/, 'ws') + '/?key=' + encodeURIComponent(accessKey);
     const ws = new WebSocket(wsUrl);
     ws.onmessage = (event) => {
       try {
@@ -123,7 +132,7 @@ function ChatPage() {
     };
     wsRef.current = ws;
     return () => { ws.close(); };
-  }, [voiceFeedback]);
+  }, [voiceFeedback, accessKey]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || sending) return;
