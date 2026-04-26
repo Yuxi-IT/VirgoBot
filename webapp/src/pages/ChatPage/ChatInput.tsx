@@ -17,18 +17,16 @@ interface Props {
   sending: boolean;
   voiceFeedback: boolean;
   splitEnabled: boolean;
-  showTime: boolean;
   markdownEnabled: boolean;
   onSend: (text: string, images?: ImageAttachment[]) => void;
   onToggleVoiceFeedback: () => void;
   onToggleSplit: () => void;
-  onToggleShowTime: () => void;
   onToggleMarkdown: () => void;
 }
 
 export default function ChatInput({
-  sending, voiceFeedback, splitEnabled, showTime, markdownEnabled,
-  onSend, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime, onToggleMarkdown
+  sending, voiceFeedback, splitEnabled, markdownEnabled,
+  onSend, onToggleVoiceFeedback, onToggleSplit, onToggleMarkdown
 }: Props) {
   const { t } = useI18n();
   const [text, setText] = useState('');
@@ -150,10 +148,6 @@ export default function ChatInput({
         <Switch isSelected={splitEnabled} onChange={onToggleSplit}>
           <Switch.Control><Switch.Thumb /></Switch.Control>
           <Switch.Content><Label className="text-sm">{t('chatPage.messageSplit')}</Label></Switch.Content>
-        </Switch>
-        <Switch isSelected={showTime} onChange={onToggleShowTime}>
-          <Switch.Control><Switch.Thumb /></Switch.Control>
-          <Switch.Content><Label className="text-sm">{t('chatPage.showTime')}</Label></Switch.Content>
         </Switch>
         <Switch isSelected={markdownEnabled} onChange={onToggleMarkdown}>
           <Switch.Control><Switch.Thumb /></Switch.Control>

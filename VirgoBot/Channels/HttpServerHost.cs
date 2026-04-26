@@ -667,14 +667,19 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
         var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
-        var reply = await _gateway.LlmService.AskAsync(req?.message ?? "");
-        var response = Encoding.UTF8.GetBytes(reply);
+        var images = new List<ImageInput>();
+        if (req?.imageUrls is { Length: > 0 } urls)
+            foreach (var u in urls)
+                if (!string.IsNullOrWhiteSpace(u)) images.Add(ImageInput.FromUrl(u));
+        if (req?.imageBase64 is { Length: > 0 } b64s)
+            foreach (var b in b64s)
+                if (!string.IsNullOrWhiteSpace(b.data)) images.Add(ImageInput.FromBase64(b.data, b.mediaType ?? "image/jpeg"));
+
+        var reply = await _gateway.LlmService.AskAsync(req?.message ?? "", images: images.Count > 0 ? images : null);
 
         ColorLog.Info("MSG-HTTP", $"'{req?.message ?? ""}'");
 
-        ctx.Response.ContentType = "text/plain; charset=utf-8";
-        ctx.Response.ContentLength64 = response.Length;
-        await ctx.Response.OutputStream.WriteAsync(response);
+        await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, data = new { reply } });
     }
 
 }

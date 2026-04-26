@@ -8,11 +8,10 @@ import type { Message } from './types';
 interface Props {
   message: Message;
   onDelete: (id: number) => void;
-  showTime: boolean;
   markdownEnabled: boolean;
 }
 
-export default function ChatBubble({ message, onDelete, showTime, markdownEnabled }: Props) {
+export default function ChatBubble({ message, onDelete, markdownEnabled }: Props) {
   const { t } = useI18n();
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
@@ -36,7 +35,14 @@ export default function ChatBubble({ message, onDelete, showTime, markdownEnable
 
   const handleAction = (keys: Set<string>) => {
     const key = [...keys][0];
-    if (key === 'copy') navigator.clipboard.writeText(message.content).catch(() => {});
+    if (key === 'copy') {
+      let text = message.content;
+      try {
+        const parsed = JSON.parse(message.content) as { text?: string };
+        if (parsed && typeof parsed === 'object' && 'text' in parsed) text = parsed.text ?? '';
+      } catch { /* plain text */ }
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
     if (key === 'delete') onDelete(message.id);
     setMenu(null);
   };
@@ -79,7 +85,7 @@ export default function ChatBubble({ message, onDelete, showTime, markdownEnable
           );
         }
       } catch { /* not JSON, render as plain text */ }
-      return <div className="whitespace-pre-wrap break-words">{message.content.split('\n').slice(0, -1).join('\n') || message.content}</div>;
+      return <div className="whitespace-pre-wrap break-words">{message.content}</div>;
     }
 
     const toolMatch = message.content.match(/\[tool: .+?\]/g);
@@ -143,11 +149,6 @@ export default function ChatBubble({ message, onDelete, showTime, markdownEnable
         onContextMenu={handleContextMenu}
       >
         {renderContent()}
-        {showTime && (
-          <div className={`text-[10px] mt-1 ${isUser ? 'opacity-60' : 'text-default-400'}`}>
-            {new Date(message.createdAt).toLocaleTimeString()}
-          </div>
-        )}
       </div>
 
       {menu && (

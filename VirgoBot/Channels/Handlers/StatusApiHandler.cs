@@ -81,7 +81,7 @@ public class StatusApiHandler
             {
                 id = m.Id,
                 role = m.Role,
-                content = m.Content,
+                content = m.Content.Split(Environment.NewLine)[..^1],
                 createdAt = m.CreatedAt.ToString("o")
             }),
             total

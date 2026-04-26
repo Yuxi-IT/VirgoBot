@@ -13,7 +13,6 @@ interface Props {
   hasMore: boolean;
   voiceFeedback: boolean;
   splitEnabled: boolean;
-  showTime: boolean;
   markdownEnabled: boolean;
   splitDelimiters: string;
   onSend: (text: string, images?: ImageAttachment[]) => void;
@@ -21,21 +20,19 @@ interface Props {
   onLoadMore: () => void;
   onToggleVoiceFeedback: () => void;
   onToggleSplit: () => void;
-  onToggleShowTime: () => void;
   onToggleMarkdown: () => void;
 }
 
 function splitMessage(text: string, delimiters: string): string[] {
   if (!delimiters) return [text];
-  // Skip splitting if text contains multi-line code blocks
   if (/```[\s\S]*```/.test(text)) return [text];
   const parts = text.split(new RegExp(delimiters.split('|').map(d => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')));
   return parts.map(p => p.trim()).filter(Boolean);
 }
 
 export default function ChatPanel({
-  messages, loading, sending, loadingMore, hasMore, voiceFeedback, splitEnabled, showTime, markdownEnabled, splitDelimiters,
-  onSend, onDeleteMessage, onLoadMore, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime, onToggleMarkdown
+  messages, loading, sending, loadingMore, hasMore, voiceFeedback, splitEnabled, markdownEnabled, splitDelimiters,
+  onSend, onDeleteMessage, onLoadMore, onToggleVoiceFeedback, onToggleSplit, onToggleMarkdown
 }: Props) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -49,7 +46,6 @@ export default function ChatPanel({
     return el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   }, []);
 
-  // Track scroll position continuously; trigger load more when near top
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -63,7 +59,6 @@ export default function ChatPanel({
     return () => el.removeEventListener('scroll', onScroll);
   }, [isAtBottom, hasMore, loadingMore, onLoadMore]);
 
-  // After prepending older messages, restore scroll position so view doesn't jump
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -71,7 +66,6 @@ export default function ChatPanel({
     const added = newCount - prevMsgCountRef.current;
 
     if (added > 0 && !wasAtBottomRef.current) {
-      // Older messages were prepended — restore scroll position
       const diff = el.scrollHeight - prevScrollHeightRef.current;
       el.scrollTop += diff;
     } else if (added > 0 && wasAtBottomRef.current) {
@@ -109,13 +103,12 @@ export default function ChatPanel({
                       key={`${msg.id}-${i}`}
                       message={{ ...msg, content: part }}
                       onDelete={onDeleteMessage}
-                      showTime={showTime}
                       markdownEnabled={markdownEnabled}
                     />
                   ));
                 }
               }
-              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} showTime={showTime} markdownEnabled={markdownEnabled} />;
+              return <ChatBubble key={msg.id} message={msg} onDelete={onDeleteMessage} markdownEnabled={markdownEnabled} />;
             })}
           </>
         )}
@@ -125,12 +118,10 @@ export default function ChatPanel({
         sending={sending}
         voiceFeedback={voiceFeedback}
         splitEnabled={splitEnabled}
-        showTime={showTime}
         markdownEnabled={markdownEnabled}
         onSend={onSend}
         onToggleVoiceFeedback={onToggleVoiceFeedback}
         onToggleSplit={onToggleSplit}
-        onToggleShowTime={onToggleShowTime}
         onToggleMarkdown={onToggleMarkdown}
       />
     </div>

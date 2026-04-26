@@ -282,14 +282,27 @@ public class LLMService
             }
         };
 
+        var timeParam = $"\n\n参数：{TimeZoneInfo.ConvertTime(DateTime.UtcNow, TimeZoneInfo.Local):yyyy-MM-dd HH:mm zzz}";
+        // Index of the last user entry in memoryMessages
+        int lastUserIdx = -1;
+        for (int i = memoryMessages.Count - 1; i >= 0; i--)
+        {
+            var e = JsonSerializer.Serialize(memoryMessages[i]);
+            using var d = JsonDocument.Parse(e);
+            if (d.RootElement.GetProperty("role").GetString() == "user") { lastUserIdx = i; break; }
+        }
+
+        int entryIdx = -1;
         foreach (var entry in memoryMessages)
         {
+            entryIdx++;
             var entryJson = JsonSerializer.Serialize(entry);
             using var doc = JsonDocument.Parse(entryJson);
             var root = doc.RootElement;
 
             var role = root.GetProperty("role").GetString() ?? "user";
             var content = root.GetProperty("content");
+            bool isLastUser = role == "user" && entryIdx == lastUserIdx;
 
             switch (role)
             {
@@ -298,13 +311,14 @@ public class LLMService
                     // Check if content is a multimodal array (has image_url or base64 parts)
                     if (content.ValueKind == JsonValueKind.Array && IsMultimodalContent(content))
                     {
-                        var parts = BuildMultimodalParts(content);
+                        var parts = BuildMultimodalParts(content, isLastUser ? timeParam : null);
                         if (parts.Count > 0)
                             messages.Add(new { role = "user", content = parts });
                     }
                     else
                     {
                         var text = ExtractTextContent(content);
+                        if (isLastUser) text += timeParam;
                         if (!string.IsNullOrWhiteSpace(text))
                             messages.Add(new { role = "user", content = text });
                     }
@@ -634,9 +648,7 @@ public class LLMService
     /// </summary>
     private object BuildUserContent(string? prompt, IReadOnlyList<ImageInput>? images)
     {
-        var textPart = string.IsNullOrWhiteSpace(prompt)
-            ? $"参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}"
-            : $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}";
+        var textPart = string.IsNullOrWhiteSpace(prompt) ? "" : prompt;
 
         if (images == null || images.Count == 0)
             return textPart;
@@ -674,7 +686,7 @@ public class LLMService
     /// Anthropic: { type:"image", source:{ type:"url"|"base64", ... } }
     /// Gemini (OpenAI-compat): same as OpenAI
     /// </summary>
-    private List<object> BuildMultimodalParts(JsonElement content)
+    private List<object> BuildMultimodalParts(JsonElement content, string? textSuffix = null)
     {
         var parts = new List<object>();
         foreach (var item in content.EnumerateArray())
@@ -685,7 +697,7 @@ public class LLMService
 
             if (type == "text")
             {
-                var text = item.TryGetProperty("text", out var tEl) ? tEl.GetString() ?? "" : "";
+                var text = (item.TryGetProperty("text", out var tEl) ? tEl.GetString() ?? "" : "") + (textSuffix ?? "");
                 if (_protocol == "anthropic")
                     parts.Add(new { type = "text", text });
                 else

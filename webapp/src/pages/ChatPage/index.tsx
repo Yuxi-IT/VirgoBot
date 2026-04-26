@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Spinner, Tabs, Card } from '@heroui/react';
-import { useNavigate } from 'react-router-dom';
+import { Button, Spinner, Tabs } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { api, BASE_URL } from '../../services/api';
 import SessionList from './SessionList';
@@ -9,7 +8,7 @@ import AgentPanel from './AgentPanel';
 import SoulPanel from './SoulPanel';
 import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from './types';
 import type { ImageAttachment } from './ChatInput';
-import { ArrowLeft, ArrowRight, ShieldKeyhole } from '@gravity-ui/icons';
+import { ArrowLeft, ArrowRight } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 
 const PAGE_SIZE = 20;
@@ -24,8 +23,6 @@ function readFlag(key: string, defaultVal: boolean): boolean {
 
 function ChatPage() {
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const [hasAccessKey, setHasAccessKey] = useState<boolean | null>(null);
   const [accessKey, setAccessKey] = useState('');
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [currentSession, setCurrentSession] = useState('');
@@ -40,7 +37,6 @@ function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [splitDelimiters, setSplitDelimiters] = useState('。|！|？|?|\n\n|\n');
   const [splitEnabled, setSplitEnabled] = useState(() => readFlag('chat.splitEnabled', true));
-  const [showTime, setShowTime] = useState(() => readFlag('chat.showTime', true));
   const [markdownEnabled, setMarkdownEnabled] = useState(() => readFlag('chat.markdownEnabled', true));
   const [activeTab, setActiveTab] = useState('chat');
 
@@ -102,20 +98,17 @@ function ChatPage() {
     api.get<{ success: boolean; data: { server: { messageSplitDelimiters: string } } }>('/api/config')
       .then(res => { if (res.success) setSplitDelimiters(res.data.server.messageSplitDelimiters); })
       .catch(() => {});
-    // Check if any enabled AccessKey exists and pick one for WebSocket
+    // Pick an enabled AccessKey for WebSocket (voice feedback only)
     api.get<{ success: boolean; data: { key: string; enabled: boolean }[] }>('/api/access-keys')
       .then(res => {
         if (res.success) {
           const enabled = res.data.filter(k => k.enabled);
-          setHasAccessKey(enabled.length > 0);
           if (enabled.length > 0) {
             setAccessKey(enabled[Math.floor(Math.random() * enabled.length)].key);
           }
-        } else {
-          setHasAccessKey(false);
         }
       })
-      .catch(() => setHasAccessKey(false));
+      .catch(() => {});
   }, [loadSessions]);
 
   useEffect(() => {
@@ -154,47 +147,42 @@ function ChatPage() {
     if (!text.trim() && (!images || images.length === 0)) return;
     if (sending) return;
     setSending(true);
+
+    // Optimistic user message
+    const optimisticContent = images && images.length > 0
+      ? JSON.stringify({ text, images: images.map(i => ({ preview: i.preview })) })
+      : text;
+    const optimisticMsg: Message = {
+      id: Date.now(),
+      role: 'user',
+      content: optimisticContent,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
     try {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        const payload: Record<string, unknown> = { type: 'message', message: text };
+      const payload: Record<string, unknown> = { message: text };
+      if (images && images.length > 0) {
+        const urlImages = images.filter(i => i.type === 'url').map(i => i.data);
+        const b64Images = images.filter(i => i.type === 'base64').map(i => ({ data: i.data, mediaType: i.mediaType ?? 'image/jpeg' }));
+        if (urlImages.length > 0) payload.imageUrls = urlImages;
+        if (b64Images.length > 0) payload.imageBase64 = b64Images;
+      }
+      await api.post('/chat', payload);
 
-        if (images && images.length > 0) {
-          const urlImages = images.filter(i => i.type === 'url').map(i => i.data);
-          const b64Images = images.filter(i => i.type === 'base64').map(i => ({ data: i.data, mediaType: i.mediaType ?? 'image/jpeg' }));
-          if (urlImages.length > 0) payload.imageUrls = urlImages;
-          if (b64Images.length > 0) payload.imageBase64 = b64Images;
-        }
-
-        wsRef.current.send(JSON.stringify(payload));
-
-        // Optimistic user message — show text + image previews
-        const optimisticContent = images && images.length > 0
-          ? JSON.stringify({ text, images: images.map(i => ({ preview: i.preview })) })
-          : text;
-        const optimisticMsg: Message = {
-          id: Date.now(),
-          role: 'user',
-          content: optimisticContent,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, optimisticMsg]);
-
-        // Generate session name on first message
-        const cur = sessions.find(s => s.isCurrent);
-        if (cur && !cur.sessionName && cur.messageCount === 0) {
-          setTimeout(async () => {
-            try {
-              await api.post('/api/sessions/generate-name', { message: text });
-              loadSessions(true);
-            } catch { /* ignore */ }
-          }, 1000);
-        }
+      // Generate session name on first message
+      const cur = sessions.find(s => s.isCurrent);
+      if (cur && !cur.sessionName && cur.messageCount === 0) {
+        setTimeout(async () => {
+          try {
+            await api.post('/api/sessions/generate-name', { message: text });
+            loadSessions(true);
+          } catch { /* ignore */ }
+        }, 1000);
       }
     } finally {
-      setTimeout(() => {
-        setSending(false);
-        loadMessages(true);
-      }, 1000);
+      setSending(false);
+      loadMessages(true);
     }
   };
 
@@ -244,25 +232,6 @@ function ChatPage() {
     return (
       <DefaultLayout>
         <div className="flex items-center justify-center h-[60vh]"><Spinner size="lg" /></div>
-      </DefaultLayout>
-    );
-  }
-
-  if (hasAccessKey === false) {
-    return (
-      <DefaultLayout>
-        <div className="flex items-center justify-center h-[60vh]">
-          <Card className="max-w-md w-full">
-            <div className="p-8 text-center flex flex-col items-center gap-4">
-              <ShieldKeyhole className="w-12 h-12 text-gray-400" />
-              <h2 className="text-lg font-semibold">{t('chatPage.noAccessKey')}</h2>
-              <p className="text-sm text-gray-500">{t('chatPage.noAccessKeyHint')}</p>
-              <Button variant="primary" onPress={() => navigate('/security')}>
-                {t('chatPage.goToSecurity')}
-              </Button>
-            </div>
-          </Card>
-        </div>
       </DefaultLayout>
     );
   }
@@ -320,7 +289,6 @@ function ChatPage() {
                 hasMore={hasMore}
                 voiceFeedback={voiceFeedback}
                 splitEnabled={splitEnabled}
-                showTime={showTime}
                 markdownEnabled={markdownEnabled}
                 splitDelimiters={splitDelimiters}
                 onSend={(text, imgs) => sendMessage(text, imgs)}
@@ -328,7 +296,6 @@ function ChatPage() {
                 onLoadMore={loadMoreMessages}
                 onToggleVoiceFeedback={() => toggleFlag('chat.voiceFeedback', setVoiceFeedback)}
                 onToggleSplit={() => toggleFlag('chat.splitEnabled', setSplitEnabled)}
-                onToggleShowTime={() => toggleFlag('chat.showTime', setShowTime)}
                 onToggleMarkdown={() => toggleFlag('chat.markdownEnabled', setMarkdownEnabled)}
               />
             </Tabs.Panel>
