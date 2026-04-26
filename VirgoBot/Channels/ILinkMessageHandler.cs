@@ -44,7 +44,8 @@ public class ILinkMessageHandler
             var imageBytes = await _iLinkBridge.DownloadImageAsync(incoming, _cancellationToken);
             if (imageBytes != null)
             {
-                var base64 = Convert.ToBase64String(imageBytes);
+                var compressedBytes = ImageCompressor.Compress(imageBytes);
+                var base64 = Convert.ToBase64String(compressedBytes);
                 images = [ImageInput.FromBase64(base64, "image/jpeg")];
             }
         }
