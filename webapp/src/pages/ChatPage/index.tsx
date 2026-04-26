@@ -29,7 +29,6 @@ function ChatPage() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [currentSession, setCurrentSession] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -76,7 +75,6 @@ function ChatPage() {
       const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=0`);
       if (res.success) {
         setMessages(res.data.messages);
-        setTotal(res.data.total);
         setOffset(res.data.messages.length);
         setHasMore(res.data.messages.length < res.data.total);
       }
@@ -271,7 +269,6 @@ function ChatPage() {
             />
           </div>
         </div>
-
         {/* Center: Chat + Soul Tabs */}
         <div className="flex-1 flex flex-col min-w-0 relative">
           <Button
