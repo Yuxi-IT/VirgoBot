@@ -11,6 +11,7 @@ public class LLMService
     private readonly HttpClient _http;
     private readonly string _baseUrl;
     private readonly string _model;
+    private readonly string _protocol; // openai / anthropic / gemini
     private readonly MemoryService _memory;
     private readonly FunctionRegistry _functions;
     private readonly string _systemMemory;
@@ -34,11 +35,13 @@ public class LLMService
         FunctionRegistry functions,
         string systemMemory,
         int maxTokens = 8192,
-        TokenStatsService? tokenStats = null)
+        TokenStatsService? tokenStats = null,
+        string protocol = "openai")
     {
         _http = http;
         _baseUrl = baseUrl;
         _model = model;
+        _protocol = protocol.ToLowerInvariant();
         _memory = memory;
         _functions = functions;
         _systemMemory = systemMemory;
@@ -56,17 +59,19 @@ public class LLMService
         Action<string>? onProgress = null,
         Func<string, Task>? onSticker = null,
         Func<string, Task>? onSwitchChat = null,
-        bool isSystemTask = false)
+        bool isSystemTask = false,
+        IReadOnlyList<ImageInput>? images = null)
     {
-        if (!string.IsNullOrWhiteSpace(prompt))
+        if (!string.IsNullOrWhiteSpace(prompt) || (images != null && images.Count > 0))
         {
             if (isSystemTask)
             {
-                _memory.SaveMessage("user", prompt);
+                _memory.SaveMessage("user", prompt ?? "");
             }
             else
             {
-                _memory.SaveMessage("user", $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}");
+                var userContent = BuildUserContent(prompt, images);
+                _memory.SaveMessage("user", userContent);
                 _scheduledTaskService?.NotifyMessage("user");
 
                 _userMessageCount++;
@@ -249,7 +254,7 @@ public class LLMService
 
             ColorLog.Info("TOOL", $"全部 {totalCount} 个工具执行完成, 总耗时 {totalSw.ElapsedMilliseconds}ms");
 
-            return await AskAsync(null, onProgress, onSticker, onSwitchChat);
+            return await AskAsync(null, onProgress, onSticker, onSwitchChat, images: null);
         }
 
         if (reasoningContent != null)
@@ -290,10 +295,18 @@ public class LLMService
             {
                 case "user":
                 {
-                    var text = ExtractTextContent(content);
-                    if (!string.IsNullOrWhiteSpace(text))
+                    // Check if content is a multimodal array (has image_url or base64 parts)
+                    if (content.ValueKind == JsonValueKind.Array && IsMultimodalContent(content))
                     {
-                        messages.Add(new { role = "user", content = text });
+                        var parts = BuildMultimodalParts(content);
+                        if (parts.Count > 0)
+                            messages.Add(new { role = "user", content = parts });
+                    }
+                    else
+                    {
+                        var text = ExtractTextContent(content);
+                        if (!string.IsNullOrWhiteSpace(text))
+                            messages.Add(new { role = "user", content = text });
                     }
                     break;
                 }
@@ -611,4 +624,119 @@ public class LLMService
         var singleLine = text.ReplaceLineEndings(" ");
         return singleLine.Length <= maxLength ? singleLine : singleLine[..maxLength] + "...";
     }
+
+    // ── Multimodal helpers ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Builds the user content to save in memory.
+    /// For text-only messages: saves as plain string with timestamp.
+    /// For multimodal messages: saves as JSON array of content parts.
+    /// </summary>
+    private object BuildUserContent(string? prompt, IReadOnlyList<ImageInput>? images)
+    {
+        var textPart = string.IsNullOrWhiteSpace(prompt)
+            ? $"参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}"
+            : $"{prompt}\n\n参数：北京时间 {DateTime.Now:yyyy-MM-dd HH:mm}";
+
+        if (images == null || images.Count == 0)
+            return textPart;
+
+        // Build multimodal array: [{ type:"text", text:"..." }, { type:"image_url", ... }, ...]
+        var parts = new List<object> { new { type = "text", text = textPart } };
+        foreach (var img in images)
+        {
+            if (img.IsUrl)
+                parts.Add(new { type = "image_url", image_url = new { url = img.Data } });
+            else
+                parts.Add(new { type = "image_base64", media_type = img.MediaType, data = img.Data });
+        }
+        return parts.ToArray();
+    }
+
+    private static bool IsMultimodalContent(JsonElement content)
+    {
+        foreach (var item in content.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.Object &&
+                item.TryGetProperty("type", out var t))
+            {
+                var typeStr = t.GetString();
+                if (typeStr == "image_url" || typeStr == "image_base64")
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Converts stored multimodal content parts into the format expected by the current provider protocol.
+    /// OpenAI: { type:"image_url", image_url:{ url:"..." } } or data URL for base64
+    /// Anthropic: { type:"image", source:{ type:"url"|"base64", ... } }
+    /// Gemini (OpenAI-compat): same as OpenAI
+    /// </summary>
+    private List<object> BuildMultimodalParts(JsonElement content)
+    {
+        var parts = new List<object>();
+        foreach (var item in content.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object) continue;
+            if (!item.TryGetProperty("type", out var typeEl)) continue;
+            var type = typeEl.GetString();
+
+            if (type == "text")
+            {
+                var text = item.TryGetProperty("text", out var tEl) ? tEl.GetString() ?? "" : "";
+                if (_protocol == "anthropic")
+                    parts.Add(new { type = "text", text });
+                else
+                    parts.Add(new { type = "text", text });
+            }
+            else if (type == "image_url")
+            {
+                var url = item.TryGetProperty("image_url", out var iuEl) && iuEl.TryGetProperty("url", out var uEl)
+                    ? uEl.GetString() ?? ""
+                    : "";
+                if (string.IsNullOrEmpty(url)) continue;
+
+                if (_protocol == "anthropic")
+                    parts.Add(new { type = "image", source = new { type = "url", url } });
+                else
+                    parts.Add(new { type = "image_url", image_url = new { url } });
+            }
+            else if (type == "image_base64")
+            {
+                var mediaType = item.TryGetProperty("media_type", out var mtEl) ? mtEl.GetString() ?? "image/jpeg" : "image/jpeg";
+                var data = item.TryGetProperty("data", out var dEl) ? dEl.GetString() ?? "" : "";
+                if (string.IsNullOrEmpty(data)) continue;
+
+                if (_protocol == "anthropic")
+                {
+                    parts.Add(new
+                    {
+                        type = "image",
+                        source = new { type = "base64", media_type = mediaType, data }
+                    });
+                }
+                else
+                {
+                    // OpenAI / Gemini: data URL
+                    parts.Add(new { type = "image_url", image_url = new { url = $"data:{mediaType};base64,{data}" } });
+                }
+            }
+        }
+        return parts;
+    }
+}
+
+/// <summary>Represents an image to send alongside a user message.</summary>
+public class ImageInput
+{
+    /// <summary>True = Data is a URL; False = Data is base64-encoded image bytes.</summary>
+    public bool IsUrl { get; init; }
+    public string Data { get; init; } = "";
+    public string MediaType { get; init; } = "image/jpeg"; // only used when IsUrl=false
+
+    public static ImageInput FromUrl(string url) => new() { IsUrl = true, Data = url };
+    public static ImageInput FromBase64(string base64, string mediaType = "image/jpeg")
+        => new() { IsUrl = false, Data = base64, MediaType = mediaType };
 }

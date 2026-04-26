@@ -62,6 +62,26 @@ export default function ChatBubble({ message, onDelete, showTime, markdownEnable
       );
     }
 
+    // Detect optimistic user messages with image attachments
+    if (isUser) {
+      try {
+        const parsed = JSON.parse(message.content) as { text?: string; images?: { preview: string }[] };
+        if (parsed && typeof parsed === 'object' && 'images' in parsed) {
+          return (
+            <div>
+              {parsed.text && <div className="whitespace-pre-wrap break-words mb-2">{parsed.text}</div>}
+              <div className="flex gap-2 flex-wrap">
+                {(parsed.images ?? []).map((img, i) => (
+                  <img key={i} src={img.preview} alt="" className="max-h-40 max-w-[200px] rounded-lg object-cover" />
+                ))}
+              </div>
+            </div>
+          );
+        }
+      } catch { /* not JSON, render as plain text */ }
+      return <div className="whitespace-pre-wrap break-words">{message.content.split('\n').slice(0, -1).join('\n') || message.content}</div>;
+    }
+
     const toolMatch = message.content.match(/\[tool: .+?\]/g);
     if (toolMatch && message.role === 'assistant') {
       const textPart = message.content.replace(/\[tool: .+?\]/g, '').trim();
@@ -107,7 +127,7 @@ export default function ChatBubble({ message, onDelete, showTime, markdownEnable
       );
     }
 
-    return <div className="whitespace-pre-wrap break-words">{isUser ? message.content.split('\n').slice(0, -1).join('\n') : message.content}</div>;
+    return <div className="whitespace-pre-wrap break-words">{message.content}</div>;
   };
 
   return (

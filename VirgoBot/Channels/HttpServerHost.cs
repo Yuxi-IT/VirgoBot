@@ -518,10 +518,35 @@ public class HttpServerHost
             if (type == "message")
             {
                 var message = req.GetProperty("message").GetString();
-                ColorLog.Info("→AI", $"{message}");
+
+                // Parse optional images: online URLs and/or base64 uploads
+                var images = new List<ImageInput>();
+                if (req.TryGetProperty("imageUrls", out var imageUrlsEl) &&
+                    imageUrlsEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var u in imageUrlsEl.EnumerateArray())
+                    {
+                        var url = u.GetString();
+                        if (!string.IsNullOrWhiteSpace(url))
+                            images.Add(ImageInput.FromUrl(url));
+                    }
+                }
+                if (req.TryGetProperty("imageBase64", out var imgB64El) &&
+                    imgB64El.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in imgB64El.EnumerateArray())
+                    {
+                        var data = item.TryGetProperty("data", out var dEl) ? dEl.GetString() : null;
+                        var mt = item.TryGetProperty("mediaType", out var mtEl) ? mtEl.GetString() : "image/jpeg";
+                        if (!string.IsNullOrWhiteSpace(data))
+                            images.Add(ImageInput.FromBase64(data, mt ?? "image/jpeg"));
+                    }
+                }
+
+                ColorLog.Info("→AI", $"{message}{(images.Count > 0 ? $" [+{images.Count}图]" : "")}");
 
                 _gateway.ActivityMonitor?.UpdateActivity();
-                var reply = await _gateway.LlmService.AskAsync(message ?? "");
+                var reply = await _gateway.LlmService.AskAsync(message ?? "", images: images.Count > 0 ? images : null);
                 ColorLog.Success("AI→", reply);
 
                 var response = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type = "sendMessage", content = reply }));

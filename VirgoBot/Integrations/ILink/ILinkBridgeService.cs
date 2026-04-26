@@ -62,10 +62,12 @@ public sealed class ILinkBridgeService : IDisposable
                 await _client.MonitorAsync(async message =>
                 {
                     var text = message.ExtractText();
-                    if (string.IsNullOrWhiteSpace(text))
+                    var hasImage = message.ItemList?.Any(i => i.ImageItem != null) == true;
+
+                    if (string.IsNullOrWhiteSpace(text) && !hasImage)
                         return;
 
-                    ColorLog.Info("ILINK", $"收到消息: UserId={message.FromUserId}, Text={text}");
+                    ColorLog.Info("ILINK", $"收到消息: UserId={message.FromUserId}, Text={text}{(hasImage ? " [图片]" : "")}");
                     await onMessage(message);
                 }, options, _monitorCts.Token);
             }
@@ -133,6 +135,29 @@ public sealed class ILinkBridgeService : IDisposable
 
         await _client.SendMediaFileAsync(userId, contextToken, fileBytes, fileName, null, cancellationToken);
         ColorLog.Success("ILINK", $"已发送文件 {fileName} 给 {userId}");
+    }
+
+    public async Task<byte[]?> DownloadImageAsync(WeixinMessage message, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var imageItem = message.ItemList?
+                .FirstOrDefault(i => i.ImageItem != null)?.ImageItem;
+            if (imageItem == null) return null;
+
+            var media = imageItem.Media;
+            if (media == null) return null;
+
+            return await _client.DownloadFileAsync(
+                media.EncryptQueryParam,
+                media.AesKey,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("ILINK", $"图片下载失败: {ex.Message}");
+            return null;
+        }
     }
 
     public bool CanPushTo(string userId) => _client.CanPushTo(userId);

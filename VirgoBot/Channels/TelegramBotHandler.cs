@@ -55,7 +55,42 @@ public class TelegramBotHandler
 
     private async Task OnMessage(Message msg)
     {
-        if (msg.Text is null || !_config.Channel.Telegram.AllowedUsers.Contains(msg.From!.Id)) return;
+        if (!_config.Channel.Telegram.AllowedUsers.Contains(msg.From!.Id)) return;
+
+        // Handle photo messages
+        if (msg.Photo != null && msg.Photo.Length > 0)
+        {
+            _activityMonitor.UpdateActivity();
+            var caption = msg.Caption?.Trim() ?? "";
+            ColorLog.Info($"MSG-{msg.Type}", $"[@{msg.From.Username}({msg.From.Id})] [图片] {caption}");
+
+            var images = await DownloadTelegramPhotosAsync(msg.Photo);
+            var photoReply = await _llmService.AskAsync(
+                string.IsNullOrWhiteSpace(caption) ? null : caption,
+                async (text) =>
+                {
+                    var processed = _messageHelper.ProcessThinkTags(text);
+                    await _messageHelper.SendLongMessage(msg.Chat.Id, processed);
+                },
+                async (stickerPath) =>
+                {
+                    if (File.Exists(stickerPath))
+                    {
+                        using var stream = File.OpenRead(stickerPath);
+                        await _bot.SendSticker(msg.Chat.Id, InputFile.FromStream(stream));
+                    }
+                },
+                images: images.Count > 0 ? images : null);
+
+            if (!string.IsNullOrEmpty(photoReply))
+            {
+                photoReply = _messageHelper.ProcessThinkTags(photoReply);
+                await _messageHelper.SendLongMessage(msg.Chat.Id, photoReply);
+            }
+            return;
+        }
+
+        if (msg.Text is null) return;
 
         _activityMonitor.UpdateActivity();
         ColorLog.Info($"MSG-{msg.Type}", $"[@{msg.From.Username}({msg.From.Id})] '{msg.Text}'");
@@ -119,6 +154,27 @@ public class TelegramBotHandler
                 await _bot.DeleteMessage(query.Message!.Chat.Id, query.Message.MessageId);
                 await _bot.AnswerCallbackQuery(query.Id, "已忽略");
             }
+        }
+    }
+
+    private async Task<List<ImageInput>> DownloadTelegramPhotosAsync(PhotoSize[] photos)
+    {
+        // Pick the largest photo
+        var largest = photos.OrderByDescending(p => p.FileSize ?? 0).First();
+        try
+        {
+            var file = await _bot.GetFile(largest.FileId);
+            if (file.FilePath == null) return [];
+
+            using var ms = new MemoryStream();
+            await _bot.DownloadFile(file.FilePath, ms);
+            var base64 = Convert.ToBase64String(ms.ToArray());
+            return [ImageInput.FromBase64(base64, "image/jpeg")];
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("TELEGRAM", $"图片下载失败: {ex.Message}");
+            return [];
         }
     }
 }

@@ -411,6 +411,10 @@ export default {
     noAccessKey: 'No Access Key Available',
     noAccessKeyHint: 'You need to create an Access Key before using the chat. Go to Security settings to create one.',
     goToSecurity: 'Go to Security',
+    attachImage: 'Attach online image',
+    uploadImage: 'Upload local image',
+    imageUrlPlaceholder: 'Enter image URL...',
+    addImage: 'Add',
   },
   tasks: {
     title: 'Scheduled Tasks',

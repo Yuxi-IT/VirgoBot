@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Spinner } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import ChatBubble from './ChatBubble';
-import ChatInput from './ChatInput';
+import ChatInput, { type ImageAttachment } from './ChatInput';
 import type { Message } from './types';
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
   showTime: boolean;
   markdownEnabled: boolean;
   splitDelimiters: string;
-  onSend: (text: string) => void;
+  onSend: (text: string, images?: ImageAttachment[]) => void;
   onDeleteMessage: (id: number) => void;
   onLoadMore: () => void;
   onToggleVoiceFeedback: () => void;

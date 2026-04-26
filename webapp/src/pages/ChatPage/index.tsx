@@ -8,6 +8,7 @@ import ChatPanel from './ChatPanel';
 import AgentPanel from './AgentPanel';
 import SoulPanel from './SoulPanel';
 import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from './types';
+import type { ImageAttachment } from './ChatInput';
 import { ArrowLeft, ArrowRight, ShieldKeyhole } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 
@@ -149,20 +150,35 @@ function ChatPage() {
     return () => { ws.close(); };
   }, [voiceFeedback, accessKey]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || sending) return;
+  const sendMessage = async (text: string, images?: ImageAttachment[]) => {
+    if (!text.trim() && (!images || images.length === 0)) return;
+    if (sending) return;
     setSending(true);
     try {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'message', message: text }));
-        // Optimistically add user message
+        const payload: Record<string, unknown> = { type: 'message', message: text };
+
+        if (images && images.length > 0) {
+          const urlImages = images.filter(i => i.type === 'url').map(i => i.data);
+          const b64Images = images.filter(i => i.type === 'base64').map(i => ({ data: i.data, mediaType: i.mediaType ?? 'image/jpeg' }));
+          if (urlImages.length > 0) payload.imageUrls = urlImages;
+          if (b64Images.length > 0) payload.imageBase64 = b64Images;
+        }
+
+        wsRef.current.send(JSON.stringify(payload));
+
+        // Optimistic user message — show text + image previews
+        const optimisticContent = images && images.length > 0
+          ? JSON.stringify({ text, images: images.map(i => ({ preview: i.preview })) })
+          : text;
         const optimisticMsg: Message = {
           id: Date.now(),
           role: 'user',
-          content: text,
+          content: optimisticContent,
           createdAt: new Date().toISOString(),
         };
         setMessages(prev => [...prev, optimisticMsg]);
+
         // Generate session name on first message
         const cur = sessions.find(s => s.isCurrent);
         if (cur && !cur.sessionName && cur.messageCount === 0) {
@@ -307,7 +323,7 @@ function ChatPage() {
                 showTime={showTime}
                 markdownEnabled={markdownEnabled}
                 splitDelimiters={splitDelimiters}
-                onSend={sendMessage}
+                onSend={(text, imgs) => sendMessage(text, imgs)}
                 onDeleteMessage={deleteMessage}
                 onLoadMore={loadMoreMessages}
                 onToggleVoiceFeedback={() => toggleFlag('chat.voiceFeedback', setVoiceFeedback)}

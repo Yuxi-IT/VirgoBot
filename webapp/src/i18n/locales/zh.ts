@@ -411,6 +411,10 @@ export default {
     noAccessKey: '没有可用的 Access Key',
     noAccessKeyHint: '使用聊天功能前需要先创建一个 Access Key，请前往安全设置创建。',
     goToSecurity: '前往安全设置',
+    attachImage: '引用在线图片',
+    uploadImage: '上传本地图片',
+    imageUrlPlaceholder: '输入图片 URL...',
+    addImage: '添加',
   },
   tasks: {
     title: '定时任务',

@@ -85,7 +85,7 @@ public class ServiceContainer : IDisposable
         }
 
         container.ContactService = new ContactService();
-        container.LlmService = new LLMService(httpClient, baseUrl, model, memoryService, container.FunctionRegistry, systemMemory, container.Config.Server.MaxTokens, tokenStatsService);
+        container.LlmService = new LLMService(httpClient, baseUrl, model, memoryService, container.FunctionRegistry, systemMemory, container.Config.Server.MaxTokens, tokenStatsService, provider?.Protocol ?? "openai");
         container.ScheduledTaskService.SetLlmService(container.LlmService);
         container.LlmService.SetScheduledTaskService(container.ScheduledTaskService);
 

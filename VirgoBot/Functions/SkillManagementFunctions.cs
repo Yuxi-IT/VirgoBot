@@ -7,7 +7,7 @@ public static class SkillManagementFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持的操作：list(列出所有skills)、get(获取指定skill内容)、create(创建新skill)、update(更新skill)、delete(删除skill)。支持两种格式：\n1) JSON skill：文件名.json，包含 name、description、parameters、command/http 字段，支持 subSkills 多子功能；\n2) SKILL.md 标准格式（兼容 OpenClaw / Claude Code）：目录型 skills/名称/SKILL.md，YAML frontmatter 含 name、description、allowed-tools、model，Markdown 正文作为指令，支持 $ARGUMENTS 参数替换。\n创建 SKILL.md 时 skill_name 为目录名，skill_content 为完整 SKILL.md 内容。\nJSON skill 中参数用 {{参数名}} 双大括号引用。", new
+        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持两种格式：\n1) JSON skill：文件名.json，包含 name、description、parameters、command/http 字段，支持 subSkills 多子功能；格式：{\r\n  \"name\": \"example_skill\",\r\n  \"description\": \"这是一个示例 Skill，以下划线开头的文件不会被加载\",\r\n  \"parameters\": [\r\n    {\r\n      \"name\": \"arg1\",\r\n      \"type\": \"string\",\r\n      \"description\": \"参数1\",\r\n      \"required\": true\r\n    },\r\n    {\r\n      \"name\": \"arg2\",\r\n      \"type\": \"string\",\r\n      \"description\": \"参数2(可选)\",\r\n      \"required\": false\r\n    }\r\n  ],\r\n  \"command\": \"echo {{arg1}} {{arg2}}\"\r\n}\n(2) SKILL.md 标准格式（兼容 OpenClaw / Claude Code）：目录型 skills/名称/SKILL.md，YAML frontmatter 含 name、description、allowed-tools、model，Markdown 正文作为指令，支持 $ARGUMENTS 参数替换。\n创建 SKILL.md 时 skill_name 为目录名，skill_content 为完整 SKILL.md 内容。\nJSON skill 中参数用 {{参数名}} 双大括号引用。", new
         {
             type = "object",
             properties = new
