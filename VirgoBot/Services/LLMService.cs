@@ -311,9 +311,20 @@ public class LLMService
                     // Check if content is a multimodal array (has image_url or base64 parts)
                     if (content.ValueKind == JsonValueKind.Array && IsMultimodalContent(content))
                     {
-                        var parts = BuildMultimodalParts(content, isLastUser ? timeParam : null);
-                        if (parts.Count > 0)
-                            messages.Add(new { role = "user", content = parts });
+                        if (isLastUser)
+                        {
+                            // Latest message: send full multimodal content with images
+                            var parts = BuildMultimodalParts(content, timeParam);
+                            if (parts.Count > 0)
+                                messages.Add(new { role = "user", content = parts });
+                        }
+                        else
+                        {
+                            // Historical message: strip images, send text only to avoid API errors
+                            var text = ExtractTextFromMultimodalContent(content);
+                            if (!string.IsNullOrWhiteSpace(text))
+                                messages.Add(new { role = "user", content = text });
+                        }
                     }
                     else
                     {
@@ -663,6 +674,20 @@ public class LLMService
                 parts.Add(new { type = "image_base64", media_type = img.MediaType, data = img.Data });
         }
         return parts.ToArray();
+    }
+
+    private static string ExtractTextFromMultimodalContent(JsonElement content)
+    {
+        foreach (var item in content.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.Object &&
+                item.TryGetProperty("type", out var t) && t.GetString() == "text" &&
+                item.TryGetProperty("text", out var tEl))
+            {
+                return tEl.GetString() ?? "";
+            }
+        }
+        return "";
     }
 
     private static bool IsMultimodalContent(JsonElement content)

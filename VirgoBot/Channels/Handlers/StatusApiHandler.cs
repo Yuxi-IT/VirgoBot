@@ -81,8 +81,8 @@ public class StatusApiHandler
             {
                 id = m.Id,
                 role = m.Role,
-                content = m.Role == "user"
-                        ? string.Join(Environment.NewLine, m.Content.Split("\n\n", StringSplitOptions.RemoveEmptyEntries).SkipLast(1))
+                content = (m.Role == "user")
+                        ? ProcessUserContent(m.Content)
                         : m.Content,
                 createTime = m.CreatedAt.ToString("o")
             }),
@@ -205,5 +205,19 @@ public class StatusApiHandler
             totalTokens = stats.TotalTokens,
             requestCount = stats.RequestCount
         };
+    }
+    private string ProcessUserContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return content;
+
+        var parts = content.Split("\n\n", StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        if (parts.Count > 0 && parts.Last().Contains("参数"))
+        {
+            parts.RemoveAt(parts.Count - 1);
+        }
+
+        return string.Join(Environment.NewLine, parts);
     }
 }
