@@ -224,22 +224,44 @@ public class MemoryService : IDisposable
 
     public List<object> LoadMessages(int? limit = null)
     {
-        var effectiveLimit = limit ?? _messageLimit;
-        using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT role, content FROM messages ORDER BY id DESC LIMIT @limit";
-        cmd.Parameters.AddWithValue("@limit", effectiveLimit);
+        var roundLimit = limit ?? _messageLimit;
 
-        var messages = new List<object>();
+        // Load all messages from newest to oldest, then pick last N rounds.
+        // A "round" = one user message + one assistant message (tool messages don't count toward rounds).
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, role, content FROM messages ORDER BY id DESC";
+
+        var rows = new List<(int id, string role, string content)>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
+            rows.Add((reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
+        reader.Close();
+
+        // Walk from newest to oldest, count rounds (user+assistant pairs), collect rows
+        int rounds = 0;
+        int cutoffIndex = rows.Count; // exclusive upper bound (rows are newest-first)
+        for (int i = 0; i < rows.Count; i++)
         {
-            var role = reader.GetString(0);
-            var contentJson = reader.GetString(1);
-            var content = JsonSerializer.Deserialize<JsonElement>(contentJson);
-            messages.Add(new { role, content });
+            var role = rows[i].role;
+            if (role == "user" || role == "assistant")
+            {
+                if (role == "user") rounds++;
+                if (rounds > roundLimit)
+                {
+                    cutoffIndex = i;
+                    break;
+                }
+            }
         }
-        messages.Reverse();
-        return messages;
+
+        var selected = rows.Take(cutoffIndex).ToList();
+        selected.Reverse(); // back to chronological order
+
+        return selected.Select(r =>
+        {
+            var content = JsonSerializer.Deserialize<JsonElement>(r.content);
+            return (object)new { role = r.role, content };
+        }).ToList();
     }
 
     public void ClearOldMessages(int? keepLast = null)

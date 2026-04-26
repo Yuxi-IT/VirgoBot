@@ -11,7 +11,7 @@ import type { SessionInfo, SessionsResponse, Message, MessagesResponse } from '.
 import { ArrowLeft, ArrowRight, ShieldKeyhole } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 function readFlag(key: string, defaultVal: boolean): boolean {
   try {
@@ -30,7 +30,9 @@ function ChatPage() {
   const [currentSession, setCurrentSession] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [msgLoading, setMsgLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -71,15 +73,30 @@ function ChatPage() {
   const loadMessages = useCallback(async (silent = false) => {
     try {
       if (!silent) setMsgLoading(true);
-      const offset = (page - 1) * PAGE_SIZE;
-      const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=${offset}`);
+      const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=0`);
       if (res.success) {
         setMessages(res.data.messages);
         setTotal(res.data.total);
+        setOffset(res.data.messages.length);
+        setHasMore(res.data.messages.length < res.data.total);
       }
     } catch { /* silent */ } finally { if (!silent) setMsgLoading(false); }
-  }, [page]);
+  }, []);
   loadMessagesRef.current = loadMessages;
+
+  const loadMoreMessages = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    try {
+      setLoadingMore(true);
+      const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=${offset}`);
+      if (res.success) {
+        const newOffset = offset + res.data.messages.length;
+        setMessages(prev => [...res.data.messages, ...prev]);
+        setOffset(newOffset);
+        setHasMore(newOffset < res.data.total);
+      }
+    } catch { /* silent */ } finally { setLoadingMore(false); }
+  }, [offset, hasMore, loadingMore]);
 
   useEffect(() => {
     loadSessions();
@@ -178,7 +195,8 @@ function ChatPage() {
     try {
       await api.put('/api/sessions/switch', { session: fileName });
       setCurrentSession(fileName);
-      setPage(1);
+      setOffset(0);
+      setHasMore(false);
       loadSessions(true);
       loadMessages();
     } catch { /* ignore */ }
@@ -235,8 +253,6 @@ function ChatPage() {
     );
   }
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-
   return (
     <DefaultLayout noPadding>
       <div className="flex h-[calc(100vh-44px)] sm:h-screen overflow-hidden">
@@ -287,8 +303,8 @@ function ChatPage() {
                 messages={messages}
                 loading={msgLoading}
                 sending={sending}
-                page={page}
-                totalPages={totalPages}
+                loadingMore={loadingMore}
+                hasMore={hasMore}
                 voiceFeedback={voiceFeedback}
                 splitEnabled={splitEnabled}
                 showTime={showTime}
@@ -296,7 +312,7 @@ function ChatPage() {
                 splitDelimiters={splitDelimiters}
                 onSend={sendMessage}
                 onDeleteMessage={deleteMessage}
-                onPageChange={setPage}
+                onLoadMore={loadMoreMessages}
                 onToggleVoiceFeedback={() => toggleFlag('chat.voiceFeedback', setVoiceFeedback)}
                 onToggleSplit={() => toggleFlag('chat.splitEnabled', setSplitEnabled)}
                 onToggleShowTime={() => toggleFlag('chat.showTime', setShowTime)}

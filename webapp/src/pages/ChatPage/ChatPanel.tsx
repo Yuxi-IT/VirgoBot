@@ -1,6 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { Spinner, Button } from '@heroui/react';
-import { ChevronLeft, ChevronRight } from '@gravity-ui/icons';
+import { Spinner } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import ChatBubble from './ChatBubble';
 import ChatInput from './ChatInput';
@@ -10,8 +9,8 @@ interface Props {
   messages: Message[];
   loading: boolean;
   sending: boolean;
-  page: number;
-  totalPages: number;
+  loadingMore: boolean;
+  hasMore: boolean;
   voiceFeedback: boolean;
   splitEnabled: boolean;
   showTime: boolean;
@@ -19,7 +18,7 @@ interface Props {
   splitDelimiters: string;
   onSend: (text: string) => void;
   onDeleteMessage: (id: number) => void;
-  onPageChange: (page: number) => void;
+  onLoadMore: () => void;
   onToggleVoiceFeedback: () => void;
   onToggleSplit: () => void;
   onToggleShowTime: () => void;
@@ -35,13 +34,14 @@ function splitMessage(text: string, delimiters: string): string[] {
 }
 
 export default function ChatPanel({
-  messages, loading, sending, page, totalPages, voiceFeedback, splitEnabled, showTime, markdownEnabled, splitDelimiters,
-  onSend, onDeleteMessage, onPageChange, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime, onToggleMarkdown
+  messages, loading, sending, loadingMore, hasMore, voiceFeedback, splitEnabled, showTime, markdownEnabled, splitDelimiters,
+  onSend, onDeleteMessage, onLoadMore, onToggleVoiceFeedback, onToggleSplit, onToggleShowTime, onToggleMarkdown
 }: Props) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
   const wasAtBottomRef = useRef(true);
   const prevMsgCountRef = useRef(0);
+  const prevScrollHeightRef = useRef(0);
 
   const isAtBottom = useCallback(() => {
     const el = scrollRef.current;
@@ -49,23 +49,37 @@ export default function ChatPanel({
     return el.scrollHeight - el.scrollTop - el.clientHeight < 40;
   }, []);
 
-  // Track scroll position continuously
+  // Track scroll position continuously; trigger load more when near top
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const onScroll = () => { wasAtBottomRef.current = isAtBottom(); };
+    const onScroll = () => {
+      wasAtBottomRef.current = isAtBottom();
+      if (el.scrollTop < 80 && hasMore && !loadingMore) {
+        onLoadMore();
+      }
+    };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-  }, [isAtBottom]);
+  }, [isAtBottom, hasMore, loadingMore, onLoadMore]);
 
+  // After prepending older messages, restore scroll position so view doesn't jump
   useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
     const newCount = messages.length;
-    const hasNew = newCount > prevMsgCountRef.current;
-    prevMsgCountRef.current = newCount;
+    const added = newCount - prevMsgCountRef.current;
 
-    if (hasNew && wasAtBottomRef.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (added > 0 && !wasAtBottomRef.current) {
+      // Older messages were prepended — restore scroll position
+      const diff = el.scrollHeight - prevScrollHeightRef.current;
+      el.scrollTop += diff;
+    } else if (added > 0 && wasAtBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
     }
+
+    prevMsgCountRef.current = newCount;
+    prevScrollHeightRef.current = el.scrollHeight;
   }, [messages]);
 
   return (
@@ -81,15 +95,9 @@ export default function ChatPanel({
           </div>
         ) : (
           <>
-            {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mb-4">
-                <Button size="sm" variant="ghost" isDisabled={page <= 1} onPress={() => onPageChange(page - 1)}>
-                  <ChevronLeft />
-                </Button>
-                <span className="text-sm text-default-500">{page} / {totalPages}</span>
-                <Button size="sm" variant="ghost" isDisabled={page >= totalPages} onPress={() => onPageChange(page + 1)}>
-                  <ChevronRight />
-                </Button>
+            {loadingMore && (
+              <div className="flex justify-center py-2">
+                <Spinner size="sm" />
               </div>
             )}
             {messages.map(msg => {
@@ -128,4 +136,3 @@ export default function ChatPanel({
     </div>
   );
 }
-
