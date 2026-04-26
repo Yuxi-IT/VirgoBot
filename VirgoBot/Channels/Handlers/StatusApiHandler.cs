@@ -81,8 +81,10 @@ public class StatusApiHandler
             {
                 id = m.Id,
                 role = m.Role,
-                content = m.Content.Split(Environment.NewLine)[..^1],
-                createdAt = m.CreatedAt.ToString("o")
+                content = m.Role == "user"
+                        ? string.Join(Environment.NewLine, m.Content.Split("\n\n", StringSplitOptions.RemoveEmptyEntries).SkipLast(1))
+                        : m.Content,
+                createTime = m.CreatedAt.ToString("o")
             }),
             total
         };
