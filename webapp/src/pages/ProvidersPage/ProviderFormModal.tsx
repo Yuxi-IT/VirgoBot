@@ -75,16 +75,16 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
                   </div>
                 </div>
               )}
-              <TextField value={name} onChange={setName} isDisabled={isEdit} isRequired>
+              <TextField variant="secondary" value={name} onChange={setName} isDisabled={isEdit} isRequired>
                 <Label>{t('providers.name')}</Label>
                 <Input />
               </TextField>
-              <TextField value={apiKey} onChange={setApiKey}>
-                <Label>API Key</Label>
+              <TextField variant="secondary" value={apiKey} onChange={setApiKey}>
+                <Label>{t('providers.apiKey')}</Label>
                 <Input type="password" placeholder={isEdit ? t('providers.apiKeyUnchanged') : t('providers.apiKeyPlaceholder')} />
               </TextField>
-              <TextField value={baseUrl} onChange={setBaseUrl} isRequired>
-                <Label>Base URL</Label>
+              <TextField variant="secondary" value={baseUrl} onChange={setBaseUrl} isRequired>
+                <Label>{t('providers.baseUrl')}</Label>
                 <Input />
               </TextField>
               {isEdit && models.length > 0 ? (
@@ -106,7 +106,7 @@ export default function ProviderFormModal({ isOpen, editingProvider, onClose, on
                   </div>
                 </div>
               ) : (
-                <TextField value={currentModel} onChange={setCurrentModel}>
+                <TextField variant="secondary" value={currentModel} onChange={setCurrentModel}>
                   <Label>{t('providers.model')}</Label>
                   <Input placeholder="例如 gpt-4o" />
                 </TextField>

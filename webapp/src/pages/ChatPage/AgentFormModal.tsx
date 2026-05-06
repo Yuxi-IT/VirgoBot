@@ -59,7 +59,7 @@ export default function AgentFormModal({ isOpen, onClose, onCreated }: Props) {
           </Modal.Header>
           <Modal.Body>
             <div className="space-y-4">
-              <TextField value={name} onChange={setName} isRequired>
+              <TextField variant="secondary" value={name} onChange={setName} isRequired>
                 <Label>名称</Label>
                 <Input placeholder="设定名称" />
               </TextField>

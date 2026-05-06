@@ -55,15 +55,15 @@ function ContactFormModal({ isOpen, onOpenChange, onClose, editingContact, onSav
             </Modal.Header>
             <Modal.Body>
               <div className="space-y-4">
-                <TextField isRequired value={formName} onChange={setFormName}>
+                <TextField variant="secondary" isRequired value={formName} onChange={setFormName}>
                   <Label>{t('contacts.name')}</Label>
                   <Input placeholder={t('contacts.name')} />
                 </TextField>
-                <TextField value={formEmail} onChange={setFormEmail}>
+                <TextField variant="secondary" value={formEmail} onChange={setFormEmail}>
                   <Label>{t('contacts.email')}</Label>
                   <Input type="email" placeholder={t('contacts.email')} />
                 </TextField>
-                <TextField value={formPhone} onChange={setFormPhone}>
+                <TextField variant="secondary" value={formPhone} onChange={setFormPhone}>
                   <Label>{t('contacts.phone')}</Label>
                   <Input placeholder={t('contacts.phone')} />
                 </TextField>

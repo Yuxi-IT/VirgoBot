@@ -190,12 +190,12 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
             </Modal.Header>
             <Modal.Body>
               <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-                <TextField value={formName} onChange={setFormName}>
+                <TextField variant="secondary" value={formName} onChange={setFormName}>
                   <Label>{t('tasks.name')}</Label>
                   <Input placeholder={t('tasks.namePlaceholder')} />
                 </TextField>
 
-                <TextField value={formDescription} onChange={setFormDescription}>
+                <TextField variant="secondary" value={formDescription} onChange={setFormDescription}>
                   <Label>{t('tasks.description')}</Label>
                   <TextArea
                     value={formDescription}
@@ -205,7 +205,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                   />
                 </TextField>
 
-                <TextField value={formTaskRequirement} onChange={setFormTaskRequirement}>
+                <TextField variant="secondary" value={formTaskRequirement} onChange={setFormTaskRequirement}>
                   <Label>{t('tasks.taskRequirement')}</Label>
                   <TextArea
                     value={formTaskRequirement}
@@ -215,12 +215,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                   />
                 </TextField>
 
-                <div>
-                  <Label>{t('tasks.enabled')}</Label>
-                  <div className="mt-2">
-                    <Switch isSelected={formEnabled} onChange={setFormEnabled} />
-                  </div>
-                </div>
+                <Switch isSelected={formEnabled} onChange={setFormEnabled}>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Content>
+                    <Label className="text-sm">{t('tasks.enabled')}</Label>
+                  </Switch.Content>
+                </Switch>
 
                 <div>
                   <Label>{t('tasks.taskType')}</Label>
@@ -256,14 +258,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                 </div>
 
                 {formScheduleType === 'interval' && (
-                  <TextField value={String(formIntervalMinutes)} onChange={(v) => setFormIntervalMinutes(Number(v) || 60)}>
+                  <TextField variant="secondary" value={String(formIntervalMinutes)} onChange={(v) => setFormIntervalMinutes(Number(v) || 60)}>
                     <Label>{t('tasks.intervalMinutes')}</Label>
                     <Input type="number" min="1" />
                   </TextField>
                 )}
 
                 {formScheduleType === 'daily' && (
-                  <TextField value={formDailyTime} onChange={setFormDailyTime}>
+                  <TextField variant="secondary" value={formDailyTime} onChange={setFormDailyTime}>
                     <Label>{t('tasks.dailyTime')}</Label>
                     <Input type="time" />
                   </TextField>
@@ -283,12 +285,12 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                       </div>
                     </div>
                     {formOnceMode === 'delay' ? (
-                      <TextField value={String(formOnceDelayMinutes)} onChange={v => setFormOnceDelayMinutes(Number(v) || 1)}>
+                      <TextField variant="secondary" value={String(formOnceDelayMinutes)} onChange={v => setFormOnceDelayMinutes(Number(v) || 1)}>
                         <Label>{t('tasks.onceDelayMinutes')}</Label>
                         <Input type="number" min="1" placeholder="30" />
                       </TextField>
                     ) : (
-                      <TextField value={formOnceAt} onChange={setFormOnceAt}>
+                      <TextField variant="secondary" value={formOnceAt} onChange={setFormOnceAt}>
                         <Label>{t('tasks.onceAtTime')}</Label>
                         <Input type="datetime-local" />
                       </TextField>
@@ -310,7 +312,7 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                         </Button>
                       </div>
                     </div>
-                    <TextField value={String(formMessageCountTarget)} onChange={v => setFormMessageCountTarget(Number(v) || 10)}>
+                    <TextField variant="secondary" value={String(formMessageCountTarget)} onChange={v => setFormMessageCountTarget(Number(v) || 10)}>
                       <Label>{t('tasks.messageCountTarget')}</Label>
                       <Input type="number" min="1" placeholder="10" />
                     </TextField>
@@ -330,15 +332,15 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                         ))}
                       </div>
                     </div>
-                    <TextField value={formHttpUrl} onChange={setFormHttpUrl}>
+                    <TextField variant="secondary" value={formHttpUrl} onChange={setFormHttpUrl}>
                       <Label>{t('tasks.httpUrl')}</Label>
                       <Input placeholder={t('tasks.urlPlaceholder')} />
                     </TextField>
-                    <TextField value={formHttpHeadersText} onChange={setFormHttpHeadersText}>
+                    <TextField variant="secondary" value={formHttpHeadersText} onChange={setFormHttpHeadersText}>
                       <Label>{t('tasks.httpHeaders')}</Label>
                       <TextArea value={formHttpHeadersText} onChange={(e) => setFormHttpHeadersText(e.target.value)} placeholder={t('tasks.httpHeadersHint')} rows={3} />
                     </TextField>
-                    <TextField value={formHttpBody} onChange={setFormHttpBody}>
+                    <TextField variant="secondary" value={formHttpBody} onChange={setFormHttpBody}>
                       <Label>{t('tasks.httpBody')}</Label>
                       <TextArea value={formHttpBody} onChange={(e) => setFormHttpBody(e.target.value)} rows={4} />
                     </TextField>
@@ -346,14 +348,14 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                 )}
 
                 {formTaskType === 'shell' && (
-                  <TextField value={formShellCommand} onChange={setFormShellCommand}>
+                  <TextField variant="secondary" value={formShellCommand} onChange={setFormShellCommand}>
                     <Label>{t('tasks.shellCommand')}</Label>
                     <TextArea value={formShellCommand} onChange={(e) => setFormShellCommand(e.target.value)} placeholder={t('tasks.commandPlaceholder')} rows={4} className="font-mono" />
                   </TextField>
                 )}
 
                 {formTaskType === 'text' && (
-                  <TextField value={formTextInstruction} onChange={setFormTextInstruction}>
+                  <TextField variant="secondary" value={formTextInstruction} onChange={setFormTextInstruction}>
                     <Label>{t('tasks.textInstruction')}</Label>
                     <TextArea value={formTextInstruction} onChange={(e) => setFormTextInstruction(e.target.value)} placeholder={t('tasks.textInstructionPlaceholder')} rows={4} />
                   </TextField>

@@ -14,7 +14,6 @@ const Tasks = lazy(() => import('../pages/TasksPage'));
 const Channel = lazy(() => import('../pages/ChannelPage'));
 const Providers = lazy(() => import('../pages/ProvidersPage'));
 const Mcp = lazy(() => import('../pages/McpPage'));
-const Security = lazy(() => import('../pages/SecurityPage'));
 const Login = lazy(() => import('../pages/LoginPage'));
 const NotFound = lazy(() => import('../pages/NotFoundPage'));
 
@@ -51,7 +50,6 @@ function AppRoutes() {
         <Route path="/channel" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Channel /></Suspense></PageTransition></AuthGuard>} />
         <Route path="/providers" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Providers /></Suspense></PageTransition></AuthGuard>} />
         <Route path="/mcp" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Mcp /></Suspense></PageTransition></AuthGuard>} />
-        <Route path="/security" element={<AuthGuard><PageTransition><Suspense fallback={<Loading />}><Security /></Suspense></PageTransition></AuthGuard>} />
         <Route path="*" element={<Suspense fallback={<Loading />}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>

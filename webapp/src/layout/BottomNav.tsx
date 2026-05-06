@@ -78,7 +78,7 @@ export function BottomNav({ defaultActive, onItemClick }: BottomNavProps) {
   return (
     <div id="bottom-nav" className={`fixed bottom-[20px] left-[20px] right-[20px] px-1 scale-105 z-30 sm:hidden ${shouldHide ? 'hidden' : ''}`}>
 
-      <div className="relative bg-white/40 dark:bg-gray-800/40 backdrop-blur-sm rounded-[35px] shadow-lg">
+      <div className="relative bg-white/40 dark:bg-black/30 backdrop-blur-sm rounded-[35px] shadow-lg">
         
         <motion.div
           className={`absolute bg-gray-200/70 dark:bg-gray-700/70 rounded-[60px] ${

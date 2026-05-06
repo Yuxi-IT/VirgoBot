@@ -1,4 +1,4 @@
-import { Card, Button, Chip, Spinner, Table, SearchField } from '@heroui/react';
+import { Button, Chip, Spinner, Table, SearchField } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import type { Contact } from './types';
 
@@ -34,9 +34,7 @@ function ContactsTable({ contacts, loading, searchQuery, onSearchChange, onEdit,
         </SearchField>
       </div>
 
-      <Card>
-        <Card.Content>
-          {loading ? (
+{loading ? (
             <div className="flex justify-center py-8">
               <Spinner size="lg" />
             </div>
@@ -85,8 +83,6 @@ function ContactsTable({ contacts, loading, searchQuery, onSearchChange, onEdit,
               </Table.ScrollContainer>
             </Table>
           )}
-        </Card.Content>
-      </Card>
     </>
   );
 }

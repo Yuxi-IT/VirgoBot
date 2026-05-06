@@ -88,7 +88,7 @@ function ScrapeFieldsEditor({ rootSelector, fields, onRootSelectorChange, onFiel
 
   return (
     <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-      <TextField isRequired value={rootSelector} onChange={onRootSelectorChange}>
+      <TextField variant="secondary" isRequired value={rootSelector} onChange={onRootSelectorChange}>
         <Label className="text-xs">{t('skills.scrapeRootSelector')}</Label>
         <Input placeholder=".list-item" className="font-mono" />
       </TextField>
@@ -104,19 +104,19 @@ function ScrapeFieldsEditor({ rootSelector, fields, onRootSelectorChange, onFiel
             {fields.map((field, i) => (
               <div key={i} className="flex gap-2 items-end p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
                 <div className="flex-1">
-                  <TextField value={field.name} onChange={v => updateField(i, { name: v })}>
+                  <TextField variant="secondary" value={field.name} onChange={v => updateField(i, { name: v })}>
                     <Label className="text-xs">{t('skills.fieldName')}</Label>
                     <Input placeholder="title" className="font-mono" />
                   </TextField>
                 </div>
                 <div className="flex-1">
-                  <TextField value={field.selector} onChange={v => updateField(i, { selector: v })}>
+                  <TextField variant="secondary" value={field.selector} onChange={v => updateField(i, { selector: v })}>
                     <Label className="text-xs">{t('skills.fieldSelector')}</Label>
                     <Input placeholder=".title" className="font-mono" />
                   </TextField>
                 </div>
                 <div className="flex-1">
-                  <TextField value={field.attribute} onChange={v => updateField(i, { attribute: v })}>
+                  <TextField variant="secondary" value={field.attribute} onChange={v => updateField(i, { attribute: v })}>
                     <Label className="text-xs">{t('skills.fieldAttribute')}</Label>
                     <Input placeholder="text / html / attr:src" className="font-mono" list="attr-options" />
                   </TextField>
@@ -168,11 +168,11 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <TextField isRequired value={sub.name} onChange={v => set({ name: v })}>
+        <TextField variant="secondary" isRequired value={sub.name} onChange={v => set({ name: v })}>
           <Label className="text-xs">{t('skills.name')}</Label>
           <Input placeholder="word_read" className="font-mono" />
         </TextField>
-        <TextField value={sub.description} onChange={v => set({ description: v })}>
+        <TextField variant="secondary" value={sub.description} onChange={v => set({ description: v })}>
           <Label className="text-xs">{t('skills.description')}</Label>
           <Input placeholder={t('skills.description')} />
         </TextField>
@@ -194,7 +194,7 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
       </div>
 
       {sub.mode === 'command' ? (
-        <TextField isRequired value={sub.command} onChange={v => set({ command: v })}>
+        <TextField variant="secondary" isRequired value={sub.command} onChange={v => set({ command: v })}>
           <Label className="text-xs">{t('skills.command')}</Label>
           <Input placeholder="e.g. python read_word.py {{file_path}}" className="font-mono" />
         </TextField>
@@ -210,7 +210,7 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
               ))}
             </div>
           </div>
-          <TextField isRequired value={sub.httpUrl} onChange={v => set({ httpUrl: v })}>
+          <TextField variant="secondary" isRequired value={sub.httpUrl} onChange={v => set({ httpUrl: v })}>
             <Label className="text-xs">{t('skills.httpUrl')}</Label>
             <Input placeholder="https://api.example.com/{{param}}" className="font-mono" />
           </TextField>
@@ -259,13 +259,13 @@ function SubSkillEditor({ sub, index, onChange, onRemove }: SubSkillEditorProps)
             {sub.params.map((param, i) => (
               <div key={i} className="flex gap-2 items-end p-2 bg-gray-50 dark:bg-gray-800/50 rounded">
                 <div className="flex-1">
-                  <TextField value={param.name} onChange={v => updateParam(i, 'name', v)}>
+                  <TextField variant="secondary" value={param.name} onChange={v => updateParam(i, 'name', v)}>
                     <Label className="text-xs">{t('skills.paramName')}</Label>
                     <Input placeholder="name" className="font-mono" />
                   </TextField>
                 </div>
                 <div className="flex-1">
-                  <TextField value={param.description} onChange={v => updateParam(i, 'description', v)}>
+                  <TextField variant="secondary" value={param.description} onChange={v => updateParam(i, 'description', v)}>
                     <Label className="text-xs">{t('skills.paramDesc')}</Label>
                     <Input placeholder={t('skills.paramDesc')} />
                   </TextField>
@@ -538,12 +538,12 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                   </div>
                 )}
 
-                <TextField isRequired value={formName} onChange={setFormName}>
+                <TextField variant="secondary" isRequired value={formName} onChange={setFormName}>
                   <Label>{t('skills.name')}</Label>
                   <Input placeholder="e.g. office" className="font-mono" />
                 </TextField>
 
-                <TextField value={formDescription} onChange={setFormDescription}>
+                <TextField variant="secondary" value={formDescription} onChange={setFormDescription}>
                   <Label>{t('skills.description')}</Label>
                   <Input placeholder={t('skills.description')} />
                 </TextField>
@@ -588,7 +588,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                     </div>
 
                     {formMode === 'command' && (
-                      <TextField isRequired value={formCommand} onChange={setFormCommand}>
+                      <TextField variant="secondary" isRequired value={formCommand} onChange={setFormCommand}>
                         <Label>{t('skills.command')}</Label>
                         <Input placeholder="e.g. ffmpeg -i {{input}} {{output}}" className="font-mono" />
                       </TextField>
@@ -606,7 +606,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                             ))}
                           </div>
                         </div>
-                        <TextField isRequired value={formHttpUrl} onChange={setFormHttpUrl}>
+                        <TextField variant="secondary" isRequired value={formHttpUrl} onChange={setFormHttpUrl}>
                           <Label>{t('skills.httpUrl')}</Label>
                           <Input placeholder="https://api.example.com/{{param}}" className="font-mono" />
                         </TextField>
@@ -656,13 +656,13 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                           {formParams.map((param, index) => (
                             <div key={index} className="flex gap-2 items-end p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                               <div className="flex-1 w-24">
-                                <TextField value={param.name} onChange={v => updateParam(index, 'name', v)}>
+                                <TextField variant="secondary" value={param.name} onChange={v => updateParam(index, 'name', v)}>
                                   <Label className="text-xs">{t('skills.paramName')}</Label>
                                   <Input placeholder="name" className="font-mono" />
                                 </TextField>
                               </div>
                               <div className="flex-1">
-                                <TextField value={param.description} onChange={v => updateParam(index, 'description', v)}>
+                                <TextField variant="secondary" value={param.description} onChange={v => updateParam(index, 'description', v)}>
                                   <Label className="text-xs">{t('skills.paramDesc')}</Label>
                                   <Input placeholder={t('skills.paramDesc')} />
                                 </TextField>

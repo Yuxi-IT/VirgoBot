@@ -42,7 +42,7 @@ function ILinkCard({
       </Card.Header>
       <Card.Content>
         <div className="space-y-4">
-          <TextField value={token} onChange={onTokenChange}>
+          <TextField variant="secondary" value={token} onChange={onTokenChange}>
             <Label>{t('channel.token')}</Label>
             <div className="flex gap-2">
               <Input type={showToken ? 'text' : 'password'} className="flex-1" />

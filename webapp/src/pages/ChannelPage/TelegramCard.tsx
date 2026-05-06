@@ -32,7 +32,7 @@ function TelegramCard({ enabled, botToken, allowedUsers, onEnabledChange, onBotT
       </Card.Header>
       <Card.Content>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <TextField value={botToken} onChange={onBotTokenChange}>
+          <TextField variant="secondary" value={botToken} onChange={onBotTokenChange}>
             <Label>{t('channel.botToken')}</Label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <Input type={showToken ? 'text' : 'password'} style={{ flex: 1 }} />
@@ -42,7 +42,7 @@ function TelegramCard({ enabled, botToken, allowedUsers, onEnabledChange, onBotT
             </div>
           </TextField>
 
-          <TextField
+          <TextField variant="secondary"
             value={allowedUsers.join(', ')}
             onChange={(v) => {
               const users = v.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));

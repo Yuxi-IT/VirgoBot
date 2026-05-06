@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Button, Chip, Spinner } from '@heroui/react';
+import { Card, Button, Chip, ListBox } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import { ArrowsRotateRight, Pencil, TrashBin, ChevronDown, ChevronUp, FileText } from '@gravity-ui/icons';
@@ -64,13 +64,13 @@ export default function McpServerCard({ server: s, onEdit, onDelete, onRestart }
             )}
           </div>
           <div className="flex gap-1">
-            <Button size="sm" variant="ghost" onPress={onRestart}>
+            <Button isIconOnly variant="ghost" onPress={onRestart}>
               <ArrowsRotateRight className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant="ghost" onPress={onEdit}>
+            <Button isIconOnly variant="ghost" onPress={onEdit}>
               <Pencil className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant="ghost" onPress={onDelete}>
+            <Button isIconOnly variant="ghost" onPress={onDelete}>
               <TrashBin className="w-4 h-4" />
             </Button>
           </div>
@@ -98,19 +98,23 @@ export default function McpServerCard({ server: s, onEdit, onDelete, onRestart }
         {expanded && (
           <div className="mt-3 space-y-2">
             {tools ? (
-              tools.map(tool => (
-                <div key={tool.name} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                  <p className="font-mono text-sm font-semibold">{tool.name}</p>
-                  {tool.description && <p className="text-sm text-gray-500 mt-1">{tool.description}</p>}
-                  {tool.inputSchema && (
-                    <pre className="text-xs bg-gray-100 dark:bg-gray-800 rounded p-2 mt-2 overflow-x-auto">
-                      {JSON.stringify(tool.inputSchema, null, 2)}
-                    </pre>
-                  )}
-                </div>
-              ))
+              <ListBox
+                className="w-full p-2"
+                selectionMode="none"
+              >
+                <ListBox.Section>
+                  {tools.map(tool => (
+                    <ListBox.Item id={tool.name} textValue={tool.name}>
+                      <div className=''>
+                        <p className="font-mono text-sm font-semibold">{tool.name}</p>
+                        {tool.description && <p className="text-sm text-gray-500 mt-1">{tool.description}</p>}
+                      </div>
+                    </ListBox.Item>
+                  ))}
+                </ListBox.Section>
+              </ListBox>
             ) : (
-              <Spinner size="sm" />
+              <p>Loading</p>
             )}
           </div>
         )}

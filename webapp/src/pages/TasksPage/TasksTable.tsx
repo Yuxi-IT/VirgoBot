@@ -1,8 +1,7 @@
-import { Table, Button, Spinner, Card, SearchField } from '@heroui/react';
+import { Table, Button, Spinner, SearchField, Switch, Label } from '@heroui/react';
 import { Pencil, TrashBin } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import type { ScheduledTask } from './types';
-import { Switch } from '@heroui/react';
 
 interface TasksTableProps {
   tasks: ScheduledTask[];
@@ -55,9 +54,7 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
         </SearchField>
       </div>
 
-      <Card>
-        <Card.Content>
-          {loading ? (
+{loading ? (
             <div className="flex justify-center py-8">
               <Spinner size="lg" />
             </div>
@@ -92,12 +89,15 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
                         <Table.Cell className="text-sm">{formatTime(task.lastRunTime)}</Table.Cell>
                         <Table.Cell className="text-sm">{formatTime(task.nextRunTime)}</Table.Cell>
                         <Table.Cell>
-                          <Switch 
+                          <Switch
                             isSelected={task.enabled}
                             onChange={() => onToggle(task)}>
                             <Switch.Control>
                               <Switch.Thumb />
                             </Switch.Control>
+                            <Switch.Content>
+                              <Label className="text-sm">{t('tasks.enabled')}</Label>
+                            </Switch.Content>
                           </Switch>
                         </Table.Cell>
                         <Table.Cell>
@@ -127,8 +127,6 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
               </Table.ScrollContainer>
             </Table>
           )}
-        </Card.Content>
-      </Card>
     </>
   );
 }

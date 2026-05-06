@@ -69,7 +69,7 @@ export default function McpFormModal({ isOpen, editingServer, onClose, onSave, s
             </Modal.Header>
             <Modal.Body>
               <div className="space-y-4">
-                <TextField value={name} onChange={setName} isDisabled={!!editingServer}>
+                <TextField variant="secondary" value={name} onChange={setName} isDisabled={!!editingServer}>
                   <Label>{t('mcp.serverName')}</Label>
                   <Input placeholder="my-server" />
                 </TextField>
@@ -88,7 +88,7 @@ export default function McpFormModal({ isOpen, editingServer, onClose, onSave, s
 
                 {transport === 'stdio' ? (
                   <>
-                    <TextField value={command} onChange={setCommand}>
+                    <TextField variant="secondary" value={command} onChange={setCommand}>
                       <Label>{t('mcp.command')}</Label>
                       <br/>
                       <Input placeholder="npx" />
@@ -117,18 +117,20 @@ export default function McpFormModal({ isOpen, editingServer, onClose, onSave, s
                     </div>
                   </>
                 ) : (
-                  <TextField value={url} onChange={setUrl}>
+                  <TextField variant="secondary" value={url} onChange={setUrl}>
                     <Label>URL</Label>
                     <Input placeholder="http://localhost:3000/mcp" />
                   </TextField>
                 )}
 
-                <div>
-                  <Label>{t('mcp.enabled')}</Label>
-                  <div className="mt-2">
-                    <Switch isSelected={enabled} onChange={setEnabled} />
-                  </div>
-                </div>
+                <Switch isSelected={enabled} onChange={setEnabled}>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  <Switch.Content>
+                    <Label className="text-sm">{t('mcp.enabled')}</Label>
+                  </Switch.Content>
+                </Switch>
               </div>
             </Modal.Body>
             <Modal.Footer>

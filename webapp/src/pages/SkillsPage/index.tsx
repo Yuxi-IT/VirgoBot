@@ -195,7 +195,7 @@ function SkillsPage() {
           </div>
         </div>
 
-        <input
+        <Input
           ref={fileInputRef}
           type="file"
           accept=".json,.zip"
@@ -273,7 +273,7 @@ function SkillsPage() {
                   <Modal.Heading>{t('skills.importFromUrl')}</Modal.Heading>
                 </Modal.Header>
                 <Modal.Body>
-                  <TextField value={importUrl} onChange={setImportUrl}>
+                  <TextField variant="secondary" value={importUrl} onChange={setImportUrl}>
                     <Label>{t('skills.skillUrl')}</Label>
                     <Input placeholder="https://example.com/skill.json" />
                   </TextField>

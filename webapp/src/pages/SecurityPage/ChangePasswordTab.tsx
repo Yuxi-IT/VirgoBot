@@ -42,15 +42,15 @@ function ChangePasswordTab() {
     <div className="mt-4 max-w-md">
       <Card>
         <div className="p-6 flex flex-col gap-4">
-          <TextField value={oldPassword} onChange={setOldPassword}>
+          <TextField variant="secondary" value={oldPassword} onChange={setOldPassword}>
             <Label>{t('security.oldPassword')}</Label>
             <Input type="password" autoComplete="current-password" />
           </TextField>
-          <TextField value={newPassword} onChange={setNewPassword}>
+          <TextField variant="secondary" value={newPassword} onChange={setNewPassword}>
             <Label>{t('security.newPassword')}</Label>
             <Input type="password" autoComplete="new-password" />
           </TextField>
-          <TextField value={confirmPassword} onChange={setConfirmPassword}>
+          <TextField variant="secondary" value={confirmPassword} onChange={setConfirmPassword}>
             <Label>{t('security.confirmPassword')}</Label>
             <Input type="password" autoComplete="new-password" />
           </TextField>

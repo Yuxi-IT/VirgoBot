@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Button, Modal, toast, TextField, Label, Input } from '@heroui/react';
+import { Button, Modal, toast, TextField, Label, Input, TextArea } from '@heroui/react';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import type { SkillInfo, SkillDetailResponse } from './types';
@@ -120,7 +120,7 @@ function SkillMdEditModal({ isOpen, onOpenChange, onClose, skill, onSaved }: Ski
               ) : (
                 <div className="space-y-3">
                   {isCreating && (
-                    <TextField value={skillName} onChange={setSkillName}>
+                    <TextField variant="secondary" value={skillName} onChange={setSkillName}>
                       <Label>{t('skills.dirName')}</Label>
                       <Input placeholder="my-skill" className="font-mono" />
                     </TextField>
@@ -129,7 +129,7 @@ function SkillMdEditModal({ isOpen, onOpenChange, onClose, skill, onSaved }: Ski
                     <Label className="text-xs text-gray-500 mb-1 block">
                       {t('skills.skillMdHint')}
                     </Label>
-                    <textarea
+                    <TextArea
                       className="w-full h-[55vh] p-3 font-mono text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={content}
                       onChange={e => setContent(e.target.value)}

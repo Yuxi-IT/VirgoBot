@@ -126,6 +126,9 @@ export default {
     autoResponseHint: 'Bot will proactively send messages after user is idle for a period',
     minIdleMinutes: 'Min Idle Minutes',
     maxIdleMinutes: 'Max Idle Minutes',
+    messageSplitDelimiters: 'Message Split Delimiters',
+    messageSplitDelimitersHint: 'Use | to separate multiple delimiters. Messages will be split by these delimiters before sending.',
+    noAllowedUsers: 'No allowed users configured',
     save: 'Save',
     voice: {
       tab: 'Voice',
@@ -504,6 +507,8 @@ export default {
     apiKeyPlaceholder: 'Enter API Key',
     model: 'Model',
     protocol: 'Protocol',
+    baseUrl: 'Base URL',
+    apiKey: 'API Key',
     update: 'Update',
     create: 'Create',
     notSet: 'Not set',

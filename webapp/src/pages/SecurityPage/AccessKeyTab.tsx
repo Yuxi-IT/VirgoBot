@@ -150,6 +150,9 @@ function AccessKeyTab({ active }: { active: boolean }) {
                         <Switch.Control>
                           <Switch.Thumb />
                         </Switch.Control>
+                        <Switch.Content>
+                          <Label className="text-sm">{t('security.enabled')}</Label>
+                        </Switch.Content>
                       </Switch>
                     </td>
                     <td className="p-3 text-center">
@@ -181,11 +184,11 @@ function AccessKeyTab({ active }: { active: boolean }) {
               </Modal.Header>
               <Modal.Body>
                 <div className="flex flex-col gap-4">
-                  <TextField value={createName} onChange={setCreateName}>
+                  <TextField variant="secondary" value={createName} onChange={setCreateName}>
                     <Label>{t('security.name')}</Label>
                     <Input />
                   </TextField>
-                  <TextField value={createNote} onChange={setCreateNote}>
+                  <TextField variant="secondary" value={createNote} onChange={setCreateNote}>
                     <Label>{t('security.note')}</Label>
                     <TextArea placeholder={t('security.notePlaceholder')} />
                   </TextField>

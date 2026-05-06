@@ -46,7 +46,7 @@ function LoginPage() {
         <div className="p-6">
           <h1 className="text-2xl font-bold text-center mb-6">VirgoBot</h1>
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <TextField>
+            <TextField variant="secondary">
               <Label>{t('auth.username')}</Label>
               <Input
                 value={username}
@@ -54,7 +54,7 @@ function LoginPage() {
                 autoComplete="username"
               />
             </TextField>
-            <TextField>
+            <TextField variant="secondary">
               <Label>{t('auth.password')}</Label>
               <Input
                 type="password"

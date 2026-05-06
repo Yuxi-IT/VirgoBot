@@ -37,7 +37,7 @@ function VoiceTab({
         </p>
 
         <div className="space-y-4">
-          <TextField>
+          <TextField variant="secondary">
             <Label>{t('settings.voice.apiKey')}</Label>
             <Input
               type="password"
@@ -51,7 +51,7 @@ function VoiceTab({
 
           <h3 className="text-base font-medium">{t('settings.voice.asrSection')}</h3>
 
-          <TextField>
+          <TextField variant="secondary">
             <Label>{t('settings.voice.asrResourceId')}</Label>
             <Input
               value={editAsrResourceId}
@@ -63,8 +63,7 @@ function VoiceTab({
           <Separator />
 
           <h3 className="text-base font-medium">{t('settings.voice.ttsSection')}</h3>
-          <div className="flex gap-4">
-            <TextField>
+            <TextField variant="secondary">
               <Label>{t('settings.voice.ttsResourceId')}</Label>
               <Input
                 value={editTtsResourceId}
@@ -73,7 +72,7 @@ function VoiceTab({
               />
             </TextField>
 
-            <TextField>
+            <TextField variant="secondary">
               <Label>{t('settings.voice.voiceType')}</Label>
               <Input
                 value={editVoiceType}
@@ -81,7 +80,6 @@ function VoiceTab({
                 placeholder="zh_female_vv_uranus_bigtts"
               />
             </TextField>
-          </div>
 
         </div>
 

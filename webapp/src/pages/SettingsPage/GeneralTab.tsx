@@ -42,11 +42,11 @@ function GeneralTab({
       </Card.Header>
       <Card.Content>
         <div className="space-y-4">
-          <TextField value={editModel} onChange={onEditModel}>
+          <TextField variant="secondary" value={editModel} onChange={onEditModel}>
             <Label>{t('settings.model')}</Label>
             <Input />
           </TextField>
-          <TextField value={editBaseUrl} onChange={onEditBaseUrl}>
+          <TextField variant="secondary" value={editBaseUrl} onChange={onEditBaseUrl}>
             <Label>{t('settings.baseUrl')}</Label>
             <Input />
           </TextField>
@@ -72,25 +72,25 @@ function GeneralTab({
           <Separator />
 
           <h3 className="font-semibold">{t('dashboard.serverConfig')}</h3>
-          <TextField isDisabled value={config.server.listenUrl}>
+          <TextField variant="secondary" isDisabled value={config.server.listenUrl}>
             <Label>{t('settings.listenUrl')}</Label>
             <Input />
           </TextField>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <TextField value={editMaxTokens} onChange={onEditMaxTokens}>
+            <TextField variant="secondary" value={editMaxTokens} onChange={onEditMaxTokens}>
               <Label>{t('settings.maxTokens')}</Label>
               <Input />
             </TextField>
-            <TextField value={editMessageLimit} onChange={onEditMessageLimit}>
+            <TextField variant="secondary" value={editMessageLimit} onChange={onEditMessageLimit}>
               <Label>{t('settings.messageLimit')}</Label>
               <Input />
             </TextField>
           </div>
-          <TextField value={editMessageSplitDelimiters} onChange={onEditMessageSplitDelimiters}>
-            <Label>Message Split Delimiters</Label>
+          <TextField variant="secondary" value={editMessageSplitDelimiters} onChange={onEditMessageSplitDelimiters}>
+            <Label>{t('settings.messageSplitDelimiters')}</Label>
             <Input placeholder="。|！|？|?|\n\n|\n" />
             <p className="text-xs text-gray-500 mt-1">
-              Use | to separate multiple delimiters. Messages will be split by these delimiters before sending.
+              {t('settings.messageSplitDelimitersHint')}
             </p>
           </TextField>
 
@@ -98,21 +98,25 @@ function GeneralTab({
 
           <h3 className="font-semibold">{t('settings.autoResponse')}</h3>
           <div>
-            <Label>{t('settings.autoResponseEnabled')}</Label>
-            <div className="mt-2">
-              <Switch isSelected={editAutoResponseEnabled} onChange={onEditAutoResponseEnabled} />
-            </div>
+            <Switch isSelected={editAutoResponseEnabled} onChange={onEditAutoResponseEnabled}>
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+              <Switch.Content>
+                <Label className="text-sm">{t('settings.autoResponseEnabled')}</Label>
+              </Switch.Content>
+            </Switch>
             <p className="text-xs text-gray-500 mt-1">
               {t('settings.autoResponseHint')}
             </p>
           </div>
           {editAutoResponseEnabled && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <TextField value={editAutoResponseMinIdle} onChange={onEditAutoResponseMinIdle}>
+              <TextField variant="secondary" value={editAutoResponseMinIdle} onChange={onEditAutoResponseMinIdle}>
                 <Label>{t('settings.minIdleMinutes')}</Label>
                 <Input type="number" min="1" />
               </TextField>
-              <TextField value={editAutoResponseMaxIdle} onChange={onEditAutoResponseMaxIdle}>
+              <TextField variant="secondary" value={editAutoResponseMaxIdle} onChange={onEditAutoResponseMaxIdle}>
                 <Label>{t('settings.maxIdleMinutes')}</Label>
                 <Input type="number" min="1" />
               </TextField>
@@ -125,7 +129,7 @@ function GeneralTab({
           <div className="flex flex-wrap gap-2">
             {config.channel?.telegram?.allowedUsers?.map(userId => (
               <Chip key={userId} size="sm" variant="soft">{userId}</Chip>
-            )) || <span className="text-sm text-gray-500">No allowed users configured</span>}
+            )) || <span className="text-sm text-gray-500">{t('settings.noAllowedUsers')}</span>}
           </div>
 
           <Separator />

@@ -7,6 +7,7 @@ import GeneralTab from './GeneralTab';
 import RuleTab from './RuleTab';
 import VoiceTab from './VoiceTab';
 import LogsTab from './LogsTab';
+import SecurityTab from './SecurityTab';
 import type { ConfigData, ConfigResponse, VoiceConfigResponse } from './types';
 
 function SettingsPage() {
@@ -52,7 +53,7 @@ function SettingsPage() {
         setEditApiStandard(res.data.apiStandard ?? 'OpenAI');
         setEditMaxTokens(String(res.data.server.maxTokens));
         setEditMessageLimit(String(res.data.server.messageLimit));
-        setEditMessageSplitDelimiters(res.data.server.messageSplitDelimiters);
+        setEditMessageSplitDelimiters((res.data.server.messageSplitDelimiters || '').replace(/\n/g, '\\n'));
         setEditAutoResponseEnabled(res.data.server.autoResponse.enabled);
         setEditAutoResponseMinIdle(String(res.data.server.autoResponse.minIdleMinutes));
         setEditAutoResponseMaxIdle(String(res.data.server.autoResponse.maxIdleMinutes));
@@ -89,7 +90,7 @@ function SettingsPage() {
         apiStandard: editApiStandard,
         maxTokens: parseInt(editMaxTokens) || undefined,
         messageLimit: parseInt(editMessageLimit) || undefined,
-        messageSplitDelimiters: editMessageSplitDelimiters,
+        messageSplitDelimiters: editMessageSplitDelimiters.replace(/\\n/g, '\n'),
         autoResponseEnabled: editAutoResponseEnabled,
         autoResponseMinIdle: parseInt(editAutoResponseMinIdle) || undefined,
         autoResponseMaxIdle: parseInt(editAutoResponseMaxIdle) || undefined,
@@ -160,6 +161,10 @@ function SettingsPage() {
                 {t('logs.title')}
                 <Tabs.Indicator />
               </Tabs.Tab>
+              <Tabs.Tab id="security">
+                {t('security.title')}
+                <Tabs.Indicator />
+              </Tabs.Tab>
             </Tabs.List>
           </Tabs.ListContainer>
 
@@ -212,6 +217,10 @@ function SettingsPage() {
 
           <Tabs.Panel id="logs">
             <LogsTab active={activeTab === 'logs'} />
+          </Tabs.Panel>
+
+          <Tabs.Panel id="security">
+            <SecurityTab active={activeTab === 'security'} />
           </Tabs.Panel>
         </Tabs>
       </div>
