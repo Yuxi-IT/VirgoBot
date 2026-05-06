@@ -13,6 +13,7 @@
     <PackageReference Include="MailKit" Version="4.15.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
     <PackageReference Include="OpenILink.SDK" Version="*" />
+    <PackageReference Include="Porta.Pty" Version="1.0.7" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.*" />
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
     <PackageReference Include="Spectre.Console" Version="0.49.*" />

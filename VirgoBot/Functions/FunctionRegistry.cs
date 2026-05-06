@@ -19,7 +19,6 @@ public class FunctionRegistry
     {
         _config = config;
         RegisterAll(SystemFunctions.Register());
-        RegisterAll(ShellFunctions.Register());
         RegisterAll(FileFunctions.Register());
         RegisterAll(SoulFunctions.Register(memoryService));
         RegisterAll(SkillManagementFunctions.Register());
@@ -36,8 +35,8 @@ public class FunctionRegistry
     public void SetILinkBridgeService(ILinkBridgeService iLinkBridge)
         => RegisterAll(ILinkFunctions.Register(iLinkBridge));
 
-    public void SetShellSessionService(ShellSessionService shellSessionService)
-        => RegisterAll(InteractiveShellFunctions.Register(shellSessionService));
+    public void SetTerminalService(PtySessionService ptyService)
+        => RegisterAll(TerminalFunctions.Register(ptyService));
 
     public void SetMcpService(McpClientService mcpService)
     {
