@@ -58,6 +58,15 @@ export default function AgentPanel() {
     setSwitchTarget(null);
   };
 
+  // ✅ 新增：处理 ListBox 点击事件
+  const handleListBoxAction = (key: React.Key) => {
+    const agent = agents.find(a => a.name === key);
+    // 仅当点击的不是当前 Agent 且未处于切换状态时，弹出确认框
+    if (agent && agent.memoryPath !== currentAgent && !switching) {
+      setSwitchTarget(agent);
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
@@ -112,33 +121,29 @@ export default function AgentPanel() {
         <span className="font-semibold text-sm">{t('chatPage.agentTitle')}</span>
         <Button size="sm" variant="ghost" onPress={() => setShowForm(true)}>{t('chatPage.agentCreate')}</Button>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-1">
         {agents.length === 0 ? (
           <div className="text-center text-default-400 text-sm py-8">{t('chatPage.noAgents')}</div>
         ) : (
-          <ListBox aria-label="agents" selectionMode="none">
+          // ✅ 绑定 onAction 事件
+          <ListBox aria-label="agents" selectionMode="none" onAction={handleListBoxAction} className="gap-1">
             {agents.map(agent => {
               const isCurrent = currentAgent === agent.memoryPath;
               return (
-                <ListBox.Item key={agent.name} id={agent.name} textValue={agent.name}>
-                  <Card className="w-[320px]">
-                    <Card.Header>
-                      <Card.Title>
+                <ListBox.Item key={agent.name} id={agent.name} textValue={agent.name} className="p-0 cursor-pointer bg-transparent">
+                  <Card className={`w-full transition-colors ${isCurrent ? 'bg-accent/40' : 'hover:bg-default-100'}`}>
+                    <Card.Header className="flex-col items-start gap-1">
+                      <Card.Title className="flex items-center gap-2">
                         {agent.name}
-                        {isCurrent && <Chip size="sm" color="accent">{t('chatPage.agentCurrent')}</Chip>}
+                        {isCurrent && <Chip size="sm" color="accent" variant="primary">{t('chatPage.agentCurrent')}</Chip>}
                       </Card.Title>
-                      <Card.Description className='text-xs'>{agent.preview.slice(0, 60) + (agent.preview.length > 60 ? '...' : '')}</Card.Description>
+                      <Card.Description className='text-xs max-w-[240px] truncate'>{agent.preview}</Card.Description>
                     </Card.Header>
                     <Card.Content>
                       <div className="flex gap-1 mt-1">
                         <Button size="sm" variant="ghost" onPress={() => openEdit(agent)}>{t('chatPage.agentEdit')}</Button>
                         {!isCurrent && (
-                          <>
-                            <Button size="sm" variant="ghost" onPress={() => setSwitchTarget(agent)} isDisabled={switching}>
-                              {switching ? <Spinner size="sm" /> : t('chatPage.agentSwitch')}
-                            </Button>
-                            <Button size="sm" variant="ghost" onPress={() => setDeleteTarget(agent.name)}>{t('common.delete')}</Button>
-                          </>
+                          <Button size="sm" variant="ghost" onPress={() => { setDeleteTarget(agent.name); }}>{t('common.delete')}</Button>
                         )}
                       </div>
                     </Card.Content>
@@ -153,23 +158,16 @@ export default function AgentPanel() {
       <AgentFormModal isOpen={showForm} onClose={() => setShowForm(false)} onCreated={() => { setShowForm(false); loadAgents(); }} />
 
       {/* Edit modal */}
-      <Modal>
-        <Modal.Backdrop isOpen={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+      <Modal isOpen={!!editTarget} onOpenChange={(open) => { if (!open) setEditTarget(null); }}>
+        <Modal.Backdrop>
           <Modal.Container size="lg">
             <Modal.Dialog>
-              <Modal.Header>
-                <Modal.Heading>{editTarget?.name}</Modal.Heading>
-              </Modal.Header>
+              <Modal.Header><Modal.Heading>{editTarget?.name}</Modal.Heading></Modal.Header>
               <Modal.Body>
                 {editLoading ? (
                   <div className="flex justify-center py-8"><Spinner size="sm" /></div>
                 ) : (
-                  <TextArea
-                    className="font-mono w-full"
-                    rows={16}
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                  />
+                  <TextArea className="font-mono w-full" rows={16} value={editContent} onChange={(e) => setEditContent(e.target.value)} />
                 )}
               </Modal.Body>
               <Modal.Footer>
@@ -184,8 +182,8 @@ export default function AgentPanel() {
       </Modal>
 
       {/* Switch confirmation modal */}
-      <Modal>
-        <Modal.Backdrop isOpen={!!switchTarget} onOpenChange={(open) => { if (!open) setSwitchTarget(null); }}>
+      <Modal isOpen={!!switchTarget} onOpenChange={(open) => { if (!open) setSwitchTarget(null); }}>
+        <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.Header><Modal.Heading>{t('chatPage.switchAgentTitle')}</Modal.Heading></Modal.Header>
@@ -201,8 +199,8 @@ export default function AgentPanel() {
       </Modal>
 
       {/* Delete confirmation modal */}
-      <Modal>
-        <Modal.Backdrop isOpen={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+      <Modal isOpen={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <Modal.Backdrop>
           <Modal.Container size="sm">
             <Modal.Dialog>
               <Modal.Header><Modal.Heading>{t('chatPage.confirmDelete')}</Modal.Heading></Modal.Header>
