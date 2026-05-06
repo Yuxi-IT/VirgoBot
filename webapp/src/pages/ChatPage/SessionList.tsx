@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Button, Label, Modal, Input, toast, Card, Surface, ListBox } from '@heroui/react';
-import { Plus } from '@gravity-ui/icons';
+import { Button, Label, Modal, Input, toast, Surface, ListBox } from '@heroui/react';
+import { Plus, Comment } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 import type { SessionInfo, Message, MessagesResponse } from './types';
@@ -31,12 +31,11 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
   }, []);
 
   const handleDelete = async (session: SessionInfo) => {
-    if (session.isCurrent) {
-      toast.danger(t('chatPage.cannotDeleteCurrent'));
-      return;
-    }
     try {
-      await api.del(`/api/sessions/${encodeURIComponent(session.fileName)}`);
+      const res = await api.del<{ success: boolean; data?: { newSession?: string } }>(`/api/sessions/${encodeURIComponent(session.fileName)}`);
+      if (res.data?.newSession) {
+        onSwitch(res.data.newSession);
+      }
       toast.success(t('chatPage.sessionDeleted'));
       onReload();
     } catch {
@@ -120,37 +119,39 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
           <Plus />
         </Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+      <ListBox className="flex-1 overflow-y-hidden py-2">
         {sessions.length === 0 ? (
           <div className="text-center text-default-400 text-sm py-8">{t('chatPage.noSessions')}</div>
         ) : (
           sessions.map(s => {
             const isSelected = s.fileName === currentSession;
             return (
-              <Card
+              <ListBox.Item
                 key={s.fileName}
                 className={`px-3 py-2 cursor-pointer text-sm text-left ${
                   isSelected
                     ? 'bg-default-400 shadow-sm border-1 border-primary-500'
                     : 'hover:bg-default-100'
                 }`}
-                onClick={() => { if (!isSelected) onSwitch(s.fileName); }}
+                onAction={() => { if (!isSelected) onSwitch(s.fileName); }}
                 onContextMenu={(e) => handleContextMenu(e, s)}
               >
                 <div className={`font-medium flex justify-between items-center ${isSelected ? 'text-primary' : ''}`}>
-                  <span>{s.sessionName || t('chatPage.newSession')}</span>
-                  <span className={`text-xs ${isSelected ? "text-sky-600" : ""}`}>{t('chatPage.messageCount').replace('{n}', String(s.messageCount))}</span>
+                  <div className="flex items-center">
+                    <Comment className='w-5 h-5 mr-2'/>
+                    <span>{s.sessionName || t('chatPage.newSession')}</span>
+                  </div>
                 </div>
-              </Card>
+              </ListBox.Item>
             );
           })
         )}
-      </div>
+      </ListBox>
 
       {contextMenu.session && (
         <Surface
           ref={menuRef}
-          className="w-[256px] rounded-3xl shadow-surface fixed z-40"
+          className="rounded-3xl shadow-surface fixed z-40"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <ListBox aria-label="Actions" selectionMode="single" onAction={(key) => {
@@ -180,8 +181,9 @@ export default function SessionList({ sessions, currentSession, onSwitch, onCrea
               <Modal.Header>
                 <Modal.Heading>{t('chatPage.renameSession')}</Modal.Heading>
               </Modal.Header>
-              <Modal.Body>
+              <Modal.Body className='p-4'>
                 <Input
+                  variant='secondary'
                   placeholder={t('chatPage.sessionName')}
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}

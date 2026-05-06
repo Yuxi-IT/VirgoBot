@@ -82,17 +82,24 @@ public class SessionApiHandler
             return;
         }
 
-        if (name == _memoryService.CurrentDbName)
-        {
-            await SendErrorResponse(ctx, 400, "Cannot delete the currently active session");
-            return;
-        }
-
         try
         {
-            _memoryService.DeleteSession(name);
-            ColorLog.Success("SESSION", $"会话已删除: {name}");
-            await SendJsonResponse(ctx, new { success = true, message = "Session deleted" });
+            var isCurrent = name == _memoryService.CurrentDbName;
+            if (isCurrent)
+            {
+                // Create new session, switch, then delete the old one
+                var newDbName = _memoryService.CreateSession();
+                await _gateway.SwitchSession(newDbName);
+                _memoryService.DeleteSession(name);
+                ColorLog.Success("SESSION", $"当前会话已删除，已自动切换到: {newDbName}");
+                await SendJsonResponse(ctx, new { success = true, message = "Current session deleted", data = new { newSession = newDbName } });
+            }
+            else
+            {
+                _memoryService.DeleteSession(name);
+                ColorLog.Success("SESSION", $"会话已删除: {name}");
+                await SendJsonResponse(ctx, new { success = true, message = "Session deleted" });
+            }
         }
         catch (Exception ex)
         {
