@@ -22,10 +22,10 @@ public class LLMService
     private volatile bool _isSummarizing;
     private const int UserProfileSummaryInterval = 10;
     private const string UserProfileSummaryInstruction =
-        "系统消息：用户画像定时总结触发\n" +
-        "请根据最近的对话内容，总结用户的性格特点、说话方式、最近在做的事情，以及你对用户的评价。" +
-        "用简洁的条目形式写出来，然后调用 append_soul 工具将总结保存到 Soul 中。" +
-        "注意：不要重复已有的 Soul 内容，只补充新的观察。如果没有新的发现则不需要保存。";
+        "System: User profile summary triggered.\n" +
+        "Based on recent conversation, summarize the user's personality traits, speaking style, current activities, and your impression of them." +
+        "Write it in concise bullet points, then call the append_soul tool to save the summary to Soul." +
+        "Note: Do not repeat existing Soul content; only add new observations. If there are no new discoveries, no need to save.";
 
     public LLMService(
         HttpClient http,
@@ -67,7 +67,7 @@ public class LLMService
         {
             if (isSystemTask)
             {
-                _memory.SaveMessage("user", prompt ?? "");
+                _memory.SaveMessage("system", prompt ?? "");
             }
             else
             {
@@ -310,6 +310,13 @@ public class LLMService
 
             switch (role)
             {
+                case "system":
+                {
+                    var text = ExtractTextContent(content);
+                    if (!string.IsNullOrWhiteSpace(text))
+                        messages.Add(new { role = "system", content = text });
+                    break;
+                }
                 case "user":
                 {
                     // Check if content is a multimodal array (has image_url or base64 parts)

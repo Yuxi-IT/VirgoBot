@@ -10,22 +10,22 @@ public static class ScheduledTaskFunctions
     {
         yield return new FunctionDefinition(
             "manage_scheduled_tasks",
-            "管理定时任务。支持的操作：list(列出所有任务)、get(获取指定任务)、create(创建任务)、update(更新任务)、delete(删除任务)、toggle(启用/禁用任务)。" +
-            "scheduleType 支持：interval(按间隔重复)、daily(每天指定时间)、once(一次性任务，执行后自动关闭)、message_count(按对话轮数触发)。" +
-            "message_count 类型需设置 messageCountTarget(触发轮数) 和 messageCountRole(user 或 assistant)。" +
-            "一次性任务可通过 onceDelayMinutes(多少分钟后执行) 或 onceAt(指定 ISO 8601 时间) 设置执行时机。",
+            "Manage scheduled tasks. Supported operations: list, get, create, update, delete, toggle." +
+            "scheduleType values: interval (repeat at intervals), daily (at specified time each day), once (one-time task, auto-disables after execution), message_count (trigger by conversation turn count)." +
+            "message_count type requires messageCountTarget (trigger count) and messageCountRole (user or assistant)." +
+            "One-time tasks can set onceDelayMinutes (execute after N minutes) or onceAt (ISO 8601 timestamp) to specify execution time.",
             new
             {
                 type = "object",
                 properties = new
                 {
-                    operation = new { type = "string", description = "操作类型：list | get | create | update | delete | toggle" },
-                    task_id = new { type = "string", description = "任务 ID（get/update/delete/toggle 时必填）" },
-                    enabled = new { type = "boolean", description = "toggle 操作时指定启用或禁用" },
+                    operation = new { type = "string", description = "Operation: list | get | create | update | delete | toggle" },
+                    task_id = new { type = "string", description = "Task ID (required for get/update/delete/toggle)" },
+                    enabled = new { type = "boolean", description = "Enable or disable for toggle operation" },
                     task = new
                     {
                         type = "object",
-                        description = "create/update 时的任务数据",
+                        description = "Task data for create/update",
                         properties = new
                         {
                             name = new { type = "string" },
@@ -34,11 +34,11 @@ public static class ScheduledTaskFunctions
                             taskType = new { type = "string", description = "http | shell | text" },
                             scheduleType = new { type = "string", description = "interval | daily | once | message_count" },
                             intervalMinutes = new { type = "integer" },
-                            dailyTime = new { type = "string", description = "HH:mm 格式" },
-                            onceDelayMinutes = new { type = "integer", description = "一次性任务：多少分钟后执行" },
-                            onceAt = new { type = "string", description = "一次性任务：ISO 8601 指定执行时间" },
-                            messageCountTarget = new { type = "integer", description = "message_count 类型：每多少条消息触发" },
-                            messageCountRole = new { type = "string", description = "message_count 类型：计数角色 user | assistant" },
+                            dailyTime = new { type = "string", description = "HH:mm format" },
+                            onceDelayMinutes = new { type = "integer", description = "One-time task: execute after N minutes" },
+                            onceAt = new { type = "string", description = "One-time task: ISO 8601 execution time" },
+                            messageCountTarget = new { type = "integer", description = "message_count type: trigger every N messages" },
+                            messageCountRole = new { type = "string", description = "message_count type: count role user | assistant" },
                             taskRequirement = new { type = "string" },
                             httpMethod = new { type = "string" },
                             httpUrl = new { type = "string" },
@@ -61,7 +61,7 @@ public static class ScheduledTaskFunctions
                     "update" => Task.FromResult(HandleUpdate(taskService, input)),
                     "delete" => Task.FromResult(HandleDelete(taskService, input)),
                     "toggle" => Task.FromResult(HandleToggle(taskService, input)),
-                    _ => Task.FromResult("未知操作，支持：list | get | create | update | delete | toggle")
+                    _ => Task.FromResult("Unknown operation, supported: list | get | create | update | delete | toggle")
                 };
             });
     }
@@ -69,13 +69,13 @@ public static class ScheduledTaskFunctions
     private static string HandleList(ScheduledTaskService svc)
     {
         var tasks = svc.GetAllTasks();
-        if (tasks.Count == 0) return "当前没有定时任务。";
+        if (tasks.Count == 0) return "No scheduled tasks.";
         var lines = tasks.Select(t =>
         {
             var schedule = t.ScheduleType == "message_count"
-                ? $"每{t.MessageCountTarget}条{t.MessageCountRole}消息, 当前{t.MessageCountCurrent}/{t.MessageCountTarget}"
+                ? $"every {t.MessageCountTarget} {t.MessageCountRole} messages, current {t.MessageCountCurrent}/{t.MessageCountTarget}"
                 : $"nextRun={t.NextRunTime?.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
-            return $"- [{(t.Enabled ? "启用" : "禁用")}] {t.Name} (id={t.Id}, scheduleType={t.ScheduleType}, taskType={t.TaskType}, {schedule})";
+            return $"- [{(t.Enabled ? "enabled" : "disabled")}] {t.Name} (id={t.Id}, scheduleType={t.ScheduleType}, taskType={t.TaskType}, {schedule})";
         });
         return string.Join("\n", lines);
     }
@@ -83,42 +83,42 @@ public static class ScheduledTaskFunctions
     private static string HandleGet(ScheduledTaskService svc, JsonElement input)
     {
         var id = input.TryGetProperty("task_id", out var idEl) ? idEl.GetString() : null;
-        if (string.IsNullOrWhiteSpace(id)) return "缺少 task_id";
+        if (string.IsNullOrWhiteSpace(id)) return "Missing task_id";
         var task = svc.GetTask(id);
-        if (task == null) return $"未找到任务: {id}";
+        if (task == null) return $"Task not found: {id}";
         return JsonSerializer.Serialize(task, new JsonSerializerOptions { WriteIndented = true });
     }
 
     private static string HandleCreate(ScheduledTaskService svc, JsonElement input)
     {
-        if (!input.TryGetProperty("task", out var taskEl)) return "缺少 task 字段";
+        if (!input.TryGetProperty("task", out var taskEl)) return "Missing task field";
         var task = ParseTask(taskEl);
         var created = svc.CreateTask(task);
-        return $"任务已创建，id={created.Id}，名称={created.Name}，下次执行={created.NextRunTime?.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
+        return $"Task created. id={created.Id}, name={created.Name}, next run={created.NextRunTime?.ToLocalTime():yyyy-MM-dd HH:mm:ss}";
     }
 
     private static string HandleUpdate(ScheduledTaskService svc, JsonElement input)
     {
         var id = input.TryGetProperty("task_id", out var idEl) ? idEl.GetString() : null;
-        if (string.IsNullOrWhiteSpace(id)) return "缺少 task_id";
-        if (!input.TryGetProperty("task", out var taskEl)) return "缺少 task 字段";
+        if (string.IsNullOrWhiteSpace(id)) return "Missing task_id";
+        if (!input.TryGetProperty("task", out var taskEl)) return "Missing task field";
         var task = ParseTask(taskEl);
-        return svc.UpdateTask(id, task) ? $"任务已更新: {id}" : $"未找到任务: {id}";
+        return svc.UpdateTask(id, task) ? $"Task updated: {id}" : $"Task not found: {id}";
     }
 
     private static string HandleDelete(ScheduledTaskService svc, JsonElement input)
     {
         var id = input.TryGetProperty("task_id", out var idEl) ? idEl.GetString() : null;
-        if (string.IsNullOrWhiteSpace(id)) return "缺少 task_id";
-        return svc.DeleteTask(id) ? $"任务已删除: {id}" : $"未找到任务: {id}";
+        if (string.IsNullOrWhiteSpace(id)) return "Missing task_id";
+        return svc.DeleteTask(id) ? $"Task deleted: {id}" : $"Task not found: {id}";
     }
 
     private static string HandleToggle(ScheduledTaskService svc, JsonElement input)
     {
         var id = input.TryGetProperty("task_id", out var idEl) ? idEl.GetString() : null;
-        if (string.IsNullOrWhiteSpace(id)) return "缺少 task_id";
+        if (string.IsNullOrWhiteSpace(id)) return "Missing task_id";
         var enabled = input.TryGetProperty("enabled", out var enEl) && enEl.GetBoolean();
-        return svc.ToggleTask(id, enabled) ? $"任务已{(enabled ? "启用" : "禁用")}: {id}" : $"未找到任务: {id}";
+        return svc.ToggleTask(id, enabled) ? $"Task {(enabled ? "enabled" : "disabled")}: {id}" : $"Task not found: {id}";
     }
 
     private static ScheduledTask ParseTask(JsonElement el)

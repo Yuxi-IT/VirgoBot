@@ -6,27 +6,27 @@ public static class FileFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("read_file", "读取文件内容", new
+        yield return new FunctionDefinition("read_file", "Read file contents", new
         {
             type = "object",
             properties = new
             {
-                path = new { type = "string", description = "文件路径" }
+                path = new { type = "string", description = "File path" }
             },
             required = new[] { "path" }
         }, input =>
         {
             var path = input.GetProperty("path").GetString() ?? "";
-            return Task.FromResult(File.Exists(path) ? File.ReadAllText(path) : "文件不存在");
+            return Task.FromResult(File.Exists(path) ? File.ReadAllText(path) : "File not found");
         });
 
-        yield return new FunctionDefinition("write_file", "写入文件内容", new
+        yield return new FunctionDefinition("write_file", "Write content to file", new
         {
             type = "object",
             properties = new
             {
-                path = new { type = "string", description = "文件路径" },
-                content = new { type = "string", description = "文件内容" }
+                path = new { type = "string", description = "File path" },
+                content = new { type = "string", description = "File content" }
             },
             required = new[] { "path", "content" }
         }, input =>
@@ -34,16 +34,16 @@ public static class FileFunctions
             var path = input.GetProperty("path").GetString() ?? "";
             var content = input.GetProperty("content").GetString() ?? "";
             File.WriteAllText(path, content);
-            return Task.FromResult("写入成功");
+            return Task.FromResult("Write succeeded");
         });
 
-        yield return new FunctionDefinition("download_file", "从URL下载文件到指定位置", new
+        yield return new FunctionDefinition("download_file", "Download file from URL to specified location", new
         {
             type = "object",
             properties = new
             {
-                url = new { type = "string", description = "文件URL" },
-                save_path = new { type = "string", description = "保存路径" }
+                url = new { type = "string", description = "File URL" },
+                save_path = new { type = "string", description = "Save path" }
             },
             required = new[] { "url", "save_path" }
         }, async input =>
@@ -54,7 +54,7 @@ public static class FileFunctions
             using var client = new HttpClient();
             var data = await client.GetByteArrayAsync(url);
             await File.WriteAllBytesAsync(savePath, data);
-            return $"文件已下载到: {savePath} ({data.Length} 字节)";
+            return $"File downloaded to: {savePath} ({data.Length} bytes)";
         });
     }
 }

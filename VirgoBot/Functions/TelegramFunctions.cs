@@ -8,13 +8,13 @@ public static class TelegramFunctions
 {
     public static IEnumerable<FunctionDefinition> Register(TelegramBotClient bot, long chatId)
     {
-        yield return new FunctionDefinition("send_photo", "发送图片到Telegram", new
+        yield return new FunctionDefinition("send_photo", "Send photo to Telegram", new
         {
             type = "object",
             properties = new
             {
-                path = new { type = "string", description = "图片路径(本地路径或URL)" },
-                caption = new { type = "string", description = "图片说明(可选)" }
+                path = new { type = "string", description = "Image path (local path or URL)" },
+                caption = new { type = "string", description = "Photo caption (optional)" }
             },
             required = new[] { "path" }
         }, async input =>
@@ -28,20 +28,20 @@ public static class TelegramFunctions
             }
             else
             {
-                if (!File.Exists(path)) return "文件不存在";
+                if (!File.Exists(path)) return "File not found";
                 using var stream = File.OpenRead(path);
                 await bot.SendPhoto(chatId, InputFile.FromStream(stream, Path.GetFileName(path)), caption: caption);
             }
-            return "图片已发送";
+            return "Photo sent";
         });
 
-        yield return new FunctionDefinition("send_voice", "发送语音到Telegram", new
+        yield return new FunctionDefinition("send_voice", "Send voice message to Telegram", new
         {
             type = "object",
             properties = new
             {
-                path = new { type = "string", description = "语音文件路径(本地路径或URL,支持.ogg/.mp3)" },
-                caption = new { type = "string", description = "语音说明(可选)" }
+                path = new { type = "string", description = "Voice file path (local path or URL, supports .ogg/.mp3)" },
+                caption = new { type = "string", description = "Voice caption (optional)" }
             },
             required = new[] { "path" }
         }, async input =>
@@ -55,11 +55,11 @@ public static class TelegramFunctions
             }
             else
             {
-                if (!File.Exists(path)) return "文件不存在";
+                if (!File.Exists(path)) return "File not found";
                 using var stream = File.OpenRead(path);
                 await bot.SendVoice(chatId, InputFile.FromStream(stream, Path.GetFileName(path)), caption: caption);
             }
-            return "语音已发送";
+            return "Voice sent";
         });
     }
 }

@@ -7,15 +7,15 @@ public static class SkillManagementFunctions
 {
     public static IEnumerable<FunctionDefinition> Register()
     {
-        yield return new FunctionDefinition("manage_skills", "管理 Skills 的内置工具。支持两种格式：\n1) JSON skill：文件名.json，包含 name、description、parameters、command/http 字段，支持 subSkills 多子功能；格式：{\r\n  \"name\": \"example_skill\",\r\n  \"description\": \"这是一个示例 Skill，以下划线开头的文件不会被加载\",\r\n  \"parameters\": [\r\n    {\r\n      \"name\": \"arg1\",\r\n      \"type\": \"string\",\r\n      \"description\": \"参数1\",\r\n      \"required\": true\r\n    },\r\n    {\r\n      \"name\": \"arg2\",\r\n      \"type\": \"string\",\r\n      \"description\": \"参数2(可选)\",\r\n      \"required\": false\r\n    }\r\n  ],\r\n  \"command\": \"echo {{arg1}} {{arg2}}\"\r\n}\n(2) SKILL.md 标准格式（兼容 OpenClaw / Claude Code）：目录型 skills/名称/SKILL.md，YAML frontmatter 含 name、description、allowed-tools、model，Markdown 正文作为指令，支持 $ARGUMENTS 参数替换。\n创建 SKILL.md 时 skill_name 为目录名，skill_content 为完整 SKILL.md 内容。\nJSON skill 中参数用 {{参数名}} 双大括号引用。", new
+        yield return new FunctionDefinition("manage_skills", "Built-in tool for managing Skills. Supports two formats:\n1) JSON skill: filename.json, containing name, description, parameters, command/http fields, supports subSkills for multiple sub-functions. Format: {\r\n  \"name\": \"example_skill\",\r\n  \"description\": \"This is an example Skill. Files starting with underscore are not loaded.\",\r\n  \"parameters\": [\r\n    {\r\n      \"name\": \"arg1\",\r\n      \"type\": \"string\",\r\n      \"description\": \"Parameter 1\",\r\n      \"required\": true\r\n    },\r\n    {\r\n      \"name\": \"arg2\",\r\n      \"type\": \"string\",\r\n      \"description\": \"Parameter 2 (optional)\",\r\n      \"required\": false\r\n    }\r\n  ],\r\n  \"command\": \"echo {{arg1}} {{arg2}}\"\r\n}\n(2) SKILL.md standard format (compatible with OpenClaw / Claude Code): directory-type skills/{name}/SKILL.md, YAML frontmatter with name, description, allowed-tools, model, Markdown body as instructions, supports $ARGUMENTS parameter substitution.\nWhen creating SKILL.md, skill_name is the directory name, skill_content is the full SKILL.md content.\nIn JSON skills, use {{parameter_name}} double braces for parameter references.", new
         {
             type = "object",
             properties = new
             {
-                action = new { type = "string", description = "操作类型：list、get、create、update、delete" },
-                skill_name = new { type = "string", description = "skill 名称（JSON 不含.json后缀，SKILL.md 为目录名），用于 get/create/update/delete 操作" },
-                skill_content = new { type = "string", description = "完整的 skill 内容（JSON 字符串或 SKILL.md Markdown），用于 create 和 update 操作" },
-                skill_type = new { type = "string", description = "skill 类型：json（默认）或 skill.md" }
+                action = new { type = "string", description = "Operation: list, get, create, update, delete" },
+                skill_name = new { type = "string", description = "Skill name (JSON without .json suffix, SKILL.md as directory name), for get/create/update/delete operations" },
+                skill_content = new { type = "string", description = "Complete skill content (JSON string or SKILL.md Markdown), for create and update operations" },
+                skill_type = new { type = "string", description = "Skill type: json (default) or skill.md" }
             },
             required = new[] { "action" }
         }, async input =>
@@ -37,7 +37,7 @@ public static class SkillManagementFunctions
                     "create" => CreateSkill(dir, skillName, skillContent, skillType),
                     "update" => UpdateSkill(dir, skillName, skillContent, skillType),
                     "delete" => DeleteSkill(dir, skillName),
-                    _ => "无效的操作类型，支持: list, get, create, update, delete"
+                    _ => "Invalid operation, supported: list, get, create, update, delete"
                 };
             }
             catch (Exception ex)
@@ -92,7 +92,7 @@ public static class SkillManagementFunctions
             }
             catch
             {
-                skills.Add(new { fileName, name = fileName, description = "解析失败", mode = "unknown", skillType = "json" });
+                skills.Add(new { fileName, name = fileName, description = "Parse failed", mode = "unknown", skillType = "json" });
             }
         }
 
@@ -125,7 +125,7 @@ public static class SkillManagementFunctions
     private static string GetSkill(string dir, string skillName, string skillType)
     {
         if (string.IsNullOrWhiteSpace(skillName))
-            return "错误: skill_name 参数不能为空";
+            return "Error: skill_name parameter cannot be empty";
 
         // 先检查 SKILL.md 目录
         var skillMdPath = Path.Combine(dir, skillName, "SKILL.md");
@@ -138,7 +138,7 @@ public static class SkillManagementFunctions
         // 再检查 JSON
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (!File.Exists(filePath))
-            return $"错误: Skill '{skillName}' 不存在";
+            return $"Error: Skill '{skillName}' not found";
 
         var jsonContent = File.ReadAllText(filePath);
         return JsonSerializer.Serialize(new { success = true, fileName = $"{skillName}.json", content = jsonContent, skillType = "json" }, new JsonSerializerOptions { WriteIndented = true });
@@ -147,50 +147,50 @@ public static class SkillManagementFunctions
     private static string CreateSkill(string dir, string skillName, string skillContent, string skillType)
     {
         if (string.IsNullOrWhiteSpace(skillName))
-            return "错误: skill_name 参数不能为空";
+            return "Error: skill_name parameter cannot be empty";
 
         if (string.IsNullOrWhiteSpace(skillContent))
-            return "错误: skill_content 参数不能为空";
+            return "Error: skill_content parameter cannot be empty";
 
         if (skillType == "skill.md")
         {
             var skillDir = Path.Combine(dir, skillName);
             if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
-                return $"错误: Skill '{skillName}' 已存在，请使用 update 操作";
+                return $"Error: Skill '{skillName}' already exists, use update instead";
 
             // 验证 SKILL.md 格式
             var parsed = SkillMdParser.Parse(skillContent);
             if (parsed == null)
-                return "错误: SKILL.md 格式无效，需要包含 YAML frontmatter (---) 和至少 name 字段";
+                return "Error: Invalid SKILL.md format, must include YAML frontmatter (---) with at least a name field";
 
             Directory.CreateDirectory(skillDir);
             File.WriteAllText(Path.Combine(skillDir, "SKILL.md"), skillContent);
-            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) 创建成功" });
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) created successfully" });
         }
 
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (File.Exists(filePath))
-            return $"错误: Skill '{skillName}' 已存在，请使用 update 操作";
+            return $"Error: Skill '{skillName}' already exists, use update instead";
 
         try
         {
             JsonDocument.Parse(skillContent);
             File.WriteAllText(filePath, skillContent);
-            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' 创建成功" });
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' created successfully" });
         }
         catch (JsonException ex)
         {
-            return $"错误: skill_content 不是有效的 JSON 格式 - {ex.Message}";
+            return $"Error: skill_content is not valid JSON - {ex.Message}";
         }
     }
 
     private static string UpdateSkill(string dir, string skillName, string skillContent, string skillType)
     {
         if (string.IsNullOrWhiteSpace(skillName))
-            return "错误: skill_name 参数不能为空";
+            return "Error: skill_name parameter cannot be empty";
 
         if (string.IsNullOrWhiteSpace(skillContent))
-            return "错误: skill_content 参数不能为空";
+            return "Error: skill_content parameter cannot be empty";
 
         // 先检查 SKILL.md 目录
         var skillMdPath = Path.Combine(dir, skillName, "SKILL.md");
@@ -198,46 +198,46 @@ public static class SkillManagementFunctions
         {
             var parsed = SkillMdParser.Parse(skillContent);
             if (parsed == null)
-                return "错误: SKILL.md 格式无效，需要包含 YAML frontmatter (---) 和至少 name 字段";
+                return "Error: Invalid SKILL.md format, must include YAML frontmatter (---) with at least a name field";
 
             File.WriteAllText(skillMdPath, skillContent);
-            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) 更新成功" });
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) updated successfully" });
         }
 
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (!File.Exists(filePath))
-            return $"错误: Skill '{skillName}' 不存在，请使用 create 操作";
+            return $"Error: Skill '{skillName}' not found, use create instead";
 
         try
         {
             JsonDocument.Parse(skillContent);
             File.WriteAllText(filePath, skillContent);
-            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' 更新成功" });
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' updated successfully" });
         }
         catch (JsonException ex)
         {
-            return $"错误: skill_content 不是有效的 JSON 格式 - {ex.Message}";
+            return $"Error: skill_content is not valid JSON - {ex.Message}";
         }
     }
 
     private static string DeleteSkill(string dir, string skillName)
     {
         if (string.IsNullOrWhiteSpace(skillName))
-            return "错误: skill_name 参数不能为空";
+            return "Error: skill_name parameter cannot be empty";
 
         // 先检查 SKILL.md 目录
         var skillDir = Path.Combine(dir, skillName);
         if (Directory.Exists(skillDir) && File.Exists(Path.Combine(skillDir, "SKILL.md")))
         {
             Directory.Delete(skillDir, recursive: true);
-            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) 删除成功" });
+            return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' (SKILL.md) deleted successfully" });
         }
 
         var filePath = Path.Combine(dir, $"{skillName}.json");
         if (!File.Exists(filePath))
-            return $"错误: Skill '{skillName}' 不存在";
+            return $"Error: Skill '{skillName}' not found";
 
         File.Delete(filePath);
-        return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' 删除成功" });
+        return JsonSerializer.Serialize(new { success = true, message = $"Skill '{skillName}' deleted successfully" });
     }
 }

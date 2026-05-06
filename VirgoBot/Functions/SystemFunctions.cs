@@ -11,15 +11,15 @@ public static class SystemFunctions
         var workspace = Path.Combine(Environment.CurrentDirectory, AppConstants.WorkspaceDirectory);
         if (!Directory.Exists(workspace)) Directory.CreateDirectory(workspace);
 
-        yield return new FunctionDefinition("get_time", "获取当前服务器时间",
+        yield return new FunctionDefinition("get_time", "Get current server time",
             new { type = "object", properties = new { } },
             _ => Task.FromResult(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
 
-        yield return new FunctionDefinition("get_workspace", "获取工作目录路径",
+        yield return new FunctionDefinition("get_workspace", "Get workspace directory path",
             new { type = "object", properties = new { } },
             _ => Task.FromResult(workspace));
 
-        yield return new FunctionDefinition("get_specialfolder", "获取特殊目录路径(桌面,文档,音乐等)",
+        yield return new FunctionDefinition("get_specialfolder", "Get special folder paths (Desktop, Documents, Music, etc.)",
             new { type = "object", properties = new { } },
             async _ =>
             {

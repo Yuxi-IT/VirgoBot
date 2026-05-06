@@ -9,14 +9,14 @@ public static class ILinkFunctions
     {
         yield return new FunctionDefinition(
             "ilink_send_image",
-            "通过 iLink 向指定用户发送图片。支持本地文件路径或 HTTP/HTTPS URL。",
+            "Send an image to a specified user via iLink. Supports local file paths or HTTP/HTTPS URLs.",
             new
             {
                 type = "object",
                 properties = new
                 {
-                    user_id = new { type = "string", description = "iLink 用户 ID（即消息来源的 UserId）" },
-                    source = new { type = "string", description = "图片来源：本地文件路径（如 C:/img.jpg）或 HTTP/HTTPS URL" }
+                    user_id = new { type = "string", description = "iLink user ID (the UserId from the incoming message)" },
+                    source = new { type = "string", description = "Image source: local file path (e.g. C:/img.jpg) or HTTP/HTTPS URL" }
                 },
                 required = new[] { "user_id", "source" }
             },
@@ -28,24 +28,24 @@ public static class ILinkFunctions
                 {
                     var bytes = await ReadBytesAsync(source);
                     await iLinkBridge.SendImageAsync(userId, bytes);
-                    return "图片已发送";
+                    return "Image sent";
                 }
                 catch (Exception ex)
                 {
-                    return $"发送图片失败: {ex.Message}";
+                    return $"Failed to send image: {ex.Message}";
                 }
             });
 
         yield return new FunctionDefinition(
             "ilink_send_voice",
-            "通过 iLink 向指定用户发送语音消息。支持本地文件路径或 HTTP/HTTPS URL，格式建议 AMR 或 MP3。",
+            "Send a voice message to a specified user via iLink. Supports local file paths or HTTP/HTTPS URLs. Recommended format: AMR or MP3.",
             new
             {
                 type = "object",
                 properties = new
                 {
-                    user_id = new { type = "string", description = "iLink 用户 ID" },
-                    source = new { type = "string", description = "语音文件来源：本地路径或 URL" }
+                    user_id = new { type = "string", description = "iLink user ID" },
+                    source = new { type = "string", description = "Voice file source: local path or URL" }
                 },
                 required = new[] { "user_id", "source" }
             },
@@ -57,24 +57,24 @@ public static class ILinkFunctions
                 {
                     var bytes = await ReadBytesAsync(source);
                     await iLinkBridge.SendVoiceAsync(userId, bytes);
-                    return "语音已发送";
+                    return "Voice sent";
                 }
                 catch (Exception ex)
                 {
-                    return $"发送语音失败: {ex.Message}";
+                    return $"Failed to send voice: {ex.Message}";
                 }
             });
 
         yield return new FunctionDefinition(
             "ilink_send_video",
-            "通过 iLink 向指定用户发送视频。支持本地文件路径或 HTTP/HTTPS URL，格式建议 MP4。",
+            "Send a video to a specified user via iLink. Supports local file paths or HTTP/HTTPS URLs. Recommended format: MP4.",
             new
             {
                 type = "object",
                 properties = new
                 {
-                    user_id = new { type = "string", description = "iLink 用户 ID" },
-                    source = new { type = "string", description = "视频文件来源：本地路径或 URL" }
+                    user_id = new { type = "string", description = "iLink user ID" },
+                    source = new { type = "string", description = "Video file source: local path or URL" }
                 },
                 required = new[] { "user_id", "source" }
             },
@@ -86,25 +86,25 @@ public static class ILinkFunctions
                 {
                     var bytes = await ReadBytesAsync(source);
                     await iLinkBridge.SendVideoAsync(userId, bytes);
-                    return "视频已发送";
+                    return "Video sent";
                 }
                 catch (Exception ex)
                 {
-                    return $"发送视频失败: {ex.Message}";
+                    return $"Failed to send video: {ex.Message}";
                 }
             });
 
         yield return new FunctionDefinition(
             "ilink_send_file",
-            "通过 iLink 向指定用户发送文件。支持本地文件路径或 HTTP/HTTPS URL。",
+            "Send a file to a specified user via iLink. Supports local file paths or HTTP/HTTPS URLs.",
             new
             {
                 type = "object",
                 properties = new
                 {
-                    user_id = new { type = "string", description = "iLink 用户 ID" },
-                    source = new { type = "string", description = "文件来源：本地路径或 URL" },
-                    file_name = new { type = "string", description = "发送时显示的文件名（含扩展名），不填则从路径/URL 自动推断" }
+                    user_id = new { type = "string", description = "iLink user ID" },
+                    source = new { type = "string", description = "File source: local path or URL" },
+                    file_name = new { type = "string", description = "Display filename (with extension) when sending. Auto-inferred from path/URL if left empty." }
                 },
                 required = new[] { "user_id", "source" }
             },
@@ -118,11 +118,11 @@ public static class ILinkFunctions
                 {
                     var bytes = await ReadBytesAsync(source);
                     await iLinkBridge.SendFileAsync(userId, bytes, fileName!);
-                    return $"文件 {fileName} 已发送";
+                    return $"File {fileName} sent";
                 }
                 catch (Exception ex)
                 {
-                    return $"发送文件失败: {ex.Message}";
+                    return $"Failed to send file: {ex.Message}";
                 }
             });
     }

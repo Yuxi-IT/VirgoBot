@@ -74,7 +74,7 @@ public static class SkillLoader
         var content = File.ReadAllText(skillMdPath);
         var parsed = SkillMdParser.Parse(content);
         if (parsed == null)
-            throw new InvalidOperationException("SKILL.md 缺少有效的 frontmatter (name/description)");
+            throw new InvalidOperationException("SKILL.md missing valid frontmatter (name/description)");
 
         // 构建 LLM 可见的描述：frontmatter description + body 指令
         var fullDescription = string.IsNullOrWhiteSpace(parsed.Body)
@@ -89,7 +89,7 @@ public static class SkillLoader
                 ["arguments"] = new Dictionary<string, string>
                 {
                     ["type"] = "string",
-                    ["description"] = "传递给 Skill 的参数（对应 $ARGUMENTS）"
+                    ["description"] = "Arguments passed to the Skill (corresponds to $ARGUMENTS)"
                 }
             }
         };
@@ -114,19 +114,19 @@ public static class SkillLoader
             var resolvedBody = (parsed.Body ?? "").Replace("$ARGUMENTS", arguments);
 
             var result = new System.Text.StringBuilder();
-            result.AppendLine($"[Skill '{parsed.Name}' 已激活]");
+            result.AppendLine($"[Skill '{parsed.Name}' activated]");
 
             if (!string.IsNullOrWhiteSpace(arguments))
-                result.AppendLine($"参数: {arguments}");
+                result.AppendLine($"Arguments: {arguments}");
 
             result.AppendLine();
-            result.AppendLine("--- Skill 指令 ---");
+            result.AppendLine("--- Skill Instructions ---");
             result.AppendLine(resolvedBody);
 
             if (auxiliaryFiles.Count > 0)
             {
                 result.AppendLine();
-                result.AppendLine("--- 可用辅助文件 ---");
+                result.AppendLine("--- Available Auxiliary Files ---");
                 foreach (var f in auxiliaryFiles)
                     result.AppendLine($"  {f}");
             }
@@ -134,11 +134,11 @@ public static class SkillLoader
             if (parsed.AllowedTools.Count > 0)
             {
                 result.AppendLine();
-                result.AppendLine($"允许的工具: {string.Join(", ", parsed.AllowedTools)}");
+                result.AppendLine($"Allowed tools: {string.Join(", ", parsed.AllowedTools)}");
             }
 
             if (!string.IsNullOrWhiteSpace(parsed.Model))
-                result.AppendLine($"推荐模型: {parsed.Model}");
+                result.AppendLine($"Recommended model: {parsed.Model}");
 
             return Task.FromResult(result.ToString());
         });
@@ -151,9 +151,9 @@ public static class SkillLoader
         var root = doc.RootElement;
 
         var name = root.GetProperty("name").GetString()
-            ?? throw new InvalidOperationException("Skill 缺少 name 字段");
+            ?? throw new InvalidOperationException("Skill missing name field");
         var description = root.GetProperty("description").GetString()
-            ?? throw new InvalidOperationException("Skill 缺少 description 字段");
+            ?? throw new InvalidOperationException("Skill missing description field");
 
         // 如果有 subSkills，展开为多个 FunctionDefinition
         if (root.TryGetProperty("subSkills", out var subSkillsEl) && subSkillsEl.ValueKind == JsonValueKind.Array)
@@ -175,9 +175,9 @@ public static class SkillLoader
     private static FunctionDefinition? ParseSkillNode(JsonElement node, string? parentName)
     {
         var rawName = node.GetProperty("name").GetString()
-            ?? throw new InvalidOperationException("Skill 缺少 name 字段");
+            ?? throw new InvalidOperationException("Skill missing name field");
         var description = node.GetProperty("description").GetString()
-            ?? throw new InvalidOperationException("Skill 缺少 description 字段");
+            ?? throw new InvalidOperationException("Skill missing description field");
 
         // 子模块名称加上父级前缀，如 office_word_read
         var name = parentName != null ? $"{parentName}_{rawName}" : rawName;
@@ -256,7 +256,7 @@ public static class SkillLoader
         else
         {
             var command = node.GetProperty("command").GetString()
-                ?? throw new InvalidOperationException("Skill 缺少 command 字段");
+                ?? throw new InvalidOperationException("Skill missing command field");
 
             return new FunctionDefinition(name, description, inputSchema, async input =>
             {
@@ -390,11 +390,11 @@ public static class SkillLoader
         }
         catch (TaskCanceledException)
         {
-            return $"HTTP 请求超时({CommandTimeoutSeconds}秒)";
+            return $"HTTP request timeout ({CommandTimeoutSeconds}s)";
         }
         catch (Exception ex)
         {
-            return $"HTTP 请求失败: {ex.Message}";
+            return $"HTTP request failed: {ex.Message}";
         }
     }
 
@@ -477,11 +477,11 @@ public static class SkillLoader
             lock (bufferLock) { result = outputBuffer.ToString(); }
 
             process.Dispose();
-            return string.IsNullOrWhiteSpace(result) ? "(无输出)" : result;
+            return string.IsNullOrWhiteSpace(result) ? "(no output)" : result;
         }
         catch (Exception ex)
         {
-            return $"执行失败: {ex.Message}";
+            return $"Execution failed: {ex.Message}";
         }
     }
 
@@ -490,11 +490,11 @@ public static class SkillLoader
         var example = new
         {
             name = "example_skill",
-            description = "这是一个示例 Skill，以下划线开头的文件不会被加载",
+            description = "This is an example Skill. Files starting with underscore are not loaded.",
             parameters = new[]
             {
-                new { name = "arg1", type = "string", description = "参数1", required = true },
-                new { name = "arg2", type = "string", description = "参数2(可选)", required = false }
+                new { name = "arg1", type = "string", description = "Parameter 1", required = true },
+                new { name = "arg2", type = "string", description = "Parameter 2 (optional)", required = false }
             },
             command = "echo {{arg1}} {{arg2}}"
         };
@@ -505,11 +505,11 @@ public static class SkillLoader
         var httpExample = new
         {
             name = "example_http_skill",
-            description = "这是一个 HTTP 模式的示例 Skill，以下划线开头的文件不会被加载",
+            description = "This is an HTTP mode example Skill. Files starting with underscore are not loaded.",
             mode = "http",
             parameters = new[]
             {
-                new { name = "city", type = "string", description = "城市名称", required = true }
+                new { name = "city", type = "string", description = "City name", required = true }
             },
             http = new
             {
@@ -612,7 +612,7 @@ public static class SkillLoader
             var html = await ExecuteHttpAsync(method, urlTemplate, headerTemplates, bodyTemplate, parameters, input);
 
             // 如果 HTTP 请求失败，直接返回错误信息
-            if (html.StartsWith("HTTP ") || html.StartsWith("HTTP 请求"))
+            if (html.StartsWith("HTTP ") || html.StartsWith("HTTP request"))
                 return html;
 
             var doc = new HtmlDocument();
@@ -641,7 +641,7 @@ public static class SkillLoader
         }
         catch (Exception ex)
         {
-            return $"网页抓取失败: {ex.Message}";
+            return $"Web scraping failed: {ex.Message}";
         }
     }
 

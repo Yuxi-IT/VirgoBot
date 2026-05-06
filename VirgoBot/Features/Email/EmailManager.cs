@@ -52,7 +52,7 @@ public class EmailManager
         _pendingEmails[email.Uid] = email;
 
         ColorLog.Info("EMAIL", $"新邮件: [{email.From}] {email.Subject}");
-        var prompt = $"有新邮件：\n发件人: {email.From}\n主题: {email.Subject}\n内容: {GetPreview(email.Body)}\n\nUID: {email.Uid}\n\n请用你的风格提醒我有新邮件。";
+        var prompt = $"New email:\nFrom: {email.From}\nSubject: {email.Subject}\nContent: {GetPreview(email.Body)}\n\nUID: {email.Uid}\n\nNotify me about this email in your own style.";
 
         var aiResponse = await _llmService.AskAsync(prompt);
         await _notificationDispatcher.DispatchNewEmailAsync(email, aiResponse);

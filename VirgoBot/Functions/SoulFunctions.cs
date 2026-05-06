@@ -17,7 +17,7 @@ public static class SoulFunctions
 
     public static IEnumerable<FunctionDefinition> Register(MemoryService memoryService)
     {
-        yield return new FunctionDefinition("read_soul", "获取最近关于用户的记忆", new
+        yield return new FunctionDefinition("read_soul", "Retrieve recent user memories", new
         {
             type = "object"
         }, async input =>
@@ -30,15 +30,15 @@ public static class SoulFunctions
             _cachedSoulContent = memoryService.GetAllSoulContent();
             _cacheExpiry = DateTime.UtcNow + CacheTtl;
 
-            return string.IsNullOrEmpty(_cachedSoulContent) ? "暂无记忆" : _cachedSoulContent;
+            return string.IsNullOrEmpty(_cachedSoulContent) ? "No memories yet" : _cachedSoulContent;
         });
 
-        yield return new FunctionDefinition("append_soul", "追加可更改的记忆[例如用户最近的事情(必须标注日期)]", new
+        yield return new FunctionDefinition("append_soul", "Append modifiable memories (e.g. user's recent activities, must include date)", new
         {
             type = "object",
             properties = new
             {
-                content = new { type = "string", description = "要新追加的关于用户记忆的文本内容" },
+                content = new { type = "string", description = "New memory content about the user to append" },
             },
             required = new[] { "content" }
         }, async input =>
@@ -49,7 +49,7 @@ public static class SoulFunctions
             _cachedSoulContent = null;
             _cacheExpiry = DateTime.MinValue;
 
-            return "新记忆追加成功";
+            return "New memory saved successfully";
         });
     }
 }

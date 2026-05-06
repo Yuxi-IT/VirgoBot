@@ -8,15 +8,15 @@ public static class ContactFunctions
 {
     public static IEnumerable<FunctionDefinition> Register(ContactService contactService)
     {
-        yield return new FunctionDefinition("add_contact", "添加联系人", new
+        yield return new FunctionDefinition("add_contact", "Add a contact", new
         {
             type = "object",
             properties = new
             {
-                name = new { type = "string", description = "姓名" },
-                email = new { type = "string", description = "邮箱(可选)" },
-                phone = new { type = "string", description = "电话(可选)" },
-                notes = new { type = "string", description = "备注(可选)" }
+                name = new { type = "string", description = "Name" },
+                email = new { type = "string", description = "Email (optional)" },
+                phone = new { type = "string", description = "Phone (optional)" },
+                notes = new { type = "string", description = "Notes (optional)" }
             },
             required = new[] { "name" }
         }, async input =>
@@ -26,59 +26,59 @@ public static class ContactFunctions
             var phone = input.TryGetProperty("phone", out var p) ? p.GetString() : null;
             var notes = input.TryGetProperty("notes", out var n) ? n.GetString() : null;
             contactService.AddContact(name, email, phone, notes);
-            return "联系人添加成功";
+            return "Contact added successfully";
         });
 
-        yield return new FunctionDefinition("list_contacts", "查看所有联系人", new
+        yield return new FunctionDefinition("list_contacts", "List all contacts", new
         {
             type = "object",
             properties = new { }
         }, async input =>
         {
             var contacts = contactService.GetAllContacts();
-            if (contacts.Count == 0) return "通讯录为空";
+            if (contacts.Count == 0) return "Address book is empty";
             var sb = new StringBuilder();
             foreach (var c in contacts)
             {
                 sb.AppendLine($"[{c.Id}] {c.Name}");
-                if (!string.IsNullOrEmpty(c.Email)) sb.AppendLine($"  邮箱: {c.Email}");
-                if (!string.IsNullOrEmpty(c.Phone)) sb.AppendLine($"  电话: {c.Phone}");
-                if (!string.IsNullOrEmpty(c.Notes)) sb.AppendLine($"  备注: {c.Notes}");
+                if (!string.IsNullOrEmpty(c.Email)) sb.AppendLine($"  Email: {c.Email}");
+                if (!string.IsNullOrEmpty(c.Phone)) sb.AppendLine($"  Phone: {c.Phone}");
+                if (!string.IsNullOrEmpty(c.Notes)) sb.AppendLine($"  Notes: {c.Notes}");
             }
             return sb.ToString();
         });
 
-        yield return new FunctionDefinition("find_contact", "搜索联系人", new
+        yield return new FunctionDefinition("find_contact", "Search contacts", new
         {
             type = "object",
             properties = new
             {
-                keyword = new { type = "string", description = "搜索关键词" }
+                keyword = new { type = "string", description = "Search keyword" }
             },
             required = new[] { "keyword" }
         }, async input =>
         {
             var keyword = input.GetProperty("keyword").GetString() ?? "";
             var contact = contactService.FindContact(keyword);
-            if (contact == null) return "未找到联系人";
+            if (contact == null) return "Contact not found";
             var sb = new StringBuilder();
             sb.AppendLine($"[{contact.Id}] {contact.Name}");
-            if (!string.IsNullOrEmpty(contact.Email)) sb.AppendLine($"邮箱: {contact.Email}");
-            if (!string.IsNullOrEmpty(contact.Phone)) sb.AppendLine($"电话: {contact.Phone}");
-            if (!string.IsNullOrEmpty(contact.Notes)) sb.AppendLine($"备注: {contact.Notes}");
+            if (!string.IsNullOrEmpty(contact.Email)) sb.AppendLine($"Email: {contact.Email}");
+            if (!string.IsNullOrEmpty(contact.Phone)) sb.AppendLine($"Phone: {contact.Phone}");
+            if (!string.IsNullOrEmpty(contact.Notes)) sb.AppendLine($"Notes: {contact.Notes}");
             return sb.ToString();
         });
 
-        yield return new FunctionDefinition("update_contact", "修改联系人信息", new
+        yield return new FunctionDefinition("update_contact", "Update contact info", new
         {
             type = "object",
             properties = new
             {
-                id = new { type = "number", description = "联系人ID" },
-                name = new { type = "string", description = "新姓名(可选)" },
-                email = new { type = "string", description = "新邮箱(可选)" },
-                phone = new { type = "string", description = "新电话(可选)" },
-                notes = new { type = "string", description = "新备注(可选)" }
+                id = new { type = "number", description = "Contact ID" },
+                name = new { type = "string", description = "New name (optional)" },
+                email = new { type = "string", description = "New email (optional)" },
+                phone = new { type = "string", description = "New phone (optional)" },
+                notes = new { type = "string", description = "New notes (optional)" }
             },
             required = new[] { "id" }
         }, async input =>
@@ -89,22 +89,22 @@ public static class ContactFunctions
             var phone = input.TryGetProperty("phone", out var p) ? p.GetString() : null;
             var notes = input.TryGetProperty("notes", out var nt) ? nt.GetString() : null;
             contactService.UpdateContact(id, name, email, phone, notes);
-            return "联系人更新成功";
+            return "Contact updated successfully";
         });
 
-        yield return new FunctionDefinition("delete_contact", "删除联系人", new
+        yield return new FunctionDefinition("delete_contact", "Delete a contact", new
         {
             type = "object",
             properties = new
             {
-                id = new { type = "number", description = "联系人ID" }
+                id = new { type = "number", description = "Contact ID" }
             },
             required = new[] { "id" }
         }, async input =>
         {
             var id = input.GetProperty("id").GetInt32();
             contactService.DeleteContact(id);
-            return "联系人删除成功";
+            return "Contact deleted successfully";
         });
     }
 }

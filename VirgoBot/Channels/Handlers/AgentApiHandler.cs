@@ -219,23 +219,23 @@ public class AgentApiHandler
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", provider.ApiKey);
 
         var prompt = $"""
-请为角色「{characterName}」生成一份详细的 AI 智能体人物设定文档，用于配置聊天机器人的系统提示词。
+Please generate a detailed AI agent character profile for the character "{characterName}", to be used as the system prompt for configuring a chatbot.
 
-要求：
-1. 总字数不少于 2000 字符
-2. 使用 Markdown 格式
-3. 必须包含以下章节：
-   - 角色基本信息（姓名、来源作品/背景、年龄、外貌特征）
-   - 性格特点（详细描述核心性格、优缺点、行为模式）
-   - 说话方式与语言风格（口头禅、语气、常用表达、说话习惯）
-   - 兴趣爱好与专长
-   - 人际关系与情感倾向
-   - 行为准则与价值观
-   - 典型对话示例（至少 5 组问答示例，展示角色的说话风格）
-4. 设定要符合角色的原著/公众认知，如果是原创角色则自由发挥
-5. 文档开头用一句话总结角色定位，作为系统提示词的核心指令
+Requirements:
+1. Minimum 2000 characters total
+2. Use Markdown format
+3. Must include the following sections:
+   - Basic Character Info (name, source work/background, age, appearance)
+   - Personality Traits (detailed core personality, strengths/weaknesses, behavioral patterns)
+   - Speech Style & Language (catchphrases, tone, common expressions, speaking habits)
+   - Interests & Expertise
+   - Relationships & Emotional Tendencies
+   - Behavioral Guidelines & Values
+   - Example Dialogues (at least 5 Q&A pairs demonstrating the character's speech style)
+4. Stay true to the character's original work/public perception; for original characters, feel free to be creative
+5. Begin the document with a one-sentence summary of the character's role as the core system prompt directive
 
-请直接输出 Markdown 文档内容，不要有任何额外说明。
+Output the Markdown document directly, without any additional commentary.
 """;
 
         var requestBody = new

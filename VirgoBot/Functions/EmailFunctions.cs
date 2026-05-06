@@ -7,14 +7,14 @@ public static class EmailFunctions
 {
     public static IEnumerable<FunctionDefinition> Register(EmailService emailService)
     {
-        yield return new FunctionDefinition("send_email", "发送邮件", new
+        yield return new FunctionDefinition("send_email", "Send an email", new
         {
             type = "object",
             properties = new
             {
-                to = new { type = "string", description = "收件人邮箱地址" },
-                subject = new { type = "string", description = "邮件主题" },
-                body = new { type = "string", description = "邮件正文内容" }
+                to = new { type = "string", description = "Recipient email address" },
+                subject = new { type = "string", description = "Email subject" },
+                body = new { type = "string", description = "Email body content" }
             },
             required = new[] { "to", "subject", "body" }
         }, async input =>
@@ -23,7 +23,7 @@ public static class EmailFunctions
             var subject = input.GetProperty("subject").GetString() ?? "";
             var body = input.GetProperty("body").GetString() ?? "";
             await emailService.SendEmailAsync(to, subject, body);
-            return "邮件发送成功";
+            return "Email sent successfully";
         });
     }
 }
