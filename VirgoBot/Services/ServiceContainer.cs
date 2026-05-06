@@ -38,7 +38,7 @@ public class ServiceContainer : IDisposable
     public static ServiceContainer Build(
         MemoryService memoryService,
         WebSocketClientManager wsManager,
-        ShellSessionService shellSessionService,
+        PtySessionService ptySessionService,
         HttpClient httpClient,
         TokenStatsService tokenStatsService)
     {
@@ -98,7 +98,7 @@ public class ServiceContainer : IDisposable
             container.FunctionRegistry.SetEmailService(container.EmailService);
         }
 
-        container.FunctionRegistry.SetShellSessionService(shellSessionService);
+        container.FunctionRegistry.SetTerminalService(ptySessionService);
         container.FunctionRegistry.SetContactService(container.ContactService);
 
         if (container.Config.Channel.ILink.Enabled)
@@ -110,11 +110,16 @@ public class ServiceContainer : IDisposable
         container.Cts = new CancellationTokenSource();
         var ct = container.Cts.Token;
 
+        // ActivityMonitor: always created so auto-response works with web UI
+        var tgUserId = container.Config.Channel.Telegram.AllowedUsers.Length > 0
+            ? container.Config.Channel.Telegram.AllowedUsers[0]
+            : 0L;
+
         if (container.Config.Channel.Telegram.Enabled)
         {
             container.Bot = new TelegramBotClient(container.Config.Channel.Telegram.BotToken, cancellationToken: ct);
             var messageHelper = new MessageHelper(container.Bot, container.Config.Server.MessageSplitDelimiters);
-            container.ActivityMonitor = new ActivityMonitor(container.LlmService, container.Bot, wsManager, container.Config.Channel.Telegram.AllowedUsers[0], container.Config);
+            container.ActivityMonitor = new ActivityMonitor(container.LlmService, container.Bot, wsManager, container.ILinkBridge, tgUserId, container.Config);
 
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 container.Config.Channel.Email.Notification,
@@ -127,6 +132,8 @@ public class ServiceContainer : IDisposable
         }
         else
         {
+            container.ActivityMonitor = new ActivityMonitor(container.LlmService, null, wsManager, container.ILinkBridge, tgUserId, container.Config);
+
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 container.Config.Channel.Email.Notification,
                 wsManager, null, 0, container.ILinkBridge);

@@ -39,6 +39,7 @@ function ChatPage() {
   const [splitEnabled, setSplitEnabled] = useState(() => readFlag('chat.splitEnabled', true));
   const [markdownEnabled, setMarkdownEnabled] = useState(() => readFlag('chat.markdownEnabled', true));
   const [activeTab, setActiveTab] = useState('chat');
+  const [pendingNew, setPendingNew] = useState(false);
 
   const toggleFlag = (key: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
     setter(v => {
@@ -60,23 +61,35 @@ function ChatPage() {
       const res = await api.get<SessionsResponse>('/api/sessions');
       if (res.success) {
         setSessions(res.data as unknown as SessionInfo[]);
-        const cur = (res.data as unknown as SessionInfo[]).find(s => s.isCurrent);
-        if (cur) setCurrentSession(cur.fileName);
+        if (!pendingNew) {
+          const cur = (res.data as unknown as SessionInfo[]).find(s => s.isCurrent);
+          if (cur) setCurrentSession(cur.fileName);
+        }
       }
     } catch { /* silent */ } finally { if (!silent) setLoading(false); }
-  }, []);
+  }, [pendingNew]);
 
   const loadMessages = useCallback(async (silent = false) => {
+    if (currentSession === '__new__') return;
     try {
       if (!silent) setMsgLoading(true);
       const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=0`);
       if (res.success) {
-        setMessages(res.data.messages);
-        setOffset(res.data.messages.length);
-        setHasMore(res.data.messages.length < res.data.total);
+        if (silent) {
+          // Merge: preserve historical messages loaded via loadMore, only update latest
+          setMessages(prev => {
+            const latestIds = new Set(res.data.messages.map((m: Message) => m.id));
+            const historical = prev.filter(m => !latestIds.has(m.id));
+            return [...historical, ...res.data.messages];
+          });
+        } else {
+          setMessages(res.data.messages);
+          setOffset(res.data.messages.length);
+          setHasMore(res.data.messages.length < res.data.total);
+        }
       }
     } catch { /* silent */ } finally { if (!silent) setMsgLoading(false); }
-  }, []);
+  }, [currentSession]);
   loadMessagesRef.current = loadMessages;
 
   const loadMoreMessages = useCallback(async () => {
@@ -113,7 +126,7 @@ function ChatPage() {
 
   useEffect(() => {
     loadMessages();
-  }, [loadMessages, currentSession]);
+  }, [loadMessages]);
 
   // Auto-refresh messages
   useEffect(() => {
@@ -143,17 +156,37 @@ function ChatPage() {
     return () => { ws.close(); };
   }, [voiceFeedback, accessKey]);
 
+  const abortChat = async () => {
+    try {
+      await api.post('/api/chat/abort', {});
+    } catch { /* ignore */ }
+  };
+
   const sendMessage = async (text: string, images?: ImageAttachment[]) => {
     if (!text.trim() && (!images || images.length === 0)) return;
     if (sending) return;
+
+    // Lazy session creation: create the session on first message
+    if (pendingNew) {
+      try {
+        const res = await api.post<{ success: boolean; data: { fileName: string } }>('/api/sessions', {});
+        if (!res.success) return;
+        await api.put('/api/sessions/switch', { session: res.data.fileName });
+        setCurrentSession(res.data.fileName);
+        setPendingNew(false);
+        loadSessions(true);
+      } catch { return; }
+    }
+
     setSending(true);
 
     // Optimistic user message
     const optimisticContent = images && images.length > 0
       ? JSON.stringify({ text, images: images.map(i => ({ preview: i.preview })) })
       : text;
+    const optimisticId = Date.now();
     const optimisticMsg: Message = {
-      id: Date.now(),
+      id: optimisticId,
       role: 'user',
       content: optimisticContent,
       createdAt: new Date().toISOString(),
@@ -182,6 +215,8 @@ function ChatPage() {
       }
     } finally {
       setSending(false);
+      // Remove optimistic message before refresh so the real one from server replaces it
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
       loadMessages(true);
     }
   };
@@ -194,6 +229,7 @@ function ChatPage() {
   };
 
   const switchSession = async (fileName: string) => {
+    setPendingNew(false);
     try {
       await api.put('/api/sessions/switch', { session: fileName });
       setCurrentSession(fileName);
@@ -205,12 +241,12 @@ function ChatPage() {
   };
 
   const createSession = async () => {
-    try {
-      const res = await api.post<{ success: boolean; data: { fileName: string } }>('/api/sessions', {});
-      if (res.success) {
-        await switchSession(res.data.fileName);
-      }
-    } catch { /* ignore */ }
+    // Lazy: don't create now, wait for first message
+    setPendingNew(true);
+    setCurrentSession('__new__');
+    setMessages([]);
+    setOffset(0);
+    setHasMore(false);
   };
 
   const convertTTS = async (text: string) => {
@@ -241,7 +277,7 @@ function ChatPage() {
       <div className="flex h-[calc(100vh-44px)] sm:h-screen overflow-hidden">
         {/* Left: Session List */}
         <div
-          className="shrink-0 border-r overflow-y-auto hidden sm:block transition-[width] duration-300 ease-in-out"
+          className="shrink-0 border-r overflow-hidden hidden sm:block transition-[width] duration-300 ease-in-out"
           style={{ width: sidebarOpen ? 256 : 0, overflow: sidebarOpen ? undefined : 'hidden' }}
         >
           <div className="w-64">
@@ -294,6 +330,7 @@ function ChatPage() {
                 onSend={(text, imgs) => sendMessage(text, imgs)}
                 onDeleteMessage={deleteMessage}
                 onLoadMore={loadMoreMessages}
+                onAbort={abortChat}
                 onToggleVoiceFeedback={() => toggleFlag('chat.voiceFeedback', setVoiceFeedback)}
                 onToggleSplit={() => toggleFlag('chat.splitEnabled', setSplitEnabled)}
                 onToggleMarkdown={() => toggleFlag('chat.markdownEnabled', setMarkdownEnabled)}

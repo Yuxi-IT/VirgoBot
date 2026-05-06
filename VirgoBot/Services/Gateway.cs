@@ -13,7 +13,7 @@ public class Gateway : IDisposable
     private readonly LogService _logService;
     private readonly WebSocketClientManager _wsManager;
     private readonly MemoryService _memoryService;
-    private readonly ShellSessionService _shellSessionService = new();
+    private readonly PtySessionService _ptySessionService = new();
     private readonly HttpClient _httpClient = new();
     private readonly TokenStatsService _tokenStatsService = new();
 
@@ -47,7 +47,7 @@ public class Gateway : IDisposable
 
     public async Task StartAsync()
     {
-        _services = ServiceContainer.Build(_memoryService, _wsManager, _shellSessionService, _httpClient, _tokenStatsService);
+        _services = ServiceContainer.Build(_memoryService, _wsManager, _ptySessionService, _httpClient, _tokenStatsService);
         InitChannelStatuses();
         await StartChannelsAsync();
         ColorLog.Success("GATEWAY", "网关服务已启动");
@@ -65,7 +65,7 @@ public class Gateway : IDisposable
         ColorLog.Info("GATEWAY", "正在重启所有服务...");
         await StopChannelsAsync();
         _services?.Dispose();
-        _services = ServiceContainer.Build(_memoryService, _wsManager, _shellSessionService, _httpClient, _tokenStatsService);
+        _services = ServiceContainer.Build(_memoryService, _wsManager, _ptySessionService, _httpClient, _tokenStatsService);
         InitChannelStatuses();
         await StartChannelsAsync();
     }
@@ -82,7 +82,7 @@ public class Gateway : IDisposable
 
         await StopChannelsAsync();
         _services?.Dispose();
-        _services = ServiceContainer.Build(_memoryService, _wsManager, _shellSessionService, _httpClient, _tokenStatsService);
+        _services = ServiceContainer.Build(_memoryService, _wsManager, _ptySessionService, _httpClient, _tokenStatsService);
         InitChannelStatuses();
         await StartChannelsAsync();
         ColorLog.Success("SESSION", $"会话已切换: {dbFileName}");
@@ -137,11 +137,13 @@ public class Gateway : IDisposable
             }
         }
 
-        if (Config.Channel.Telegram.Enabled && Bot != null && TelegramHandler != null && ActivityMonitor != null)
+        // ActivityMonitor always starts (works with web UI alone)
+        ActivityMonitor?.Start(ct);
+
+        if (Config.Channel.Telegram.Enabled && Bot != null && TelegramHandler != null)
         {
             try
             {
-                ActivityMonitor.Start(ct);
                 TelegramHandler.Register();
                 var me = await Bot.GetMe();
                 ColorLog.Success("TELEGRAM", $"Bot 已连接: @{me.Username}");
@@ -224,7 +226,7 @@ public class Gateway : IDisposable
 
     public void Dispose()
     {
-        _shellSessionService.Dispose();
+        _ptySessionService.Dispose();
         _httpClient.Dispose();
         _services?.Dispose();
     }

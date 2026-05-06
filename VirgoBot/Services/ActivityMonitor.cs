@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Telegram.Bot;
 using VirgoBot.Configuration;
+using VirgoBot.Integrations.ILink;
 using VirgoBot.Utilities;
 
 namespace VirgoBot.Services;
@@ -9,19 +10,21 @@ namespace VirgoBot.Services;
 public class ActivityMonitor
 {
     private readonly LLMService _llmService;
-    private readonly TelegramBotClient _bot;
+    private readonly TelegramBotClient? _bot;
     private readonly WebSocketClientManager _wsManager;
+    private readonly ILinkBridgeService? _iLinkBridge;
     private readonly long _userId;
     private readonly Config _config;
     private DateTime _lastActivity = DateTime.Now;
     private Timer? _proactiveTimer;
     private readonly Random _random = new();
 
-    public ActivityMonitor(LLMService llmService, TelegramBotClient bot, WebSocketClientManager wsManager, long userId, Config config)
+    public ActivityMonitor(LLMService llmService, TelegramBotClient? bot, WebSocketClientManager wsManager, ILinkBridgeService? iLinkBridge, long userId, Config config)
     {
         _llmService = llmService;
         _bot = bot;
         _wsManager = wsManager;
+        _iLinkBridge = iLinkBridge;
         _userId = userId;
         _config = config;
     }
@@ -67,17 +70,29 @@ public class ActivityMonitor
 
                             var reply = await _llmService.AskAsync(prompt);
 
-                            try
+                            if (_bot != null)
                             {
-                                foreach (var line in reply.Split("\n\n"))
+                                try
                                 {
-                                    await _bot.SendMessage(_userId, line);
+                                    foreach (var line in reply.Split("\n\n"))
+                                    {
+                                        await _bot.SendMessage(_userId, line);
+                                    }
                                 }
+                                catch (Exception ex) { ColorLog.Error("TG", $"发送失败: {ex.Message}"); }
                             }
-                            catch (Exception ex) { ColorLog.Error("TG", $"发送失败: {ex.Message}"); }
 
                             var msg = JsonSerializer.Serialize(new { type = "proactive", content = reply });
                             await _wsManager.BroadcastAsync(msg);
+
+                            if (_iLinkBridge != null)
+                            {
+                                try
+                                {
+                                    await _iLinkBridge.PushTextAsync(reply);
+                                }
+                                catch (Exception ex) { ColorLog.Error("ILINK", $"主动推送失败: {ex.Message}"); }
+                            }
 
                             UpdateActivity();
                         }

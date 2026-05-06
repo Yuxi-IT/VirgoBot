@@ -60,7 +60,8 @@ public class LLMService
         Func<string, Task>? onSticker = null,
         Func<string, Task>? onSwitchChat = null,
         bool isSystemTask = false,
-        IReadOnlyList<ImageInput>? images = null)
+        IReadOnlyList<ImageInput>? images = null,
+        CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrWhiteSpace(prompt) || (images != null && images.Count > 0))
         {
@@ -122,7 +123,8 @@ public class LLMService
 
         using var response = await _http.PostAsync(
             NormalizeChatCompletionsUrl(_baseUrl),
-            new StringContent(json, Encoding.UTF8, "application/json"));
+            new StringContent(json, Encoding.UTF8, "application/json"),
+            cancellationToken);
 
         var result = await response.Content.ReadAsStringAsync();
 
@@ -232,7 +234,9 @@ public class LLMService
                 }
                 sw.Stop();
 
-                ColorLog.Success("TOOL", $"[{item.Name}] {sw.ElapsedMilliseconds}ms → {Truncate(toolResult, 200)}");
+                ColorLog.Success("TOOL", item.Name.StartsWith("terminal_")
+                    ? $"[{item.Name}] {sw.ElapsedMilliseconds}ms ({toolResult.Length} chars)"
+                    : $"[{item.Name}] {sw.ElapsedMilliseconds}ms → {Truncate(toolResult, 200)}");
 
                 return new { item.Name, item.Id, Result = toolResult };
             }).ToList();

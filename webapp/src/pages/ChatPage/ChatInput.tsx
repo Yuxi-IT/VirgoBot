@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Button, Label, Spinner, Switch, TextArea, toast } from '@heroui/react';
-import { Microphone, ArrowShapeTurnUpRight, Paperclip, Picture } from '@gravity-ui/icons';
+import { Microphone, ArrowShapeTurnUpRight, Paperclip, Picture, Stop } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 
@@ -19,6 +19,7 @@ interface Props {
   splitEnabled: boolean;
   markdownEnabled: boolean;
   onSend: (text: string, images?: ImageAttachment[]) => void;
+  onAbort: () => void;
   onToggleVoiceFeedback: () => void;
   onToggleSplit: () => void;
   onToggleMarkdown: () => void;
@@ -26,7 +27,7 @@ interface Props {
 
 export default function ChatInput({
   sending, voiceFeedback, splitEnabled, markdownEnabled,
-  onSend, onToggleVoiceFeedback, onToggleSplit, onToggleMarkdown
+  onSend, onAbort, onToggleVoiceFeedback, onToggleSplit, onToggleMarkdown
 }: Props) {
   const { t } = useI18n();
   const [text, setText] = useState('');
@@ -204,6 +205,7 @@ export default function ChatInput({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t('chatPage.inputPlaceholder')}
+          disabled={sending}
         />
 
         {/* Image attach button */}
@@ -212,6 +214,7 @@ export default function ChatInput({
           isIconOnly
           variant="secondary"
           onPress={() => setShowUrlInput(v => !v)}
+          isDisabled={sending}
         >
           <Paperclip />
         </Button>
@@ -228,6 +231,7 @@ export default function ChatInput({
           isIconOnly
           variant="secondary"
           onPress={() => fileInputRef.current?.click()}
+          isDisabled={sending}
         >
           <Picture />
         </Button>
@@ -238,19 +242,30 @@ export default function ChatInput({
             isIconOnly
             variant={recording ? 'danger' : 'secondary'}
             onPress={recording ? stopRecording : startRecording}
-            isDisabled={processing}
+            isDisabled={processing || sending}
           >
             {processing ? <Spinner size="sm" /> : <Microphone />}
           </Button>
         )}
-        <Button
-          size="sm"
-          isIconOnly
-          onPress={handleSend}
-          isDisabled={(!text.trim() && images.length === 0) || sending}
-        >
-          {sending ? <Spinner size="sm" /> : <ArrowShapeTurnUpRight />}
-        </Button>
+        {sending ? (
+          <Button
+            size="sm"
+            isIconOnly
+            variant="danger"
+            onPress={onAbort}
+          >
+            <Stop />
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            isIconOnly
+            onPress={handleSend}
+            isDisabled={!text.trim() && images.length === 0}
+          >
+            <ArrowShapeTurnUpRight />
+          </Button>
+        )}
       </div>
     </div>
   );

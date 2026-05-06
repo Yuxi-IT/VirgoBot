@@ -80,8 +80,6 @@ public class MemoryService : IDisposable
     {
         if (string.IsNullOrWhiteSpace(dbFileName))
             throw new ArgumentException("Database file name cannot be empty");
-        if (dbFileName == CurrentDbName)
-            throw new InvalidOperationException("Cannot delete the currently active session");
 
         var fullPath = Path.Combine(MemorysDirectory, dbFileName);
         if (File.Exists(fullPath))
@@ -212,14 +210,14 @@ public class MemoryService : IDisposable
 
     public void UpdateMessageLimit(int newLimit) => _messageLimit = newLimit;
 
-    public void SaveMessage(string role, object content)
+    public long SaveMessage(string role, object content)
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO messages (role, content, created_at) VALUES (@role, @content, @time)";
+        cmd.CommandText = "INSERT INTO messages (role, content, created_at) VALUES (@role, @content, @time); SELECT last_insert_rowid();";
         cmd.Parameters.AddWithValue("@role", role);
         cmd.Parameters.AddWithValue("@content", JsonSerializer.Serialize(content));
         cmd.Parameters.AddWithValue("@time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-        cmd.ExecuteNonQuery();
+        return (long)cmd.ExecuteScalar()!;
     }
 
     public List<object> LoadMessages(int? limit = null)
@@ -329,6 +327,10 @@ public class MemoryService : IDisposable
                 else if (content.ValueKind == JsonValueKind.Object &&
                          content.TryGetProperty("text", out var objTextEl))
                     contentText = objTextEl.GetString() ?? "";
+                else if (content.ValueKind == JsonValueKind.Object &&
+                         content.TryGetProperty("tool_call_id", out _) &&
+                         content.TryGetProperty("content", out var toolResultEl))
+                    contentText = ExtractTextContent(toolResultEl);
                 else
                     contentText = contentJson;
             }
@@ -449,6 +451,19 @@ public class MemoryService : IDisposable
     public void Dispose()
     {
         if (!_disposed) { _conn.Dispose(); _disposed = true; }
+    }
+
+    private static string ExtractTextContent(JsonElement content)
+    {
+        return content.ValueKind switch
+        {
+            JsonValueKind.String => content.GetString() ?? string.Empty,
+            JsonValueKind.Object when content.TryGetProperty("text", out var textEl) =>
+                textEl.GetString() ?? string.Empty,
+            JsonValueKind.Object when content.TryGetProperty("content", out var contentEl) =>
+                ExtractTextContent(contentEl),
+            _ => content.ToString()
+        };
     }
 }
 

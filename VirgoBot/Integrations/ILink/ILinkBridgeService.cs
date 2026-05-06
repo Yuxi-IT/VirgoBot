@@ -8,6 +8,7 @@ public sealed class ILinkBridgeService : IDisposable
     private readonly string _messageSplitDelimiters;
     private readonly OpenILinkClient _client;
     private CancellationTokenSource? _monitorCts;
+    private WeixinMessage? _lastMessage; // tracked for proactive push
 
     private const string BufferFilePath = "config/ilink_buffer.txt";
 
@@ -68,6 +69,7 @@ public sealed class ILinkBridgeService : IDisposable
                         return;
 
                     ColorLog.Info("ILINK", $"收到消息: UserId={message.FromUserId}, Text={text}{(hasImage ? " [图片]" : "")}");
+                    _lastMessage = message; // track for proactive push
                     await onMessage(message);
                 }, options, _monitorCts.Token);
             }
@@ -96,6 +98,26 @@ public sealed class ILinkBridgeService : IDisposable
         foreach (var paragraph in paragraphs)
         {
             await _client.ReplyTextAsync(message, paragraph, cancellationToken);
+            ColorLog.Success("ILINK", paragraph);
+            await Task.Delay(300, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Proactively push text to the last known user. Falls back gracefully if no recent message.
+    /// </summary>
+    public async Task PushTextAsync(string text, CancellationToken cancellationToken = default)
+    {
+        if (_lastMessage == null)
+        {
+            ColorLog.Warning("ILINK", "无法主动推送: 没有最近的消息上下文");
+            return;
+        }
+
+        var paragraphs = MessageSplitter.SplitMessage(text, _messageSplitDelimiters);
+        foreach (var paragraph in paragraphs)
+        {
+            await _client.ReplyTextAsync(_lastMessage, paragraph, cancellationToken);
             ColorLog.Success("ILINK", paragraph);
             await Task.Delay(300, cancellationToken);
         }

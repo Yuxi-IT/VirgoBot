@@ -34,6 +34,7 @@ public class HttpServerHost
     private readonly ProviderApiHandler _providerApiHandler;
     private readonly McpApiHandler _mcpApiHandler;
     private readonly AuthApiHandler _authApiHandler;
+    private CancellationTokenSource? _chatCts;
 
     // Public-facing port (TcpListener on 0.0.0.0) — no admin/URL ACL needed
     private const int PublicPort = 8765;
@@ -85,6 +86,7 @@ public class HttpServerHost
 
         // Chat
         _routes.Register("POST", "/chat", R(HandleChatRequest));
+        _routes.Register("POST", "/api/chat/abort", R(HandleAbortChatRequest));
 
         // Status / Messages / Logs
         _routes.Register("GET", "/api/status", R(_statusApiHandler.HandleStatusRequest));
@@ -667,6 +669,10 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
         var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
+        _chatCts = new CancellationTokenSource();
+        var cts = _chatCts;
+        var ct = cts.Token;
+
         var images = new List<ImageInput>();
         if (req?.imageUrls is { Length: > 0 } urls)
             foreach (var u in urls)
@@ -675,11 +681,34 @@ public class HttpServerHost
             foreach (var b in b64s)
                 if (!string.IsNullOrWhiteSpace(b.data)) images.Add(ImageInput.FromBase64(b.data, b.mediaType ?? "image/jpeg"));
 
-        var reply = await _gateway.LlmService.AskAsync(req?.message ?? "", images: images.Count > 0 ? images : null);
+        try
+        {
+            _gateway.ActivityMonitor?.UpdateActivity();
+            var reply = await _gateway.LlmService.AskAsync(req?.message ?? "", images: images.Count > 0 ? images : null, cancellationToken: ct);
 
-        ColorLog.Info("MSG-HTTP", $"'{req?.message ?? ""}'");
+            ColorLog.Info("MSG-HTTP", $"'{req?.message ?? ""}'");
 
-        await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, data = new { reply } });
+            await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, data = new { reply } });
+        }
+        catch (OperationCanceledException)
+        {
+            ColorLog.Info("MSG-HTTP", $"用户中止: '{req?.message ?? ""}'");
+            await HttpResponseHelper.SendJsonResponse(ctx, new { success = false, message = "aborted" });
+        }
+        finally
+        {
+            if (_chatCts == cts) _chatCts = null;
+        }
+    }
+
+    private async Task HandleAbortChatRequest(HttpListenerContext ctx)
+    {
+        if (_chatCts != null && !_chatCts.IsCancellationRequested)
+        {
+            await _chatCts.CancelAsync();
+            ColorLog.Info("MSG-HTTP", "中止当前请求");
+        }
+        await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, message = "aborted" });
     }
 
 }
