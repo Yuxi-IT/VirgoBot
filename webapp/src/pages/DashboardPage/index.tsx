@@ -9,9 +9,11 @@ import ChannelStatusGrid from './ChannelStatusGrid';
 import ServerConfigCard from './ServerConfigCard';
 import type { StatusData, ApiResponse } from './types';
 import { ArrowsRotateRight, LogoGithub } from '@gravity-ui/icons';
+import { useNavigate } from 'react-router-dom';
 
 function DashboardPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [status, setStatus] = useState<StatusData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,17 @@ function DashboardPage() {
   useEffect(() => {
     loadStatus();
     intervalRef.current = setInterval(() => loadStatus(true), 1000);
+
+    // Check onboarding status
+    (async () => {
+      try {
+        const res = await api.get<{ success: boolean; data: { completed: boolean } }>('/api/onboarding/status');
+        if (!res.data?.completed) {
+          navigate('/onboarding');
+        }
+      } catch { /* skip */ }
+    })();
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
