@@ -40,6 +40,7 @@ function ChatPage() {
   const [markdownEnabled, setMarkdownEnabled] = useState(() => readFlag('chat.markdownEnabled', true));
   const [activeTab, setActiveTab] = useState('chat');
   const [pendingNew, setPendingNew] = useState(false);
+  const shouldGenerateName = useRef(false);
 
   const toggleFlag = (key: string, setter: React.Dispatch<React.SetStateAction<boolean>>) => {
     setter(v => {
@@ -206,9 +207,9 @@ function ChatPage() {
       }
       await api.post('/chat', payload);
 
-      // Generate session name on first message
-      const cur = sessions.find(s => s.isCurrent);
-      if (cur && !cur.sessionName && cur.messageCount === 0) {
+      // Generate session name on first message after session creation
+      if (shouldGenerateName.current) {
+        shouldGenerateName.current = false;
         setTimeout(async () => {
           try {
             await api.post('/api/sessions/generate-name', { message: text });
@@ -239,6 +240,7 @@ function ChatPage() {
 
   const switchSession = async (fileName: string) => {
     setPendingNew(false);
+    shouldGenerateName.current = false;
     try {
       await api.put('/api/sessions/switch', { session: fileName });
       setCurrentSession(fileName);
@@ -256,6 +258,7 @@ function ChatPage() {
     setMessages([]);
     setOffset(0);
     setHasMore(false);
+    shouldGenerateName.current = true;
   };
 
   const convertTTS = async (text: string) => {
