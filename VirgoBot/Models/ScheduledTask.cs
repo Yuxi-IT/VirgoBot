@@ -19,6 +19,12 @@ public class ScheduledTask
     [JsonPropertyName("taskType")]
     public string TaskType { get; set; } = "http"; // "http", "shell", or "text"
 
+    [JsonPropertyName("maxRetries")]
+    public int MaxRetries { get; set; } = 0;
+
+    [JsonPropertyName("retryDelaySeconds")]
+    public int RetryDelaySeconds { get; set; } = 60;
+
     [JsonPropertyName("scheduleType")]
     public string ScheduleType { get; set; } = "interval"; // "interval", "daily", "once", "message_count"
 

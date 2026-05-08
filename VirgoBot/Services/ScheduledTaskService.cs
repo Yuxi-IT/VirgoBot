@@ -16,6 +16,7 @@ public class ScheduledTaskService
     private readonly HttpClient _httpClient = new();
     private readonly object _lock = new();
     private LLMService? _llmService;
+    private MemoryService? _memoryService;
 
     public ScheduledTaskService(LLMService? llmService = null)
     {
@@ -30,6 +31,11 @@ public class ScheduledTaskService
     public void SetLlmService(LLMService llmService)
     {
         _llmService = llmService;
+    }
+
+    public void SetMemoryService(MemoryService memoryService)
+    {
+        _memoryService = memoryService;
     }
 
     private void LoadTasks()
@@ -290,33 +296,58 @@ public class ScheduledTaskService
 
     private async Task ExecuteTask(ScheduledTask task)
     {
-        try
+        var maxRetries = task.MaxRetries;
+        var retryDelay = TimeSpan.FromSeconds(task.RetryDelaySeconds > 0 ? task.RetryDelaySeconds : 60);
+        string? lastError = null;
+
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            ColorLog.Info("TASK", $"执行定时任务: {task.Name}");
-
-            task.LastRunTime = DateTime.UtcNow;
-            CalculateNextRunTime(task);
-            SaveTasks();
-
-            if (task.TaskType == "http")
+            var sw = Stopwatch.StartNew();
+            try
             {
-                await ExecuteHttpTask(task);
-            }
-            else if (task.TaskType == "shell")
-            {
-                await ExecuteShellTask(task);
-            }
-            else if (task.TaskType == "text")
-            {
-                await ExecuteTextTask(task);
-            }
+                if (attempt > 0)
+                {
+                    ColorLog.Info("TASK", $"重试定时任务 ({attempt}/{maxRetries}): {task.Name}");
+                    await Task.Delay(retryDelay);
+                }
+                else
+                {
+                    ColorLog.Info("TASK", $"执行定时任务: {task.Name}");
+                }
 
-            ColorLog.Success("TASK", $"定时任务执行成功: {task.Name}");
+                task.LastRunTime = DateTime.UtcNow;
+                CalculateNextRunTime(task);
+                SaveTasks();
+
+                if (task.TaskType == "http")
+                {
+                    await ExecuteHttpTask(task);
+                }
+                else if (task.TaskType == "shell")
+                {
+                    await ExecuteShellTask(task);
+                }
+                else if (task.TaskType == "text")
+                {
+                    await ExecuteTextTask(task);
+                }
+
+                sw.Stop();
+                ColorLog.Success("TASK", $"定时任务执行成功: {task.Name} ({sw.ElapsedMilliseconds}ms)");
+                _memoryService?.RecordTaskHistory(task.Id, "success", $"OK ({sw.ElapsedMilliseconds}ms)", sw.ElapsedMilliseconds);
+                return; // Success, exit retry loop
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                lastError = ex.Message;
+                ColorLog.Error("TASK", $"定时任务执行失败 ({attempt}/{maxRetries}): {task.Name} - {ex.Message}");
+            }
         }
-        catch (Exception ex)
-        {
-            ColorLog.Error("TASK", $"定时任务执行失败: {task.Name} - {ex.Message}");
-        }
+
+        // All retries exhausted
+        _memoryService?.RecordTaskHistory(task.Id, "failed", lastError ?? "Unknown error", 0);
+        ColorLog.Error("TASK", $"定时任务最终失败 (已重试 {maxRetries} 次): {task.Name}");
     }
 
     private async Task ExecuteHttpTask(ScheduledTask task)
