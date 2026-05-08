@@ -29,6 +29,8 @@ public class Config
     public ServerConfig Server { get; set; } = new();
     public ChannelConfig Channel { get; set; } = new();
     public AuthConfig Auth { get; set; } = new();
+    public OnboardingConfig Onboarding { get; set; } = new();
+    public MemoryDecayConfig MemoryDecay { get; set; } = new();
 }
 
 public class AuthConfig
@@ -63,6 +65,29 @@ public class AutoResponseConfig
     public bool Enabled { get; set; } = false;
     public int MinIdleMinutes { get; set; } = 30;
     public int MaxIdleMinutes { get; set; } = 120;
+    public List<ScenarioConfig> Scenarios { get; set; } = new();
+}
+
+public class ScenarioConfig
+{
+    public string Name { get; set; } = "";
+    public string TimeRange { get; set; } = "";
+    public string Prompt { get; set; } = "";
+    public int Priority { get; set; } = 1;
+    public List<string> DayOfWeek { get; set; } = new();
+}
+
+public class MemoryDecayConfig
+{
+    public bool Enabled { get; set; } = true;
+    public double BaseDecayRate { get; set; } = 0.01;
+    public double MinWeightBeforeArchive { get; set; } = 0.1;
+    public double AccessBoost { get; set; } = 0.05;
+}
+
+public class OnboardingConfig
+{
+    public bool Completed { get; set; } = false;
 }
 
 public class ChannelConfig

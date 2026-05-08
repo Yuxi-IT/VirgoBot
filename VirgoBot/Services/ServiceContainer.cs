@@ -87,6 +87,7 @@ public class ServiceContainer : IDisposable
         container.ContactService = new ContactService();
         container.LlmService = new LLMService(httpClient, baseUrl, model, memoryService, container.FunctionRegistry, systemMemory, container.Config.Server.MaxTokens, tokenStatsService, provider?.Protocol ?? "openai");
         container.ScheduledTaskService.SetLlmService(container.LlmService);
+        container.ScheduledTaskService.SetMemoryService(memoryService);
         container.LlmService.SetScheduledTaskService(container.ScheduledTaskService);
 
         if (container.Config.Channel.Email.Enabled)
@@ -119,7 +120,7 @@ public class ServiceContainer : IDisposable
         {
             container.Bot = new TelegramBotClient(container.Config.Channel.Telegram.BotToken, cancellationToken: ct);
             var messageHelper = new MessageHelper(container.Bot, container.Config.Server.MessageSplitDelimiters);
-            container.ActivityMonitor = new ActivityMonitor(container.LlmService, container.Bot, wsManager, container.ILinkBridge, tgUserId, container.Config);
+            container.ActivityMonitor = new ActivityMonitor(container.LlmService, container.Bot, wsManager, container.ILinkBridge, tgUserId, container.Config, memoryService);
 
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 container.Config.Channel.Email.Notification,
@@ -132,7 +133,7 @@ public class ServiceContainer : IDisposable
         }
         else
         {
-            container.ActivityMonitor = new ActivityMonitor(container.LlmService, null, wsManager, container.ILinkBridge, tgUserId, container.Config);
+            container.ActivityMonitor = new ActivityMonitor(container.LlmService, null, wsManager, container.ILinkBridge, tgUserId, container.Config, memoryService);
 
             var emailNotificationDispatcher = new EmailNotificationDispatcher(
                 container.Config.Channel.Email.Notification,
