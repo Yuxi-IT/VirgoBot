@@ -70,6 +70,38 @@ public class MemoryService : IDisposable
             CREATE TABLE IF NOT EXISTS session_meta (
                 key TEXT PRIMARY KEY,
                 value TEXT
+            );
+            CREATE TABLE IF NOT EXISTS task_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT DEFAULT '',
+                duration_ms INTEGER DEFAULT 0,
+                executed_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
+            CREATE TABLE IF NOT EXISTS soul_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                soul_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                tags TEXT,
+                weight REAL,
+                version INTEGER NOT NULL,
+                changed_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
+            CREATE TABLE IF NOT EXISTS soul_context_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                soul_id INTEGER,
+                message_id INTEGER,
+                link_type TEXT DEFAULT 'derived'
+            );
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id INTEGER,
+                rating INTEGER,
+                comment TEXT,
+                skill_name TEXT,
+                tool_name TEXT,
+                created_at DATETIME DEFAULT (datetime('now','localtime'))
             )";
         cmd.ExecuteNonQuery();
         conn.Close();
@@ -167,10 +199,43 @@ public class MemoryService : IDisposable
             CREATE TABLE IF NOT EXISTS session_meta (
                 key TEXT PRIMARY KEY,
                 value TEXT
+            );
+            CREATE TABLE IF NOT EXISTS task_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                result TEXT DEFAULT '',
+                duration_ms INTEGER DEFAULT 0,
+                executed_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
+            CREATE TABLE IF NOT EXISTS soul_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                soul_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                tags TEXT,
+                weight REAL,
+                version INTEGER NOT NULL,
+                changed_at DATETIME DEFAULT (datetime('now','localtime'))
+            );
+            CREATE TABLE IF NOT EXISTS soul_context_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                soul_id INTEGER,
+                message_id INTEGER,
+                link_type TEXT DEFAULT 'derived'
+            );
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id INTEGER,
+                rating INTEGER,
+                comment TEXT,
+                skill_name TEXT,
+                tool_name TEXT,
+                created_at DATETIME DEFAULT (datetime('now','localtime'))
             )";
         cmd.ExecuteNonQuery();
 
         MigrateDropUserIdColumn();
+        MigrateSoulColumns();
     }
 
     /// <summary>
@@ -204,6 +269,44 @@ public class MemoryService : IDisposable
                 DROP TABLE messages;
                 ALTER TABLE messages_new RENAME TO messages;";
             migrate.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Migrate soul table to add tags, weight, access_count, last_accessed, source, forgotten columns.
+    /// </summary>
+    private void MigrateSoulColumns()
+    {
+        try
+        {
+            using var checkCmd = _conn.CreateCommand();
+            checkCmd.CommandText = "PRAGMA table_info(soul)";
+            var existingCols = new HashSet<string>();
+            using var reader = checkCmd.ExecuteReader();
+            while (reader.Read())
+                existingCols.Add(reader.GetString(1));
+            reader.Close();
+
+            var migrations = new Dictionary<string, string>
+            {
+                ["tags"] = "ALTER TABLE soul ADD COLUMN tags TEXT DEFAULT ''",
+                ["weight"] = "ALTER TABLE soul ADD COLUMN weight REAL DEFAULT 1.0",
+                ["access_count"] = "ALTER TABLE soul ADD COLUMN access_count INTEGER DEFAULT 0",
+                ["last_accessed"] = "ALTER TABLE soul ADD COLUMN last_accessed DATETIME",
+                ["source"] = "ALTER TABLE soul ADD COLUMN source TEXT DEFAULT 'user'",
+                ["forgotten"] = "ALTER TABLE soul ADD COLUMN forgotten INTEGER DEFAULT 0"
+            };
+
+            foreach (var (col, sql) in migrations)
+            {
+                if (!existingCols.Contains(col))
+                {
+                    using var migrate = _conn.CreateCommand();
+                    migrate.CommandText = sql;
+                    migrate.ExecuteNonQuery();
+                }
+            }
         }
         catch { }
     }
@@ -351,26 +454,68 @@ public class MemoryService : IDisposable
     public List<SoulRecord> GetAllSoulEntries()
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT id, content, created_at FROM soul ORDER BY id ASC";
+        cmd.CommandText = "SELECT id, content, created_at, tags, weight, access_count, last_accessed, source, forgotten FROM soul WHERE forgotten = 0 ORDER BY weight DESC, id ASC";
         var entries = new List<SoulRecord>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            entries.Add(new SoulRecord
-            {
-                Id = reader.GetInt32(0),
-                Content = reader.GetString(1),
-                CreatedAt = reader.IsDBNull(2) ? DateTime.Now : DateTime.Parse(reader.GetString(2), null, System.Globalization.DateTimeStyles.AssumeLocal)
-            });
+            entries.Add(ReadSoulRecord(reader));
         }
         return entries;
     }
 
-    public void AddSoulEntry(string content)
+    public List<SoulRecord> SearchSoul(string? keyword = null, string? tagFilter = null, int limit = 50)
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "INSERT INTO soul (content, created_at) VALUES (@content, @time)";
+        var conditions = new List<string> { "forgotten = 0" };
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            conditions.Add("content LIKE @keyword");
+            cmd.Parameters.AddWithValue("@keyword", $"%{keyword}%");
+        }
+        if (!string.IsNullOrWhiteSpace(tagFilter))
+        {
+            conditions.Add("tags LIKE @tag");
+            cmd.Parameters.AddWithValue("@tag", $"%{tagFilter}%");
+        }
+        cmd.CommandText = $"SELECT id, content, created_at, tags, weight, access_count, last_accessed, source, forgotten FROM soul WHERE {string.Join(" AND ", conditions)} ORDER BY weight DESC, id ASC LIMIT @limit";
+        cmd.Parameters.AddWithValue("@limit", limit);
+        var entries = new List<SoulRecord>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            entries.Add(ReadSoulRecord(reader));
+        return entries;
+    }
+
+    public List<SoulRecord> GetTopSoulByWeight(int limit = 10)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, content, created_at, tags, weight, access_count, last_accessed, source, forgotten FROM soul WHERE forgotten = 0 ORDER BY weight DESC LIMIT @limit";
+        cmd.Parameters.AddWithValue("@limit", limit);
+        var entries = new List<SoulRecord>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            entries.Add(ReadSoulRecord(reader));
+        return entries;
+    }
+
+    public SoulRecord? GetSoulEntry(int id)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, content, created_at, tags, weight, access_count, last_accessed, source, forgotten FROM soul WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        using var reader = cmd.ExecuteReader();
+        return reader.Read() ? ReadSoulRecord(reader) : null;
+    }
+
+    public void AddSoulEntry(string content, string? tags = null, double weight = 1.0, string source = "user")
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO soul (content, tags, weight, source, created_at) VALUES (@content, @tags, @weight, @source, @time)";
         cmd.Parameters.AddWithValue("@content", content);
+        cmd.Parameters.AddWithValue("@tags", tags ?? "");
+        cmd.Parameters.AddWithValue("@weight", Math.Clamp(weight, 0.0, 1.0));
+        cmd.Parameters.AddWithValue("@source", source);
         cmd.Parameters.AddWithValue("@time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
         cmd.ExecuteNonQuery();
     }
@@ -383,13 +528,287 @@ public class MemoryService : IDisposable
         cmd.ExecuteNonQuery();
     }
 
-    public void UpdateSoulEntry(int id, string content)
+    public void UpdateSoulEntry(int id, string content, string? tags = null, double? weight = null)
+    {
+        // Save version before update
+        var existing = GetSoulEntry(id);
+        if (existing != null)
+        {
+            SaveSoulVersion(existing);
+        }
+
+        using var cmd = _conn.CreateCommand();
+        var sets = new List<string> { "content = @content" };
+        cmd.Parameters.AddWithValue("@content", content);
+        if (tags != null)
+        {
+            sets.Add("tags = @tags");
+            cmd.Parameters.AddWithValue("@tags", tags);
+        }
+        if (weight.HasValue)
+        {
+            sets.Add("weight = @weight");
+            cmd.Parameters.AddWithValue("@weight", Math.Clamp(weight.Value, 0.0, 1.0));
+        }
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.CommandText = $"UPDATE soul SET {string.Join(", ", sets)} WHERE id = @id";
+        cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateSoulTags(int id, string tags)
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "UPDATE soul SET content = @content WHERE id = @id";
+        cmd.CommandText = "UPDATE soul SET tags = @tags WHERE id = @id";
         cmd.Parameters.AddWithValue("@id", id);
-        cmd.Parameters.AddWithValue("@content", content);
+        cmd.Parameters.AddWithValue("@tags", tags);
         cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateSoulWeight(int id, double weight)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "UPDATE soul SET weight = @weight WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@weight", Math.Clamp(weight, 0.0, 1.0));
+        cmd.ExecuteNonQuery();
+    }
+
+    public void IncrementSoulAccess(int id)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "UPDATE soul SET access_count = access_count + 1, last_accessed = @time WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        cmd.Parameters.AddWithValue("@time", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Save current state of a soul entry as a version record before modification.
+    /// </summary>
+    private void SaveSoulVersion(SoulRecord entry)
+    {
+        using var cmd = _conn.CreateCommand();
+        // Get max version for this soul_id
+        cmd.CommandText = "SELECT COALESCE(MAX(version), 0) + 1 FROM soul_versions WHERE soul_id = @soulId";
+        cmd.Parameters.AddWithValue("@soulId", entry.Id);
+        var nextVersion = Convert.ToInt32(cmd.ExecuteScalar());
+        cmd.Parameters.Clear();
+
+        cmd.CommandText = "INSERT INTO soul_versions (soul_id, content, tags, weight, version) VALUES (@soulId, @content, @tags, @weight, @version)";
+        cmd.Parameters.AddWithValue("@soulId", entry.Id);
+        cmd.Parameters.AddWithValue("@content", entry.Content);
+        cmd.Parameters.AddWithValue("@tags", entry.Tags);
+        cmd.Parameters.AddWithValue("@weight", entry.Weight);
+        cmd.Parameters.AddWithValue("@version", nextVersion);
+        cmd.ExecuteNonQuery();
+    }
+
+    public List<SoulRecord> GetSoulVersionHistory(int soulId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, soul_id as content, '' as created_at, tags, weight, 0 as access_count, NULL as last_accessed, '' as source, 0 as forgotten, version, changed_at FROM soul_versions WHERE soul_id = @soulId ORDER BY version DESC";
+        cmd.Parameters.AddWithValue("@soulId", soulId);
+        var versions = new List<SoulRecord>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            versions.Add(new SoulRecord
+            {
+                Id = reader.GetInt32(0),
+                Content = reader.GetString(1), // Actually the soul_id from the query mapping
+                Tags = reader.GetString(3),
+                Weight = reader.GetDouble(4),
+            });
+        }
+        return versions;
+    }
+
+    public List<(int Version, string Content, string Tags, double Weight, DateTime ChangedAt)> GetSoulHistory(int soulId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT version, content, tags, weight, changed_at FROM soul_versions WHERE soul_id = @soulId ORDER BY version DESC";
+        cmd.Parameters.AddWithValue("@soulId", soulId);
+        var history = new List<(int, string, string, double, DateTime)>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            history.Add((
+                reader.GetInt32(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetDouble(3),
+                DateTime.Parse(reader.GetString(4), null, System.Globalization.DateTimeStyles.AssumeLocal)
+            ));
+        }
+        return history;
+    }
+
+    public bool RollbackSoulEntry(int id, int targetVersion)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT content, tags, weight FROM soul_versions WHERE soul_id = @soulId AND version = @version";
+        cmd.Parameters.AddWithValue("@soulId", id);
+        cmd.Parameters.AddWithValue("@version", targetVersion);
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read()) return false;
+        var content = reader.GetString(0);
+        var tags = reader.GetString(1);
+        var weight = reader.GetDouble(2);
+        reader.Close();
+
+        UpdateSoulEntry(id, content, tags, weight);
+        return true;
+    }
+
+    public void LinkSoulToMessage(int soulId, int messageId, string linkType = "derived")
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO soul_context_links (soul_id, message_id, link_type) VALUES (@soulId, @msgId, @type)";
+        cmd.Parameters.AddWithValue("@soulId", soulId);
+        cmd.Parameters.AddWithValue("@msgId", messageId);
+        cmd.Parameters.AddWithValue("@type", linkType);
+        cmd.ExecuteNonQuery();
+    }
+
+    public int ApplyDecay(double baseDecayRate = 0.01, double minWeightBeforeArchive = 0.1, double accessBoost = 0.05)
+    {
+        var entries = GetAllSoulEntries();
+        var now = DateTime.Now;
+        int archived = 0;
+
+        foreach (var entry in entries)
+        {
+            var daysSinceAccess = entry.LastAccessed.HasValue
+                ? (now - entry.LastAccessed.Value).TotalDays
+                : (now - entry.CreatedAt).TotalDays;
+
+            var newWeight = entry.Weight - baseDecayRate * daysSinceAccess + entry.AccessCount * accessBoost;
+            newWeight = Math.Clamp(newWeight, 0.0, 1.0);
+
+            using var cmd = _conn.CreateCommand();
+            if (newWeight < minWeightBeforeArchive)
+            {
+                cmd.CommandText = "UPDATE soul SET forgotten = 1, weight = @weight WHERE id = @id";
+                archived++;
+            }
+            else
+            {
+                cmd.CommandText = "UPDATE soul SET weight = @weight WHERE id = @id";
+            }
+            cmd.Parameters.AddWithValue("@weight", newWeight);
+            cmd.Parameters.AddWithValue("@id", entry.Id);
+            cmd.ExecuteNonQuery();
+        }
+
+        return archived;
+    }
+
+    /// <summary>
+    /// Manually archive (soft-delete) a soul entry.
+    /// </summary>
+    public bool ForgetSoulEntry(int id)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "UPDATE soul SET forgotten = 1 WHERE id = @id";
+        cmd.Parameters.AddWithValue("@id", id);
+        return cmd.ExecuteNonQuery() > 0;
+    }
+
+    /// <summary>
+    /// Record task execution history.
+    /// </summary>
+    public void RecordTaskHistory(string taskId, string status, string result, long durationMs)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO task_history (task_id, status, result, duration_ms) VALUES (@tid, @status, @result, @dur)";
+        cmd.Parameters.AddWithValue("@tid", taskId);
+        cmd.Parameters.AddWithValue("@status", status);
+        cmd.Parameters.AddWithValue("@result", result);
+        cmd.Parameters.AddWithValue("@dur", durationMs);
+        cmd.ExecuteNonQuery();
+    }
+
+    public List<object> GetTaskHistory(string taskId, int limit = 50)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, task_id, status, result, duration_ms, executed_at FROM task_history WHERE task_id = @tid ORDER BY id DESC LIMIT @limit";
+        cmd.Parameters.AddWithValue("@tid", taskId);
+        cmd.Parameters.AddWithValue("@limit", limit);
+        var history = new List<object>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            history.Add(new
+            {
+                id = reader.GetInt32(0),
+                taskId = reader.GetString(1),
+                status = reader.GetString(2),
+                result = reader.GetString(3),
+                durationMs = reader.GetInt32(4),
+                executedAt = reader.GetString(5)
+            });
+        }
+        return history;
+    }
+
+    public void DeleteTaskHistory(string taskId)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "DELETE FROM task_history WHERE task_id = @tid";
+        cmd.Parameters.AddWithValue("@tid", taskId);
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Record user feedback for a message.
+    /// </summary>
+    public void RecordFeedback(int? messageId, int rating, string? comment = null, string? skillName = null, string? toolName = null)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "INSERT INTO feedback (message_id, rating, comment, skill_name, tool_name) VALUES (@msgId, @rating, @comment, @skill, @tool)";
+        cmd.Parameters.AddWithValue("@msgId", messageId.HasValue ? messageId.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@rating", rating);
+        cmd.Parameters.AddWithValue("@comment", comment ?? "");
+        cmd.Parameters.AddWithValue("@skill", skillName ?? "");
+        cmd.Parameters.AddWithValue("@tool", toolName ?? "");
+        cmd.ExecuteNonQuery();
+    }
+
+    public List<object> GetFeedbackBySkill(string skillName, int limit = 100)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT id, rating, comment, created_at FROM feedback WHERE skill_name = @skill ORDER BY id DESC LIMIT @limit";
+        cmd.Parameters.AddWithValue("@skill", skillName);
+        cmd.Parameters.AddWithValue("@limit", limit);
+        var items = new List<object>();
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            items.Add(new
+            {
+                id = reader.GetInt32(0),
+                rating = reader.GetInt32(1),
+                comment = reader.GetString(2),
+                createdAt = reader.GetString(3)
+            });
+        }
+        return items;
+    }
+
+    private static SoulRecord ReadSoulRecord(SqliteDataReader reader)
+    {
+        return new SoulRecord
+        {
+            Id = reader.GetInt32(0),
+            Content = reader.GetString(1),
+            CreatedAt = reader.IsDBNull(2) ? DateTime.Now : DateTime.Parse(reader.GetString(2), null, System.Globalization.DateTimeStyles.AssumeLocal),
+            Tags = reader.IsDBNull(3) ? "" : reader.GetString(3),
+            Weight = reader.IsDBNull(4) ? 1.0 : reader.GetDouble(4),
+            AccessCount = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
+            LastAccessed = reader.IsDBNull(6) ? null : DateTime.Parse(reader.GetString(6), null, System.Globalization.DateTimeStyles.AssumeLocal),
+            Source = reader.IsDBNull(7) ? "user" : reader.GetString(7),
+            Forgotten = !reader.IsDBNull(8) && reader.GetInt32(8) > 0
+        };
     }
 
     public string GetAllSoulContent()
@@ -491,4 +910,10 @@ public class SoulRecord
     public int Id { get; set; }
     public string Content { get; set; } = "";
     public DateTime CreatedAt { get; set; }
+    public string Tags { get; set; } = "";
+    public double Weight { get; set; } = 1.0;
+    public int AccessCount { get; set; } = 0;
+    public DateTime? LastAccessed { get; set; }
+    public string Source { get; set; } = "user";
+    public bool Forgotten { get; set; } = false;
 }
