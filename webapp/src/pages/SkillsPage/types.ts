@@ -65,6 +65,18 @@ export interface SubSkillJson {
   scrape?: SkillScrapeConfig;
 }
 
+export interface SkillTestResult {
+  success: boolean;
+  skillType: string | null;
+  errors: string[];
+  warnings: string[];
+  dependencyCheck?: {
+    available: string[];
+    missing: string[];
+  };
+  dryRunOutput?: string;
+}
+
 export interface SkillJson {
   name: string;
   description: string;

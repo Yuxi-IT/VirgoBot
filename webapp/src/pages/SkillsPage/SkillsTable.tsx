@@ -9,9 +9,10 @@ interface SkillsTableProps {
   onSearchChange: (query: string) => void;
   onEdit: (skill: SkillInfo) => void;
   onDelete: (skill: SkillInfo) => void;
+  onTest: (skill: SkillInfo) => void;
 }
 
-function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onDelete }: SkillsTableProps) {
+function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onDelete, onTest }: SkillsTableProps) {
   const { t } = useI18n();
 
   const filteredSkills = searchQuery
@@ -104,6 +105,9 @@ function SkillsTable({ skills, loading, searchQuery, onSearchChange, onEdit, onD
                         </Table.Cell>
                         <Table.Cell>
                           <div className="flex gap-2">
+                            <Button size="sm" variant="secondary" onPress={() => onTest(skill)}>
+                              {t('skills.testSkill')}
+                            </Button>
                             <Button size="sm" variant="secondary" onPress={() => onEdit(skill)}>
                               {t('common.edit')}
                             </Button>

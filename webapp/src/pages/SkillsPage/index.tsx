@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Button, Modal, toast, TextField, Label, Input } from '@heroui/react';
+import { Button, Modal, toast, TextField, Label, Input, Spinner, Chip } from '@heroui/react';
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
@@ -7,7 +7,7 @@ import { api, BASE_URL } from '../../services/api';
 import SkillsTable from './SkillsTable';
 import SkillFormModal from './SkillFormModal';
 import SkillMdEditModal from './SkillMdEditModal';
-import type { SkillInfo, SkillsResponse } from './types';
+import type { SkillInfo, SkillsResponse, SkillTestResult } from './types';
 
 function SkillsPage() {
   const { t } = useI18n();
@@ -19,12 +19,16 @@ function SkillsPage() {
   const [importUrl, setImportUrl] = useState('');
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [testingSkill, setTestingSkill] = useState<SkillInfo | null>(null);
+  const [testResult, setTestResult] = useState<SkillTestResult | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
 
   const formModal = useOverlayState();
   const deleteModal = useOverlayState();
   const importModal = useOverlayState();
   const skillMdModal = useOverlayState();
   const addTypeModal = useOverlayState();
+  const testModal = useOverlayState();
 
   const [editingSkillMd, setEditingSkillMd] = useState<SkillInfo | null>(null);
 
@@ -46,9 +50,9 @@ function SkillsPage() {
     }
   };
 
-  const loadSkillsAndRestart = async () => {
+  const loadSkillsAndReload = async () => {
     await loadSkills();
-    await restartGateway();
+    await reloadSkills();
   };
 
   const openAddModal = () => {
@@ -77,12 +81,27 @@ function SkillsPage() {
     }
   };
 
+  const handleTestSkill = async (skill: SkillInfo) => {
+    setTestingSkill(skill);
+    testModal.open();
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await api.post<SkillTestResult>(`/api/skills/${encodeURIComponent(skill.name)}/test?dryRun=true`, {});
+      setTestResult(res);
+    } catch {
+      setTestResult({ success: false, errors: ['Failed to test skill'], warnings: [], skillType: null });
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   const openDeleteModal = (skill: SkillInfo) => {
     setDeletingSkill(skill);
     deleteModal.open();
   };
 
-  const restartGateway = async () => {
+  const reloadSkills = async () => {
     try {
       await api.post('/api/gateway/restart', {});
     } catch { /* silent */ }
@@ -96,9 +115,9 @@ function SkillsPage() {
       toast.success(t('skills.deleteSuccess'));
       deleteModal.close();
       await loadSkills();
-      await restartGateway();
+      await reloadSkills();
     } catch {
-      toast.danger(t('common.error'));
+      toast.danger(t('skills.deleteFailed') || t('common.error'));
     }
   };
 
@@ -127,7 +146,7 @@ function SkillsPage() {
       }
       toast.success(t('skills.importSuccess'));
       await loadSkills();
-      await restartGateway();
+      await reloadSkills();
     } catch {
       toast.danger(t('skills.importFailed'));
     }
@@ -166,7 +185,7 @@ function SkillsPage() {
       importModal.close();
       setImportUrl('');
       await loadSkills();
-      await restartGateway();
+      await reloadSkills();
     } catch {
       toast.danger(t('skills.importFailed'));
     } finally {
@@ -210,6 +229,7 @@ function SkillsPage() {
           onSearchChange={setSearchQuery}
           onEdit={openEditModal}
           onDelete={openDeleteModal}
+          onTest={handleTestSkill}
         />
 
         <SkillFormModal
@@ -217,7 +237,7 @@ function SkillsPage() {
           onOpenChange={formModal.toggle}
           onClose={formModal.close}
           editingSkill={editingSkill}
-          onSaved={loadSkillsAndRestart}
+          onSaved={loadSkillsAndReload}
         />
 
         <SkillMdEditModal
@@ -225,7 +245,7 @@ function SkillsPage() {
           onOpenChange={skillMdModal.toggle}
           onClose={skillMdModal.close}
           skill={editingSkillMd}
-          onSaved={loadSkillsAndRestart}
+          onSaved={loadSkillsAndReload}
         />
 
         {/* Add type selection modal */}
@@ -308,6 +328,86 @@ function SkillsPage() {
                   </Button>
                   <Button variant="danger" onPress={handleDelete}>
                     {t('common.delete')}
+                  </Button>
+                </Modal.Footer>
+              </Modal.Dialog>
+            </Modal.Container>
+          </Modal.Backdrop>
+        </Modal>
+
+        {/* Test Skill Result Modal */}
+        <Modal>
+          <Modal.Backdrop isOpen={testModal.isOpen} onOpenChange={testModal.toggle}>
+            <Modal.Container size="lg">
+              <Modal.Dialog>
+                <Modal.Header>
+                  <Modal.Heading>
+                    {t('skills.testResult')} - {testingSkill?.name}
+                  </Modal.Heading>
+                </Modal.Header>
+                <Modal.Body>
+                  {testLoading ? (
+                    <div className="flex justify-center py-8"><Spinner size="lg" /></div>
+                  ) : testResult ? (
+                    <div className="space-y-4">
+                      {/* Status */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{t('skills.status')}:</span>
+                        <Chip size="sm" color={testResult.success ? 'success' : 'danger'} variant="soft">
+                          {testResult.success ? t('skills.testPassed') : t('skills.testFailed')}
+                        </Chip>
+                      </div>
+
+                      {/* Errors */}
+                      {testResult.errors && testResult.errors.length > 0 && (
+                        <div>
+                          <div className="text-sm font-medium text-danger mb-1">{t('skills.testErrors')}:</div>
+                          {testResult.errors.map((e, i) => (
+                            <div key={i} className="text-sm text-danger bg-danger/10 rounded px-3 py-1 mb-1">{e}</div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Warnings */}
+                      {testResult.warnings && testResult.warnings.length > 0 && (
+                        <div>
+                          <div className="text-sm font-medium text-warning mb-1">{t('skills.testWarnings')}:</div>
+                          {testResult.warnings.map((w, i) => (
+                            <div key={i} className="text-sm text-warning bg-warning/10 rounded px-3 py-1 mb-1">{w}</div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Dependency Check */}
+                      {testResult.dependencyCheck && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('skills.dependencies')}:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {testResult.dependencyCheck.available.map(d => (
+                              <Chip key={d} size="sm" color="success" variant="soft">{d} ({t('skills.dependencyAvailable')})</Chip>
+                            ))}
+                            {testResult.dependencyCheck.missing.map(d => (
+                              <Chip key={d} size="sm" color="danger" variant="soft">{d} ({t('skills.dependencyMissing')})</Chip>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Dry Run Output */}
+                      {testResult.dryRunOutput && (
+                        <div>
+                          <div className="text-sm font-medium mb-1">{t('skills.dryRun')}:</div>
+                          <pre className="text-xs bg-content2 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">{testResult.dryRunOutput}</pre>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-center py-8 text-gray-500">{t('common.noData')}</p>
+                  )}
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button variant="secondary" onPress={testModal.close}>
+                    {t('common.cancel')}
                   </Button>
                 </Modal.Footer>
               </Modal.Dialog>
