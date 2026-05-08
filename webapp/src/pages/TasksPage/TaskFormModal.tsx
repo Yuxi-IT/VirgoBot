@@ -29,6 +29,8 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
   const [formOnceAt, setFormOnceAt] = useState('');
   const [formMessageCountTarget, setFormMessageCountTarget] = useState(10);
   const [formMessageCountRole, setFormMessageCountRole] = useState<'user' | 'assistant'>('user');
+  const [formMaxRetries, setFormMaxRetries] = useState(0);
+  const [formRetryDelay, setFormRetryDelay] = useState(60);
   const [formTaskRequirement, setFormTaskRequirement] = useState('');
   const [formHttpMethod, setFormHttpMethod] = useState('GET');
   const [formHttpUrl, setFormHttpUrl] = useState('');
@@ -58,6 +60,8 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     setFormOnceAt('');
     setFormMessageCountTarget(10);
     setFormMessageCountRole('user');
+    setFormMaxRetries(0);
+    setFormRetryDelay(60);
     setFormTaskRequirement('');
     setFormHttpMethod('GET');
     setFormHttpUrl('');
@@ -86,6 +90,8 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
     }
     setFormMessageCountTarget(task.messageCountTarget || 10);
     setFormMessageCountRole((task.messageCountRole as 'user' | 'assistant') || 'user');
+    setFormMaxRetries(task.maxRetries ?? 0);
+    setFormRetryDelay(task.retryDelaySeconds ?? 60);
     setFormTaskRequirement(task.taskRequirement);
     setFormHttpMethod(task.httpMethod);
     setFormHttpUrl(task.httpUrl);
@@ -146,6 +152,8 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
       cronExpression: '',
       messageCountTarget: formMessageCountTarget,
       messageCountRole: formMessageCountRole,
+      maxRetries: formMaxRetries,
+      retryDelaySeconds: formRetryDelay,
       taskRequirement: formTaskRequirement,
       httpMethod: formHttpMethod,
       httpUrl: formHttpUrl,
@@ -223,6 +231,17 @@ function TaskFormModal({ isOpen, onOpenChange, onClose, editingTask, onSaved }: 
                     <Label className="text-sm">{t('tasks.enabled')}</Label>
                   </Switch.Content>
                 </Switch>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <TextField variant="secondary" value={String(formMaxRetries)} onChange={v => setFormMaxRetries(Number(v) || 0)}>
+                    <Label>{t('tasks.retries')}</Label>
+                    <Input type="number" min="0" max="10" />
+                  </TextField>
+                  <TextField variant="secondary" value={String(formRetryDelay)} onChange={v => setFormRetryDelay(Number(v) || 60)}>
+                    <Label>{t('tasks.retryDelay')}</Label>
+                    <Input type="number" min="1" />
+                  </TextField>
+                </div>
 
                 <div>
                   <Label>{t('tasks.taskType')}</Label>

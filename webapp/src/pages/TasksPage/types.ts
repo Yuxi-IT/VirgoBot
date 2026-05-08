@@ -14,6 +14,8 @@ export interface ScheduledTask {
   messageCountRole: string;
   messageCountCurrent: number;
   taskRequirement: string;
+  maxRetries: number;
+  retryDelaySeconds: number;
   httpMethod: string;
   httpUrl: string;
   httpHeaders: Record<string, string>;
@@ -25,6 +27,15 @@ export interface ScheduledTask {
   createdAt: string;
 }
 
+export interface TaskHistoryEntry {
+  id: number;
+  taskId: string;
+  status: string;
+  result: string;
+  durationMs: number;
+  executedAt: string;
+}
+
 export interface TasksResponse {
   success: boolean;
   data: ScheduledTask[];
@@ -33,4 +44,9 @@ export interface TasksResponse {
 export interface TaskResponse {
   success: boolean;
   data: ScheduledTask;
+}
+
+export interface TaskHistoryResponse {
+  success: boolean;
+  data: TaskHistoryEntry[];
 }

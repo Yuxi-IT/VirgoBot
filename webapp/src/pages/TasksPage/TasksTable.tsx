@@ -1,5 +1,5 @@
 import { Table, Button, Spinner, SearchField, Switch, Label } from '@heroui/react';
-import { Pencil, TrashBin } from '@gravity-ui/icons';
+import { Pencil, TrashBin, ListUl } from '@gravity-ui/icons';
 import { useI18n } from '../../i18n';
 import type { ScheduledTask } from './types';
 
@@ -11,9 +11,10 @@ interface TasksTableProps {
   onEdit: (task: ScheduledTask) => void;
   onDelete: (task: ScheduledTask) => void;
   onToggle: (task: ScheduledTask) => void;
+  onHistory: (task: ScheduledTask) => void;
 }
 
-function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDelete, onToggle }: TasksTableProps) {
+function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDelete, onToggle, onHistory }: TasksTableProps) {
   const { t } = useI18n();
 
   const filteredTasks = tasks.filter(task =>
@@ -109,6 +110,14 @@ function TasksTable({ tasks, loading, searchQuery, onSearchChange, onEdit, onDel
                               onPress={() => onEdit(task)}
                             >
                               <Pencil />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              isIconOnly
+                              onPress={() => onHistory(task)}
+                            >
+                              <ListUl />
                             </Button>
                             <Button
                               size="sm"
