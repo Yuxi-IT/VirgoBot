@@ -76,10 +76,13 @@ function ChatPage() {
       const res = await api.get<MessagesResponse>(`/api/messages?limit=${PAGE_SIZE}&offset=0`);
       if (res.success) {
         if (silent) {
-          // Merge: preserve historical messages loaded via loadMore, only update latest
+          // Merge: preserve older messages loaded via loadMore, only update latest
           setMessages(prev => {
             const latestIds = new Set(res.data.messages.map((m: Message) => m.id));
-            const historical = prev.filter(m => !latestIds.has(m.id));
+            const minLatestId = res.data.messages.length > 0
+              ? Math.min(...res.data.messages.map((m: Message) => m.id))
+              : Infinity;
+            const historical = prev.filter(m => !latestIds.has(m.id) && m.id < minLatestId);
             return [...historical, ...res.data.messages];
           });
         } else {
@@ -222,10 +225,16 @@ function ChatPage() {
   };
 
   const deleteMessage = async (id: number) => {
+    // Optimistically remove to prevent flicker
+    setMessages(prev => prev.filter(m => m.id !== id));
     try {
       await api.del(`/api/messages/${id}`);
+      // Sync state to update total count etc.
       loadMessages(true);
-    } catch { /* ignore */ }
+    } catch {
+      // Full reload on failure to restore correct state
+      loadMessages(false);
+    }
   };
 
   const switchSession = async (fileName: string) => {
