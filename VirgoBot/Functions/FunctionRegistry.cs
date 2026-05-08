@@ -60,6 +60,19 @@ public class FunctionRegistry
 
     public object[] GetToolSchemas() => _toolSchemas.ToArray();
 
+    /// <summary>
+    /// 热重载 Skills：卸载旧的 skill 类别工具，重新加载所有 Skill 文件。
+    /// </summary>
+    public int RegisterSkills()
+    {
+        UnregisterByCategory("skill");
+        var defs = SkillLoader.LoadAll();
+        RegisterAll(defs, "skill");
+        var count = defs.Count();
+        ColorLog.Success("FUNC", $"Skills 热重载完成: {count} 个工具");
+        return count;
+    }
+
     public void UnregisterByCategory(string category)
     {
         var toRemove = _categoryMap.Where(kv => kv.Value == category).Select(kv => kv.Key).ToList();

@@ -676,4 +676,78 @@ public static class SkillLoader
         public string Description { get; set; } = "";
         public bool Required { get; set; }
     }
+
+    /// <summary>
+    /// Detect known tool dependencies from a shell command and check if they exist in PATH.
+    /// </summary>
+    public static DependencyReport CheckDependencies(string? command)
+    {
+        var report = new DependencyReport();
+        if (string.IsNullOrWhiteSpace(command))
+            return report;
+
+        // Known common CLI tools to check for
+        var knownTools = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "curl", "wget", "python", "python3", "node", "npm", "git",
+            "ffmpeg", "ffprobe", "imagemagick", "convert", "jq", "sed", "awk",
+            "grep", "rg", "find", "tar", "zip", "unzip", "ssh", "scp",
+            "docker", "kubectl", "helm", "terraform", "dotnet", "go", "rustc",
+            "cargo", "make", "cmake", "gcc", "g++", "pdftotext", "pandoc",
+            "sqlite3", "mysql", "psql", "redis-cli", "nslookup", "dig",
+            "ping", "traceroute", "netstat", "telnet", "nc", "nmap",
+            "powershell", "pwsh", "bash", "zsh", "openssl", "certutil",
+            "azcopy", "aws", "gcloud", "az", "gh", "dotnet"
+        };
+
+        var tokens = Regex.Split(command, @"[\s|&;><""'()]+");
+        foreach (var token in tokens)
+        {
+            var tool = token.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(tool) || !knownTools.Contains(tool))
+                continue;
+
+            var foundPath = FindInPath(tool);
+            if (foundPath != null)
+                report.Available.Add(tool);
+            else
+                report.Missing.Add(tool);
+        }
+
+        return report;
+    }
+
+    private static string? FindInPath(string toolName)
+    {
+        try
+        {
+            var isWindows = OperatingSystem.IsWindows();
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = isWindows ? "where" : "which",
+                    Arguments = toolName,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            var output = process.StandardOutput.ReadToEnd().Trim();
+            process.WaitForExit(3000);
+            if (!process.HasExited) { try { process.Kill(); } catch { } return null; }
+            if (process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output))
+                return output.Split('\n')[0].Trim();
+        }
+        catch { }
+        return null;
+    }
+
+    public class DependencyReport
+    {
+        public List<string> Available { get; set; } = new();
+        public List<string> Missing { get; set; } = new();
+    }
 }
