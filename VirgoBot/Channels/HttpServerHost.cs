@@ -61,7 +61,7 @@ public class HttpServerHost
         _channelApiHandler = new ChannelApiHandler(gateway, _iLinkLoginService);
         _sessionApiHandler = new SessionApiHandler(gateway, memoryService);
         _statusApiHandler = new StatusApiHandler(gateway, memoryService, logService, wsManager);
-        _taskApiHandler = new ScheduledTaskApiHandler(_taskService);
+        _taskApiHandler = new ScheduledTaskApiHandler(_taskService, memoryService);
         _voiceApiHandler = new VoiceApiHandler();
         _providerApiHandler = new ProviderApiHandler(gateway);
         _mcpApiHandler = new McpApiHandler(gateway);
@@ -118,6 +118,8 @@ public class HttpServerHost
         // Skills (specific routes before parameterized)
         _routes.Register("GET", "/api/skills", R(_skillApiHandler.HandleGetSkillsRequest));
         _routes.Register("POST", "/api/skills", R(_skillApiHandler.HandleCreateSkillRequest));
+        _routes.Register("POST", "/api/skills/reload", R(_skillApiHandler.HandleReloadSkillsRequest));
+        _routes.Register("POST", "/api/skills/{name}/test", R(_skillApiHandler.HandleTestSkillRequest));
         _routes.Register("POST", "/api/skills/import", R(_skillApiHandler.HandleImportSkillZipRequest));
         _routes.Register("POST", "/api/skills/import-url", R(_skillApiHandler.HandleImportSkillZipFromUrlRequest));
         _routes.Register("GET", "/api/skills/{name}", R(_skillApiHandler.HandleGetSkillRequest));
@@ -128,6 +130,8 @@ public class HttpServerHost
         _routes.Register("GET", "/api/tasks", R(_taskApiHandler.HandleGetTasksRequest));
         _routes.Register("POST", "/api/tasks", R(_taskApiHandler.HandleCreateTaskRequest));
         _routes.Register("POST", "/api/tasks/{id}/toggle", R(_taskApiHandler.HandleToggleTaskRequest));
+        _routes.Register("GET", "/api/tasks/{id}/history", R(_taskApiHandler.HandleGetTaskHistoryRequest));
+        _routes.Register("DELETE", "/api/tasks/{id}/history", R(_taskApiHandler.HandleDeleteTaskHistoryRequest));
         _routes.Register("GET", "/api/tasks/{id}", R(_taskApiHandler.HandleGetTaskRequest));
         _routes.Register("PUT", "/api/tasks/{id}", R(_taskApiHandler.HandleUpdateTaskRequest));
         _routes.Register("DELETE", "/api/tasks/{id}", R(_taskApiHandler.HandleDeleteTaskRequest));
@@ -151,8 +155,17 @@ public class HttpServerHost
         // Soul
         _routes.Register("GET", "/api/soul", R(_agentApiHandler.HandleGetSoulEntriesRequest));
         _routes.Register("POST", "/api/soul", R(_agentApiHandler.HandleAddSoulEntryRequest));
+        _routes.Register("GET", "/api/soul/{id}/history", R(_agentApiHandler.HandleGetSoulHistoryRequest));
+        _routes.Register("POST", "/api/soul/{id}/rollback", R(_agentApiHandler.HandleRollbackSoulRequest));
         _routes.Register("PUT", "/api/soul/{id}", R(_agentApiHandler.HandleUpdateSoulEntryRequest));
         _routes.Register("DELETE", "/api/soul/{id}", R(_agentApiHandler.HandleDeleteSoulEntryRequest));
+
+        // Feedback
+        _routes.Register("POST", "/api/feedback", R(_agentApiHandler.HandleSubmitFeedbackRequest));
+
+        // Onboarding
+        _routes.Register("GET", "/api/onboarding/status", R(_configApiHandler.HandleGetOnboardingStatusRequest));
+        _routes.Register("POST", "/api/onboarding/complete", R(_configApiHandler.HandleCompleteOnboardingRequest));
 
         // Sessions (specific routes before parameterized)
         _routes.Register("GET", "/api/sessions", R(_sessionApiHandler.HandleGetSessionsRequest));

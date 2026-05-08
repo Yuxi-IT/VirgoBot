@@ -180,6 +180,21 @@ public class ConfigApiHandler
         await SendJsonResponse(ctx, new { success = true, message = "Rule updated" });
     }
 
+    public async Task HandleGetOnboardingStatusRequest(HttpListenerContext ctx)
+    {
+        var config = _gateway.Config;
+        await SendJsonResponse(ctx, new { success = true, data = new { completed = config.Onboarding.Completed } });
+    }
+
+    public async Task HandleCompleteOnboardingRequest(HttpListenerContext ctx)
+    {
+        var config = _gateway.Config;
+        config.Onboarding.Completed = true;
+        ConfigLoader.Save(config);
+        ColorLog.Success("CONFIG", "新手引导已完成");
+        await SendJsonResponse(ctx, new { success = true, message = "Onboarding completed" });
+    }
+
     private static string MaskSecret(string secret)
     {
         if (string.IsNullOrEmpty(secret) || secret.Length <= 8)

@@ -287,20 +287,30 @@ Output the Markdown document directly, without any additional commentary.
 
     public async Task HandleGetSoulEntriesRequest(HttpListenerContext ctx)
     {
-        var entries = _memoryService.GetAllSoulEntries();
+        var query = ctx.Request.Url!.Query;
+        var search = System.Web.HttpUtility.ParseQueryString(query);
+        var keyword = search["search"];
+        var tagFilter = search["tag"];
+
+        List<SoulRecord> entries;
+        if (!string.IsNullOrWhiteSpace(keyword) || !string.IsNullOrWhiteSpace(tagFilter))
+            entries = _memoryService.SearchSoul(keyword, tagFilter);
+        else
+            entries = _memoryService.GetAllSoulEntries();
+
         await SendJsonResponse(ctx, new { success = true, data = entries });
     }
 
     public async Task HandleAddSoulEntryRequest(HttpListenerContext ctx)
     {
-        var body = await ReadRequestBody<ContentRequest>(ctx);
+        var body = await ReadRequestBody<SoulCreateRequest>(ctx);
         if (body == null || string.IsNullOrWhiteSpace(body.Content))
         {
             await SendErrorResponse(ctx, 400, "Content is required");
             return;
         }
 
-        _memoryService.AddSoulEntry(body.Content);
+        _memoryService.AddSoulEntry(body.Content, body.Tags, body.Weight, body.Source ?? "user");
         ColorLog.Success("SOUL", "Soul 记录已添加");
         await SendJsonResponse(ctx, new { success = true, message = "Soul entry added" });
     }
@@ -316,16 +326,73 @@ Output the Markdown document directly, without any additional commentary.
             return;
         }
 
-        var body = await ReadRequestBody<ContentRequest>(ctx);
+        var body = await ReadRequestBody<SoulCreateRequest>(ctx);
         if (body == null || string.IsNullOrWhiteSpace(body.Content))
         {
             await SendErrorResponse(ctx, 400, "Content is required");
             return;
         }
 
-        _memoryService.UpdateSoulEntry(id, body.Content);
+        _memoryService.UpdateSoulEntry(id, body.Content, body.Tags, body.Weight > 0 ? body.Weight : null);
         ColorLog.Success("SOUL", $"Soul 记录已更新: {id}");
         await SendJsonResponse(ctx, new { success = true, message = "Soul entry updated" });
+    }
+
+    public async Task HandleGetSoulHistoryRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/soul/", "").Replace("/history", "");
+
+        if (!int.TryParse(idStr, out var id))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid soul entry ID");
+            return;
+        }
+
+        var history = _memoryService.GetSoulHistory(id);
+        await SendJsonResponse(ctx, new { success = true, data = history });
+    }
+
+    public async Task HandleRollbackSoulRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var idStr = path.Replace("/api/soul/", "").Replace("/rollback", "");
+
+        if (!int.TryParse(idStr, out var id))
+        {
+            await SendErrorResponse(ctx, 400, "Invalid soul entry ID");
+            return;
+        }
+
+        var body = await ReadRequestBody<RollbackRequest>(ctx);
+        if (body == null || body.Version <= 0)
+        {
+            await SendErrorResponse(ctx, 400, "Version is required");
+            return;
+        }
+
+        var success = _memoryService.RollbackSoulEntry(id, body.Version);
+        if (!success)
+        {
+            await SendErrorResponse(ctx, 404, "Version not found");
+            return;
+        }
+
+        ColorLog.Success("SOUL", $"Soul 记录已回滚: {id} -> v{body.Version}");
+        await SendJsonResponse(ctx, new { success = true, message = "Soul entry rolled back" });
+    }
+
+    public async Task HandleSubmitFeedbackRequest(HttpListenerContext ctx)
+    {
+        var body = await ReadRequestBody<FeedbackRequest>(ctx);
+        if (body == null)
+        {
+            await SendErrorResponse(ctx, 400, "Invalid request body");
+            return;
+        }
+
+        _memoryService.RecordFeedback(body.MessageId, body.Rating, body.Comment, body.SkillName, body.ToolName);
+        await SendJsonResponse(ctx, new { success = true, message = "Feedback recorded" });
     }
 
     public async Task HandleDeleteSoulEntryRequest(HttpListenerContext ctx)
@@ -360,4 +427,26 @@ public record AgentGenerateRequest
 {
     public string? CharacterName { get; init; }
     public string? AgentName { get; init; }
+}
+
+public record SoulCreateRequest
+{
+    public string? Content { get; init; }
+    public string? Tags { get; init; }
+    public double Weight { get; init; } = 1.0;
+    public string? Source { get; init; }
+}
+
+public record RollbackRequest
+{
+    public int Version { get; init; }
+}
+
+public record FeedbackRequest
+{
+    public int? MessageId { get; init; }
+    public int Rating { get; init; }
+    public string? Comment { get; init; }
+    public string? SkillName { get; init; }
+    public string? ToolName { get; init; }
 }

@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text.Json;
 using System.IO.Compression;
+using System.Web;
 using VirgoBot.Configuration;
+using VirgoBot.Functions;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
 using static VirgoBot.Channels.Handlers.HttpResponseHelper;
@@ -266,6 +268,161 @@ public class SkillApiHandler
         }
 
         await SendErrorResponse(ctx, 404, "Skill not found");
+    }
+
+    /// <summary>
+    /// 热重载 Skills：重新加载技能目录中的所有 Skill 文件并注册为工具，无需重启 Gateway。
+    /// </summary>
+    public async Task HandleReloadSkillsRequest(HttpListenerContext ctx)
+    {
+        try
+        {
+            var count = _gateway.FunctionRegistry.RegisterSkills();
+            await SendJsonResponse(ctx, new { success = true, message = $"Skills reloaded: {count} tools", toolCount = count });
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("SKILL", $"Skill 热重载失败: {ex.Message}");
+            await SendErrorResponse(ctx, 500, $"Reload failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 测试 Skill：验证 JSON/YAML 结构、检测依赖、可选 dry-run 预览。
+    /// </summary>
+    public async Task HandleTestSkillRequest(HttpListenerContext ctx)
+    {
+        var path = ctx.Request.Url!.AbsolutePath;
+        var name = Uri.UnescapeDataString(path.Replace("/api/skills/", "").Replace("/test", ""));
+
+        try
+        {
+            var dir = AppConstants.SkillsDirectory;
+            Directory.CreateDirectory(dir);
+
+            var errors = new List<string>();
+            var warnings = new List<string>();
+            SkillLoader.DependencyReport? depReport = null;
+            string? parsedPreview = null;
+            string? skillType = null;
+
+            // Try JSON file first
+            var jsonPath = Path.Combine(dir, $"{name}.json");
+            if (File.Exists(jsonPath))
+            {
+                skillType = "json";
+                try
+                {
+                    var json = await File.ReadAllTextAsync(jsonPath);
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+
+                    // Validate required fields
+                    if (!root.TryGetProperty("name", out _))
+                        errors.Add("Missing required field: name");
+                    if (!root.TryGetProperty("description", out _))
+                        errors.Add("Missing required field: description");
+
+                    if (root.TryGetProperty("mode", out var modeEl))
+                    {
+                        var mode = modeEl.GetString() ?? "";
+                        if (mode == "http" || mode == "scrape")
+                        {
+                            if (!root.TryGetProperty("http", out _))
+                                errors.Add("HTTP mode requires 'http' section");
+                        }
+                        else if (mode == "command")
+                        {
+                            if (!root.TryGetProperty("command", out _))
+                                errors.Add("Command mode requires 'command' field");
+                        }
+                    }
+                    else if (!root.TryGetProperty("command", out _) && !root.TryGetProperty("subSkills", out _))
+                    {
+                        errors.Add("Skill must have 'command', 'http', or 'subSkills' field");
+                    }
+
+                    // Dependency check for shell commands
+                    if (root.TryGetProperty("command", out var cmdEl))
+                    {
+                        var cmd = cmdEl.GetString() ?? "";
+                        depReport = SkillLoader.CheckDependencies(cmd);
+                    }
+
+                    // Dry run: show parsed structure
+                    var query = ctx.Request.Url!.Query;
+                    var search = System.Web.HttpUtility.ParseQueryString(query);
+                    if (search["dryRun"] == "true")
+                    {
+                        var nameStr = root.TryGetProperty("name", out var nEl) ? nEl.GetString() ?? "" : name;
+                        var desc = root.TryGetProperty("description", out var dEl) ? dEl.GetString() ?? "" : "";
+                        var modeStr = root.TryGetProperty("mode", out var mEl2) ? mEl2.GetString() ?? "command" : "command";
+                        parsedPreview = $"Skill: {nameStr}\nMode: {modeStr}\nDescription: {desc}\nStatus: Valid JSON structure";
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    errors.Add($"JSON parse error: {ex.Message}");
+                }
+            }
+            else
+            {
+                // Try SKILL.md directory
+                var skillDir = Path.Combine(dir, name);
+                var skillMdPath = Path.Combine(skillDir, "SKILL.md");
+                if (File.Exists(skillMdPath))
+                {
+                    skillType = "skill.md";
+                    try
+                    {
+                        var content = await File.ReadAllTextAsync(skillMdPath);
+                        var parsed = SkillMdParser.Parse(content);
+                        if (parsed == null)
+                        {
+                            errors.Add("SKILL.md missing valid YAML frontmatter with name and description");
+                        }
+                        else
+                        {
+                            var query = ctx.Request.Url!.Query;
+                            var search = System.Web.HttpUtility.ParseQueryString(query);
+                            if (search["dryRun"] == "true")
+                            {
+                                parsedPreview = $"Skill: {parsed.Name}\nDescription: {parsed.Description}\nAllowed Tools: {string.Join(", ", parsed.AllowedTools)}\nModel: {parsed.Model ?? "default"}\n\nBody:\n{parsed.Body ?? "(empty)"}";
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"SKILL.md parse error: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    errors.Add($"Skill '{name}' not found (checked {name}.json and {name}/SKILL.md)");
+                }
+            }
+
+            object? dependencyCheck = depReport != null
+                ? new { available = (object)depReport.Available, missing = (object)depReport.Missing }
+                : null;
+
+            var response = new
+            {
+                success = errors.Count == 0,
+                skillType,
+                errors,
+                warnings,
+                dependencyCheck,
+                dryRunOutput = parsedPreview
+            };
+
+            await SendJsonResponse(ctx, response);
+        }
+        catch (Exception ex)
+        {
+            ColorLog.Error("SKILL", $"Skill 测试失败: {ex.Message}");
+            await SendErrorResponse(ctx, 500, $"Test failed: {ex.Message}");
+        }
     }
 
     /// <summary>

@@ -9,10 +9,12 @@ namespace VirgoBot.Channels.Handlers;
 public class ScheduledTaskApiHandler
 {
     private readonly ScheduledTaskService _taskService;
+    private readonly MemoryService _memoryService;
 
-    public ScheduledTaskApiHandler(ScheduledTaskService taskService)
+    public ScheduledTaskApiHandler(ScheduledTaskService taskService, MemoryService? memoryService = null)
     {
         _taskService = taskService;
+        _memoryService = memoryService!;
     }
 
     public async Task HandleGetTasksRequest(HttpListenerContext ctx)
@@ -102,6 +104,20 @@ public class ScheduledTaskApiHandler
         }
 
         await SendJsonResponse(ctx, new { success = true, message = "Task toggled" });
+    }
+
+    public async Task HandleGetTaskHistoryRequest(HttpListenerContext ctx)
+    {
+        var id = ctx.Request.Url!.AbsolutePath.Replace("/api/tasks/", "").Replace("/history", "");
+        var history = _memoryService.GetTaskHistory(id);
+        await SendJsonResponse(ctx, new { success = true, data = history });
+    }
+
+    public async Task HandleDeleteTaskHistoryRequest(HttpListenerContext ctx)
+    {
+        var id = ctx.Request.Url!.AbsolutePath.Replace("/api/tasks/", "").Replace("/history", "");
+        _memoryService.DeleteTaskHistory(id);
+        await SendJsonResponse(ctx, new { success = true, message = "Task history cleared" });
     }
 }
 
