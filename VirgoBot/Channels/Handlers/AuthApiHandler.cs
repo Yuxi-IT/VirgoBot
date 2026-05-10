@@ -13,6 +13,9 @@ namespace VirgoBot.Channels.Handlers;
 public class AuthApiHandler
 {
     private readonly Config _config;
+    private static readonly Dictionary<string, List<DateTime>> _failedAttempts = new();
+    private static readonly object _lock = new();
+    private static readonly double[] BackoffDelays = { 1, 2, 4, 8, 16 }; // seconds
 
     public AuthApiHandler(Config config)
     {
@@ -30,13 +33,51 @@ public class AuthApiHandler
 
         if (usernameHash != _config.Auth.UsernameHash || passwordHash != _config.Auth.PasswordHash)
         {
+            var delay = RecordFailedAttempt(usernameHash);
+            if (delay > 0)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(delay));
+            }
             await HttpResponseHelper.SendErrorResponse(ctx, 401, "用户名或密码错误");
             return;
         }
 
+        ClearFailedAttempts(usernameHash);
+
         var token = GenerateJwt(_config.Auth.JwtSecret);
         await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, data = new { token } });
         ColorLog.Success("AUTH", $"用户 {username} 登录成功");
+    }
+
+    private static double RecordFailedAttempt(string key)
+    {
+        lock (_lock)
+        {
+            if (!_failedAttempts.TryGetValue(key, out var attempts))
+            {
+                attempts = new List<DateTime>();
+                _failedAttempts[key] = attempts;
+            }
+
+            // Clean up attempts older than 5 minutes
+            var cutoff = DateTime.UtcNow.AddMinutes(-5);
+            attempts.RemoveAll(t => t < cutoff);
+
+            attempts.Add(DateTime.UtcNow);
+            var count = attempts.Count;
+
+            if (count <= 1) return 0;
+            var index = Math.Min(count - 2, BackoffDelays.Length - 1);
+            return BackoffDelays[index];
+        }
+    }
+
+    private static void ClearFailedAttempts(string key)
+    {
+        lock (_lock)
+        {
+            _failedAttempts.Remove(key);
+        }
     }
 
     public async Task HandleGetAccessKeysRequest(HttpListenerContext ctx)

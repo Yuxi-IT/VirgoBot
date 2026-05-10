@@ -130,17 +130,26 @@ public class LLMService
 
         if (!response.IsSuccessStatusCode)
         {
-            // 尝试从 JSON 响应中提取错误信息，失败则直接返回 HTTP 状态码
             try
             {
                 using var errDoc = JsonDocument.Parse(result);
-                var error = TryGetErrorMessage(errDoc.RootElement) ?? $"HTTP {(int)response.StatusCode}";
-                return $"错误: {error}";
+                var apiError = TryGetErrorMessage(errDoc.RootElement);
+                if (!string.IsNullOrWhiteSpace(apiError))
+                    return $"错误: {apiError}";
             }
-            catch
+            catch { }
+
+            var statusCode = (int)response.StatusCode;
+            var friendlyMessage = statusCode switch
             {
-                return $"错误: HTTP {(int)response.StatusCode}";
-            }
+                401 => "API Key 无效，请检查供应商页面中的密钥配置",
+                403 => "API 访问被拒绝，请检查账户权限",
+                404 => "API 接口地址不存在，请检查 Base URL",
+                429 => "API 请求过于频繁，请稍后再试",
+                >= 500 => "API 服务器错误，请稍后重试",
+                _ => $"HTTP {statusCode}"
+            };
+            return $"错误: {friendlyMessage}";
         }
 
         using var doc = JsonDocument.Parse(result);
