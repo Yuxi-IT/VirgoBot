@@ -54,7 +54,7 @@ public class EmailManager
         ColorLog.Info("EMAIL", $"新邮件: [{email.From}] {email.Subject}");
         var prompt = $"New email:\nFrom: {email.From}\nSubject: {email.Subject}\nContent: {GetPreview(email.Body)}\n\nUID: {email.Uid}\n\nNotify me about this email in your own style.";
 
-        var aiResponse = await _llmService.AskAsync(prompt);
+        var aiResponse = await _llmService.AskAsync(prompt, isSystemTask: true);
         await _notificationDispatcher.DispatchNewEmailAsync(email, aiResponse);
     }
 
