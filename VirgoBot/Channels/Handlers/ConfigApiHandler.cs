@@ -94,10 +94,11 @@ public class ConfigApiHandler
             {
                 if (!string.IsNullOrWhiteSpace(body.Model)) provider.CurrentModel = body.Model;
                 if (!string.IsNullOrWhiteSpace(body.BaseUrl)) provider.BaseUrl = body.BaseUrl;
+                if (!string.IsNullOrWhiteSpace(body.ApiStandard)) provider.Protocol = body.ApiStandard.ToLowerInvariant();
             }
             if (body.MaxTokens.HasValue) config.Server.MaxTokens = body.MaxTokens.Value;
             if (body.MessageLimit.HasValue) config.Server.MessageLimit = body.MessageLimit.Value;
-            if (!string.IsNullOrWhiteSpace(body.MessageSplitDelimiters)) config.Server.MessageSplitDelimiters = body.MessageSplitDelimiters;
+            if (body.MessageSplitDelimiters is { Length: > 0 }) config.Server.MessageSplitDelimiters = body.MessageSplitDelimiters;
             if (body.AutoResponseEnabled.HasValue) config.Server.AutoResponse.Enabled = body.AutoResponseEnabled.Value;
             if (body.AutoResponseMinIdle.HasValue) config.Server.AutoResponse.MinIdleMinutes = body.AutoResponseMinIdle.Value;
             if (body.AutoResponseMaxIdle.HasValue) config.Server.AutoResponse.MaxIdleMinutes = body.AutoResponseMaxIdle.Value;
@@ -212,6 +213,7 @@ public record ConfigUpdateRequest
 {
     public string? Model { get; init; }
     public string? BaseUrl { get; init; }
+    public string? ApiStandard { get; init; }
     public int? MaxTokens { get; init; }
     public int? MessageLimit { get; init; }
     public string? MessageSplitDelimiters { get; init; }
