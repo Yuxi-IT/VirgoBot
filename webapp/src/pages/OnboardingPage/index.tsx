@@ -79,7 +79,7 @@ function OnboardingPage() {
           <p>{t('agent.description') || '前往 Agent 页面，创建或导入你的 AI 助手设定。'}</p>
           <p>{t('agent.tip') || '你可以自定义角色背景、说话风格和行为模式。'}</p>
           <div className="flex gap-2 pt-2">
-            <Button size="sm" onPress={() => navigate('/agents')}>
+            <Button size="sm" onPress={() => navigate('/chat')}>
               {t('nav.agent')}
             </Button>
           </div>
@@ -93,7 +93,7 @@ function OnboardingPage() {
       body: (
         <div className="space-y-2 text-sm max-w-md">
           <p>{t('providers.description') || '在 Providers 页面配置 LLM API 连接。'}</p>
-          <p>支持 OpenAI / Anthropic / Google Gemini 兼容的 API。</p>
+          <p>{t('onboarding.providersCompat')}</p>
           <div className="flex gap-2 pt-2">
             <Button size="sm" onPress={() => navigate('/providers')}>
               {t('nav.providers')}
@@ -109,7 +109,7 @@ function OnboardingPage() {
       body: (
         <div className="space-y-2 text-sm max-w-md">
           <p>{t('skills.subtitle') || 'Skills 是 VirgoBot 的核心能力扩展系统。'}</p>
-          <p>支持 JSON Skill（Shell/HTTP/Scrape/Multi）和 SKILL.md 标准格式。</p>
+          <p>{t('onboarding.skillsFormat')}</p>
           <div className="flex gap-2 pt-2">
             <Button size="sm" onPress={() => navigate('/skills')}>
               {t('nav.skills')}
@@ -124,8 +124,8 @@ function OnboardingPage() {
       icon: '💬',
       body: (
         <div className="space-y-2 text-sm max-w-md">
-          <p>{t('nav.chat')} — 与你的 AI 助手进行第一次对话测试。</p>
-          <p>所有对话记录都会保存在本地 SQLite 数据库中。</p>
+          <p>{t('nav.chat')} — {t('onboarding.chatLocal')}</p>
+          <p>{t('onboarding.localDb')}</p>
           <div className="flex gap-2 pt-2">
             <Button size="sm" onPress={() => navigate('/')}>
               {t('nav.chat')}
@@ -141,11 +141,11 @@ function OnboardingPage() {
       body: (
         <div className="space-y-2 text-sm max-w-md">
           <ul className="list-disc list-inside space-y-1">
-            <li>自动回复 — 空闲时主动发起对话</li>
-            <li>语音对话 — 语音输入和输出</li>
-            <li>Telegram 频道 — 通过 TG Bot 交互</li>
-            <li>定时任务 — 自动化定期操作</li>
-            <li>MCP 集成 — 连接外部工具服务</li>
+            <li>{t('onboarding.feature1')}</li>
+            <li>{t('onboarding.feature2')}</li>
+            <li>{t('onboarding.feature3')}</li>
+            <li>{t('onboarding.feature4')}</li>
+            <li>{t('onboarding.feature5')}</li>
           </ul>
         </div>
       ),
