@@ -8,21 +8,34 @@ namespace VirgoBot.Features.Voice;
 /// <summary>
 /// 语音服务（ASR和TTS）
 /// </summary>
-public class VoiceService
+public class VoiceService : IDisposable
 {
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private readonly ExperimentalConfig _config;
 
     private const string AsrUrl = "https://openspeech.bytedance.com/api/v3/auc/bigmodel/recognize/flash";
     private const string TtsUrl = "https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse";
 
-    public VoiceService(ExperimentalConfig config)
+    public VoiceService(ExperimentalConfig config, HttpClient? httpClient = null)
     {
         _config = config;
-        _httpClient = new HttpClient
+        if (httpClient != null)
         {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
+            _httpClient = httpClient;
+            _ownsHttpClient = false;
+        }
+        else
+        {
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            _ownsHttpClient = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_ownsHttpClient)
+            _httpClient?.Dispose();
     }
 
     /// <summary>
@@ -38,7 +51,7 @@ public class VoiceService
         var taskId = Guid.NewGuid().ToString();
         var request = new
         {
-            user = new { uid = _config.Voice.ApiKey },
+            user = new { uid = taskId },
             audio = new { data = audioBase64 },
             request = new { model_name = "bigmodel" }
         };
