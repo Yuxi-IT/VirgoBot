@@ -42,7 +42,7 @@ public class ScheduledTaskService
     {
         if (!File.Exists(_tasksFilePath))
         {
-            SaveTasks();
+            EnsureDefaultTasks();
             return;
         }
 
@@ -55,6 +55,7 @@ public class ScheduledTaskService
                 _tasks.Clear();
                 _tasks.AddRange(tasks);
             }
+            EnsureDefaultTasks();
         }
         catch (Exception ex)
         {
