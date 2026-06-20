@@ -1,4 +1,5 @@
 using OpenILink.SDK;
+using VirgoBot.Configuration;
 using VirgoBot.Utilities;
 
 namespace VirgoBot.Integrations.ILink;
@@ -10,7 +11,7 @@ public sealed class ILinkBridgeService : IDisposable
     private CancellationTokenSource? _monitorCts;
     private WeixinMessage? _lastMessage; // tracked for proactive push
 
-    private const string BufferFilePath = "config/ilink_buffer.txt";
+    private static readonly string BufferFilePath = Path.Combine(AppConstants.ConfigDirectory, "ilink_buffer.txt");
 
     public ILinkBridgeService(string token, string messageSplitDelimiters)
     {
@@ -27,7 +28,7 @@ public sealed class ILinkBridgeService : IDisposable
         string? initialBuffer = null;
         if (File.Exists(BufferFilePath))
         {
-            initialBuffer = File.ReadAllText(BufferFilePath);
+            initialBuffer = await File.ReadAllTextAsync(BufferFilePath);
             if (string.IsNullOrWhiteSpace(initialBuffer))
                 initialBuffer = null;
         }
