@@ -523,7 +523,11 @@ public class SkillApiHandler
         var boundaryIndex = contentType.IndexOf("boundary=", StringComparison.OrdinalIgnoreCase);
         if (boundaryIndex < 0) return rawBytes; // fallback
 
-        var boundary = "--" + contentType[(boundaryIndex + 9)..].Trim();
+        var boundaryValue = contentType[(boundaryIndex + 9)..].Trim();
+        // Strip surrounding quotes if present
+        if (boundaryValue.Length >= 2 && boundaryValue[0] == '"' && boundaryValue[^1] == '"')
+            boundaryValue = boundaryValue[1..^1];
+        var boundary = "--" + boundaryValue;
         var boundaryBytes = System.Text.Encoding.ASCII.GetBytes(boundary);
 
         var headerEnd = FindSequence(rawBytes, System.Text.Encoding.ASCII.GetBytes("\r\n\r\n"), 0);
