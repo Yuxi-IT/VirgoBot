@@ -155,7 +155,7 @@ public class ServiceContainer : IDisposable
     {
         ILinkBridge?.Dispose();
         McpClientService?.Dispose();
-        Bot?.Dispose();
+        (Bot as IDisposable)?.Dispose();
         Cts?.Dispose();
         ScheduledTaskService?.Dispose();
     }
