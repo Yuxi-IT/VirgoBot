@@ -421,7 +421,7 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
 
     if (formSkillMode === 'multi') {
       if (subSkills.length === 0) {
-        setFormError('至少需要一个子功能');
+        setFormError(t('skills.subSkillsRequired'));
         return;
       }
       const builtSubSkills: SubSkillJson[] = subSkills.map(s => {
@@ -550,21 +550,21 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
 
                 {/* Skill type toggle */}
                 <div>
-                  <Label>类型</Label>
+                  <Label>{t('skills.skillType')}</Label>
                   <div className="flex gap-2 mt-1">
                     <Button
                       size="sm"
                       variant={formSkillMode === 'single' ? 'primary' : 'secondary'}
                       onPress={() => setFormSkillMode('single')}
                     >
-                      单功能
+                      {t('skills.singleSkill')}
                     </Button>
                     <Button
                       size="sm"
                       variant={formSkillMode === 'multi' ? 'primary' : 'secondary'}
                       onPress={() => setFormSkillMode('multi')}
                     >
-                      多子功能
+                      {t('skills.multiSkill')}
                     </Button>
                   </div>
                 </div>
@@ -687,9 +687,9 @@ function SkillFormModal({ isOpen, onOpenChange, onClose, editingSkill, onSaved }
                 {formSkillMode === 'multi' && (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label>子功能列表</Label>
+                      <Label>{t('skills.subSkillList')}</Label>
                       <Button size="sm" variant="secondary" onPress={() => setSubSkills([...subSkills, emptySubSkill()])}>
-                        <Plus /> 添加子功能
+                        <Plus /> {t('skills.addSubSkill')}
                       </Button>
                     </div>
                     {subSkills.map((sub, i) => (

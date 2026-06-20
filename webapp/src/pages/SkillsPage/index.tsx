@@ -3,7 +3,7 @@ import { Button, Modal, toast, TextField, Label, Input, Spinner, Chip } from '@h
 import { useOverlayState } from '@heroui/react';
 import DefaultLayout from '../../layout/DefaultLayout';
 import { useI18n } from '../../i18n';
-import { api, BASE_URL } from '../../services/api';
+import { api, BASE_URL, getToken } from '../../services/api';
 import SkillsTable from './SkillsTable';
 import SkillFormModal from './SkillFormModal';
 import SkillMdEditModal from './SkillMdEditModal';
@@ -133,8 +133,12 @@ function SkillsPage() {
       if (file.name.endsWith('.zip')) {
         const formData = new FormData();
         formData.append('file', file);
+        const headers: Record<string, string> = {};
+        const token = getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const response = await fetch(`${BASE_URL}/api/skills/import`, {
           method: 'POST',
+          headers,
           body: formData,
         });
         const result = await response.json();
@@ -167,9 +171,12 @@ function SkillsPage() {
       const isZip = importUrl.trim().toLowerCase().endsWith('.zip');
 
       if (isZip) {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        const token = getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
         const response = await fetch(`${BASE_URL}/api/skills/import-url`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ url: importUrl.trim() }),
         });
         const result = await response.json();
@@ -214,7 +221,7 @@ function SkillsPage() {
           </div>
         </div>
 
-        <Input
+        <input
           ref={fileInputRef}
           type="file"
           accept=".json,.zip"
