@@ -195,7 +195,8 @@ public class AuthApiHandler
 
     public static bool ValidateJwt(string token, string secret)
     {
-        if (string.IsNullOrWhiteSpace(secret)) return true; // no auth configured
+        if (string.IsNullOrWhiteSpace(secret)) return false;
+        if (string.IsNullOrWhiteSpace(token)) return false;
 
         try
         {
