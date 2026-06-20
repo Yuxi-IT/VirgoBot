@@ -606,7 +606,7 @@ public class MemoryService : IDisposable
     public List<SoulRecord> GetSoulVersionHistory(int soulId)
     {
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = "SELECT id, soul_id as content, '' as created_at, tags, weight, 0 as access_count, NULL as last_accessed, '' as source, 0 as forgotten, version, changed_at FROM soul_versions WHERE soul_id = @soulId ORDER BY version DESC";
+        cmd.CommandText = "SELECT id, content, '' as created_at, tags, weight, 0 as access_count, NULL as last_accessed, '' as source, 0 as forgotten, version, changed_at FROM soul_versions WHERE soul_id = @soulId ORDER BY version DESC";
         cmd.Parameters.AddWithValue("@soulId", soulId);
         var versions = new List<SoulRecord>();
         using var reader = cmd.ExecuteReader();
@@ -615,7 +615,7 @@ public class MemoryService : IDisposable
             versions.Add(new SoulRecord
             {
                 Id = reader.GetInt32(0),
-                Content = reader.GetString(1), // Actually the soul_id from the query mapping
+                Content = reader.GetString(1),
                 Tags = reader.GetString(3),
                 Weight = reader.GetDouble(4),
             });
