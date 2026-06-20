@@ -4,6 +4,9 @@ import { Microphone, ArrowShapeTurnUpRight, Paperclip, Picture, Stop } from '@gr
 import { useI18n } from '../../i18n';
 import { api } from '../../services/api';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_IMAGE_COUNT = 5;
+
 export interface ImageAttachment {
   /** 'url' = online URL, 'base64' = local file */
   type: 'url' | 'base64';
@@ -59,6 +62,10 @@ export default function ChatInput({
   const addUrlImage = () => {
     const url = urlInput.trim();
     if (!url) return;
+    if (images.length >= MAX_IMAGE_COUNT) {
+      toast.danger(t('chatPage.imageMaxCount').replace('{count}', String(MAX_IMAGE_COUNT)));
+      return;
+    }
     setImages(prev => [...prev, { type: 'url', data: url, preview: url }]);
     setUrlInput('');
     setShowUrlInput(false);
@@ -69,11 +76,18 @@ export default function ChatInput({
     if (files.length === 0) return;
     for (const file of files) {
       if (!file.type.startsWith('image/')) continue;
+      if (file.size > MAX_FILE_SIZE) {
+        toast.danger(t('chatPage.imageTooLargeDesc').replace('{size}', String(MAX_FILE_SIZE / 1024 / 1024)));
+        continue;
+      }
+      if (images.length >= MAX_IMAGE_COUNT) {
+        toast.danger(t('chatPage.imageMaxCount').replace('{count}', String(MAX_IMAGE_COUNT)));
+        break;
+      }
       const base64 = await fileToBase64(file);
       const preview = `data:${file.type};base64,${base64}`;
       setImages(prev => [...prev, { type: 'base64', data: base64, mediaType: file.type, preview }]);
     }
-    // Reset input so same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
