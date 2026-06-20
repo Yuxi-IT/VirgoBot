@@ -118,7 +118,7 @@ export default function McpFormModal({ isOpen, editingServer, onClose, onSave, s
                   </>
                 ) : (
                   <TextField variant="secondary" value={url} onChange={setUrl}>
-                    <Label>URL</Label>
+                    <Label>{t('mcp.url')}</Label>
                     <Input placeholder="http://localhost:3000/mcp" />
                   </TextField>
                 )}

@@ -297,6 +297,11 @@ public class McpConnection
     {
         Status = McpConnectionStatus.Disconnected;
         Tools.Clear();
+        DisposeTransport();
+    }
+
+    public void DisposeTransport()
+    {
         _transport?.Dispose();
         _transport = null;
     }
@@ -474,6 +479,7 @@ public class McpClientService : IDisposable
         foreach (var conn in _connections.Values)
         {
             try { conn.DisconnectAsync().GetAwaiter().GetResult(); } catch { }
+            finally { conn.DisposeTransport(); }
         }
         _connections.Clear();
     }

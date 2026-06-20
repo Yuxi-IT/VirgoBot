@@ -153,11 +153,7 @@ public class McpApiHandler
 
         if (_gateway.McpClientService == null)
         {
-            // Create new service if none exists
-            var mcpService = new McpClientService();
-            await mcpService.ReconnectServerAsync(name, configs);
-            // Note: we can't easily set this back on gateway without restart
-            await SendErrorResponse(ctx, 500, "MCP service not initialized, please restart gateway");
+            await SendErrorResponse(ctx, 500, "MCP service not initialized");
             return;
         }
 

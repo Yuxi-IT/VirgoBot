@@ -114,7 +114,7 @@ export default function McpServerCard({ server: s, onEdit, onDelete, onRestart }
                 </ListBox.Section>
               </ListBox>
             ) : (
-              <p>Loading</p>
+              <p>{t('common.loading')}</p>
             )}
           </div>
         )}
