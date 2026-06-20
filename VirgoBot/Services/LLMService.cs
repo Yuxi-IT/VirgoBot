@@ -20,6 +20,7 @@ public class LLMService
     private ScheduledTaskService? _scheduledTaskService;
     private int _userMessageCount;
     private volatile bool _isSummarizing;
+    private const int MaxToolCallDepth = 20;
     private const int UserProfileSummaryInterval = 10;
     private const string UserProfileSummaryInstruction =
         "System: User profile summary triggered.\n" +
@@ -61,7 +62,8 @@ public class LLMService
         Func<string, Task>? onSwitchChat = null,
         bool isSystemTask = false,
         IReadOnlyList<ImageInput>? images = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int toolCallDepth = 0)
     {
         if (!string.IsNullOrWhiteSpace(prompt) || (images != null && images.Count > 0))
         {
@@ -121,10 +123,15 @@ public class LLMService
             WriteIndented = true
         });
 
-        using var response = await _http.PostAsync(
-            NormalizeChatCompletionsUrl(_baseUrl),
-            new StringContent(json, Encoding.UTF8, "application/json"),
-            cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Post, NormalizeChatCompletionsUrl(_baseUrl))
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+
+        if (_protocol == "anthropic")
+            request.Headers.Add("anthropic-version", "2023-06-01");
+
+        using var response = await _http.SendAsync(request, cancellationToken);
 
         var result = await response.Content.ReadAsStringAsync();
 
@@ -267,7 +274,14 @@ public class LLMService
 
             ColorLog.Info("TOOL", $"全部 {totalCount} 个工具执行完成, 总耗时 {totalSw.ElapsedMilliseconds}ms");
 
-            return await AskAsync(null, onProgress, onSticker, onSwitchChat, images: null);
+            if (toolCallDepth >= MaxToolCallDepth)
+            {
+                ColorLog.Warning("TOOL", $"达到最大工具调用深度 ({MaxToolCallDepth})，停止递归");
+                _memory.SaveMessage("assistant", "工具调用深度已达上限，请用户继续对话。");
+                return "工具调用深度已达上限，请检查任务是否过于复杂。";
+            }
+
+            return await AskAsync(null, onProgress, onSticker, onSwitchChat, images: null, cancellationToken: cancellationToken, toolCallDepth: toolCallDepth + 1);
         }
 
         if (reasoningContent != null)
@@ -446,9 +460,30 @@ public class LLMService
             .ToArray();
     }
 
-    private static string NormalizeChatCompletionsUrl(string url)
+    private string NormalizeChatCompletionsUrl(string url)
     {
         var trimmed = url.TrimEnd('/');
+
+        // Protocol-specific path endpoints
+        if (_protocol == "anthropic")
+        {
+            if (trimmed.EndsWith("/v1/messages", StringComparison.OrdinalIgnoreCase))
+                return trimmed;
+            if (trimmed.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+                return $"{trimmed}/messages";
+            return $"{trimmed}/v1/messages";
+        }
+
+        if (_protocol == "gemini")
+        {
+            if (trimmed.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
+                return trimmed;
+            if (trimmed.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
+                return $"{trimmed}/chat/completions";
+            return $"{trimmed}/v1/chat/completions";
+        }
+
+        // OpenAI compatible (default)
         if (trimmed.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase) ||
             trimmed.EndsWith("/v1/chat/completions", StringComparison.OrdinalIgnoreCase))
         {
