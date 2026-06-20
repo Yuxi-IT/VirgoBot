@@ -43,7 +43,7 @@ function DashboardPage() {
 
   useEffect(() => {
     loadStatus();
-    intervalRef.current = setInterval(() => loadStatus(true), 1000);
+    intervalRef.current = setInterval(() => loadStatus(true), 5000);
 
     // Check onboarding status
     (async () => {
@@ -120,9 +120,9 @@ function DashboardPage() {
           <Card className="w-full md:w-[50%]">
             <LogoGithub aria-label="Dollar sign icon" className="text-primary size-6" role="img" />
             <Card.Header>
-              <Card.Title>你好！感谢使用VirgoBot！</Card.Title>
+              <Card.Title>{t('dashboard.welcomeTitle')}</Card.Title>
               <Card.Description>
-                VirgoBot是基于 .NET 10 的多通道 AI 助手框架
+                {t('dashboard.welcomeDesc')}
               </Card.Description>
             </Card.Header>
             <Card.Footer>
@@ -132,7 +132,7 @@ function DashboardPage() {
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                Github
+                GitHub
                 <Link.Icon aria-hidden="true" />
               </Link>
             </Card.Footer>
@@ -141,7 +141,7 @@ function DashboardPage() {
           <Card className="w-full md:w-[50%] md:flex-row">
             <div className="relative h-[140px] w-full shrink-0 overflow-hidden rounded-2xl sm:h-[120px] sm:w-[120px]">
               <img
-                alt="Cherries"
+                alt="VirgoBot logo"
                 className="rounded-[45px] pointer-events-none absolute inset-0 h-full w-full object-cover select-none"
                 loading="lazy"
                 src="./icon.png"
@@ -149,10 +149,9 @@ function DashboardPage() {
             </div>
             <div className="flex flex-1 flex-col gap-3">
               <Card.Header className="gap-1">
-                <Card.Title className="pr-8">它有什么亮点？</Card.Title>
+                <Card.Title className="pr-8">{t('dashboard.highlightTitle')}</Card.Title>
                 <Card.Description>
-                  你可以导入自己的设定，可以是动画中的虚拟人物，也可以是小说中的角色，甚至是你自己！<br/>
-                  原生支持多种多样的Skill，也可以设置定时任务，帮你随时收集数据
+                  {t('dashboard.highlightDesc')}
                 </Card.Description>
               </Card.Header>
             </div>

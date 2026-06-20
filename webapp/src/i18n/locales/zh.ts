@@ -54,6 +54,10 @@ export default {
   },
   dashboard: {
     title: '仪表盘',
+    welcomeTitle: '你好！感谢使用VirgoBot！',
+    welcomeDesc: 'VirgoBot是基于 .NET 10 的多通道 AI 助手框架',
+    highlightTitle: '它有什么亮点？',
+    highlightDesc: '你可以导入自己的设定，可以是动画中的虚拟人物，也可以是小说中的角色，甚至是你自己！原生支持多种多样的Skill，也可以设置定时任务，帮你随时收集数据',
     botName: '机器人名称',
     model: '模型',
     uptime: '运行时间',

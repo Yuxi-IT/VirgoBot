@@ -54,6 +54,10 @@ export default {
   },
   dashboard: {
     title: 'Dashboard',
+    welcomeTitle: 'Hello! Thanks for using VirgoBot!',
+    welcomeDesc: 'VirgoBot is a multi-channel AI assistant framework based on .NET 10',
+    highlightTitle: 'What are the highlights?',
+    highlightDesc: 'You can import your own personas — from animated characters to novel roles, or even yourself! Native support for various Skills and scheduled tasks to help you collect data anytime.',
     botName: 'Bot Name',
     model: 'Model',
     uptime: 'Uptime',
