@@ -73,6 +73,7 @@ public class ProviderApiHandler
 
         ConfigLoader.Save(config);
         ColorLog.Success("PROVIDER", $"供应商已创建: {provider.Name}");
+        _ = Task.Run(async () => { try { await _gateway.RestartAsync(); } catch (Exception ex) { ColorLog.Error("PROVIDER", $"重启失败: {ex.Message}"); } });
         await SendJsonResponse(ctx, new { success = true, message = "Provider created" });
     }
 
@@ -114,6 +115,7 @@ public class ProviderApiHandler
 
         ConfigLoader.Save(config);
         ColorLog.Success("PROVIDER", $"供应商已更新: {provider.Name}");
+        _ = Task.Run(async () => { try { await _gateway.RestartAsync(); } catch (Exception ex) { ColorLog.Error("PROVIDER", $"重启失败: {ex.Message}"); } });
         await SendJsonResponse(ctx, new { success = true, message = "Provider updated" });
     }
 
@@ -141,6 +143,7 @@ public class ProviderApiHandler
         config.Providers.Remove(provider);
         ConfigLoader.Save(config);
         ColorLog.Success("PROVIDER", $"供应商已删除: {name}");
+        _ = Task.Run(async () => { try { await _gateway.RestartAsync(); } catch (Exception ex) { ColorLog.Error("PROVIDER", $"重启失败: {ex.Message}"); } });
         await SendJsonResponse(ctx, new { success = true, message = "Provider deleted" });
     }
 
@@ -163,6 +166,7 @@ public class ProviderApiHandler
         config.CurrentProvider = body.Name;
         ConfigLoader.Save(config);
         ColorLog.Success("PROVIDER", $"已切换到供应商: {body.Name}");
+        _ = Task.Run(async () => { try { await _gateway.RestartAsync(); } catch (Exception ex) { ColorLog.Error("PROVIDER", $"重启失败: {ex.Message}"); } });
         await SendJsonResponse(ctx, new { success = true, message = "Current provider switched" });
     }
 
