@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
@@ -34,7 +35,7 @@ public class HttpServerHost
     private readonly ProviderApiHandler _providerApiHandler;
     private readonly McpApiHandler _mcpApiHandler;
     private readonly AuthApiHandler _authApiHandler;
-    private CancellationTokenSource? _chatCts;
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _chatCtsMap = new();
 
     // Public-facing port (TcpListener on 0.0.0.0) — no admin/URL ACL needed
     private const int PublicPort = 8765;
@@ -682,9 +683,10 @@ public class HttpServerHost
         var body = await reader.ReadToEndAsync();
         var req = JsonSerializer.Deserialize<ChatRequest>(body);
 
-        _chatCts = new CancellationTokenSource();
-        var cts = _chatCts;
+        var requestId = Guid.NewGuid().ToString("N");
+        var cts = new CancellationTokenSource();
         var ct = cts.Token;
+        _chatCtsMap[requestId] = cts;
 
         var images = new List<ImageInput>();
         if (req?.imageUrls is { Length: > 0 } urls)
@@ -710,16 +712,20 @@ public class HttpServerHost
         }
         finally
         {
-            if (_chatCts == cts) _chatCts = null;
+            _chatCtsMap.TryRemove(requestId, out _);
+            cts.Dispose();
         }
     }
 
     private async Task HandleAbortChatRequest(HttpListenerContext ctx)
     {
-        if (_chatCts != null && !_chatCts.IsCancellationRequested)
+        foreach (var kvp in _chatCtsMap)
         {
-            await _chatCts.CancelAsync();
-            ColorLog.Info("MSG-HTTP", "中止当前请求");
+            if (!kvp.Value.IsCancellationRequested)
+            {
+                await kvp.Value.CancelAsync();
+                ColorLog.Info("MSG-HTTP", "中止当前请求");
+            }
         }
         await HttpResponseHelper.SendJsonResponse(ctx, new { success = true, message = "aborted" });
     }
