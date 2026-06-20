@@ -11,6 +11,7 @@ namespace VirgoBot.Channels.Handlers;
 
 public class ProviderApiHandler
 {
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
     private readonly Gateway _gateway;
 
     public ProviderApiHandler(Gateway gateway)
@@ -189,16 +190,32 @@ public class ProviderApiHandler
 
         try
         {
-            using var http = new HttpClient();
-            http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", provider.ApiKey);
+            var protocol = provider.Protocol?.ToLowerInvariant() ?? "openai";
+
+            if (protocol == "anthropic")
+            {
+                await SendErrorResponse(ctx, 400, "Anthropic does not provide a public /models endpoint. Please enter model IDs manually.");
+                return;
+            }
+
+            using var request = new HttpRequestMessage();
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", provider.ApiKey);
 
             var baseUrl = provider.BaseUrl.TrimEnd('/');
-            var modelsUrl = baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
-                ? $"{baseUrl}/models"
-                : $"{baseUrl}/v1/models";
+            string modelsUrl;
+            if (protocol == "gemini")
+            {
+                modelsUrl = $"{baseUrl}/v1beta/models?key={Uri.EscapeDataString(provider.ApiKey)}";
+            }
+            else
+            {
+                modelsUrl = baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+                    ? $"{baseUrl}/models"
+                    : $"{baseUrl}/v1/models";
+            }
 
-            var response = await http.GetAsync(modelsUrl);
+            request.RequestUri = new Uri(modelsUrl);
+            var response = await _http.SendAsync(request);
             var result = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -210,13 +227,33 @@ public class ProviderApiHandler
             using var doc = JsonDocument.Parse(result);
             var models = new List<string>();
 
-            if (doc.RootElement.TryGetProperty("data", out var dataEl) &&
-                dataEl.ValueKind == JsonValueKind.Array)
+            if (protocol == "gemini")
             {
-                foreach (var item in dataEl.EnumerateArray())
+                if (doc.RootElement.TryGetProperty("models", out var modelsEl) &&
+                    modelsEl.ValueKind == JsonValueKind.Array)
                 {
-                    if (item.TryGetProperty("id", out var idEl))
-                        models.Add(idEl.GetString() ?? "");
+                    foreach (var item in modelsEl.EnumerateArray())
+                    {
+                        var itemName = item.TryGetProperty("name", out var nEl) ? nEl.GetString() : null;
+                        if (itemName != null)
+                        {
+                            // Strip "models/" prefix for cleaner display
+                            var displayName = itemName.StartsWith("models/") ? itemName[7..] : itemName;
+                            models.Add(displayName);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (doc.RootElement.TryGetProperty("data", out var dataEl) &&
+                    dataEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in dataEl.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("id", out var idEl))
+                            models.Add(idEl.GetString() ?? "");
+                    }
                 }
             }
 
