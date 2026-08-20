@@ -1,7 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using VirgoBot.Services;
 using VirgoBot.Utilities;
 
@@ -13,12 +10,6 @@ public static class ConfigLoader
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
-    private const string EncryptedPrefix = "ENC:";
-    private static readonly HashSet<string> SensitiveFields = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "ApiKey", "Password", "Token", "BotToken"
     };
 
     public static Config Load()
@@ -74,14 +65,6 @@ public static class ConfigLoader
         }
 
         var json = File.ReadAllText(configPath);
-
-        // Decrypt sensitive fields before deserialization
-        var jsonNode = JsonNode.Parse(json);
-        if (jsonNode != null)
-        {
-            DecryptSensitiveFields(jsonNode);
-            json = jsonNode.ToJsonString(JsonOptions);
-        }
 
         var config = JsonSerializer.Deserialize<Config>(json, JsonOptions)
             ?? throw new InvalidOperationException($"无法解析配置文件: {configPath}");
@@ -214,88 +197,10 @@ public static class ConfigLoader
     {
         var configPath = Path.Combine(AppConstants.ConfigDirectory, AppConstants.ConfigFileName);
 
-        // Serialize to JSON, then encrypt sensitive fields before writing
         var json = JsonSerializer.Serialize(config, JsonOptions);
-        var jsonNode = JsonNode.Parse(json);
-        if (jsonNode != null)
-        {
-            EncryptSensitiveFields(jsonNode);
-            json = jsonNode.ToJsonString(JsonOptions);
-        }
 
         File.WriteAllText(configPath, json);
         ColorLog.Success("CONFIG", "配置已保存");
-    }
-
-    private static void EncryptSensitiveFields(JsonNode node)
-    {
-        if (node is JsonObject obj)
-        {
-            foreach (var kvp in obj)
-            {
-                if (kvp.Value is JsonValue jv && jv.TryGetValue<string>(out var strVal) && SensitiveFields.Contains(kvp.Key))
-                {
-                    // Don't double-encrypt
-                    if (strVal != null && !strVal.StartsWith(EncryptedPrefix) && !string.IsNullOrEmpty(strVal))
-                    {
-                        var plainBytes = Encoding.UTF8.GetBytes(strVal);
-                        var encrypted = ProtectedData.Protect(plainBytes, null, DataProtectionScope.CurrentUser);
-                        obj[kvp.Key] = EncryptedPrefix + Convert.ToBase64String(encrypted);
-                    }
-                }
-                else if (kvp.Value != null)
-                {
-                    EncryptSensitiveFields(kvp.Value);
-                }
-            }
-        }
-        else if (node is JsonArray arr)
-        {
-            foreach (var item in arr)
-            {
-                if (item != null)
-                    EncryptSensitiveFields(item);
-            }
-        }
-    }
-
-    private static void DecryptSensitiveFields(JsonNode node)
-    {
-        if (node is JsonObject obj)
-        {
-            foreach (var kvp in obj)
-            {
-                if (kvp.Value is JsonValue jv && jv.TryGetValue<string>(out var strVal))
-                {
-                    if (strVal != null && strVal.StartsWith(EncryptedPrefix))
-                    {
-                        try
-                        {
-                            var encrypted = Convert.FromBase64String(strVal[EncryptedPrefix.Length..]);
-                            var decrypted = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.CurrentUser);
-                            obj[kvp.Key] = Encoding.UTF8.GetString(decrypted);
-                        }
-                        catch
-                        {
-                            // If decryption fails (e.g., different user/machine), leave as-is
-                            ColorLog.Warning("CONFIG", $"无法解密字段 {kvp.Key}，保留原始值");
-                        }
-                    }
-                }
-                else if (kvp.Value != null)
-                {
-                    DecryptSensitiveFields(kvp.Value);
-                }
-            }
-        }
-        else if (node is JsonArray arr)
-        {
-            foreach (var item in arr)
-            {
-                if (item != null)
-                    DecryptSensitiveFields(item);
-            }
-        }
     }
 
     private static string LoadEmbeddedRule()

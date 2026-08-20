@@ -4,3 +4,5 @@ bin
 obj
 heroui-components
 ConsoleApp1
+*.user
+Properties/PublishProfiles/
